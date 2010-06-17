@@ -42,8 +42,9 @@
 #include <boost/bind.hpp>
 #include <boost/bind/apply.hpp>
 #include <boost/function.hpp>
+#ifndef BOOST_NO_RTTI
 #include <boost/any.hpp>
-
+#endif
 #include <boost/msm/row_tags.hpp>
 #include <boost/msm/back/metafunctions.hpp>
 #include <boost/msm/back/history_policies.hpp>
@@ -95,7 +96,7 @@ private:
     typedef ::boost::function<
         execute_return () >                         deferred_fct;
     typedef std::deque<deferred_fct >               deferred_events_queue_t;
-    typedef std::queue<transition_fct >	            events_queue_t;
+    typedef std::queue<transition_fct >             events_queue_t;
     typedef bool (*flag_handler)(library_sm&);
 
     // all state machines are friend with each other to allow embedding any of them in another fsm
@@ -175,7 +176,6 @@ private:
 
  public: 
     // tags
-	//typedef ::boost::mpl::true_	 composite_state;
     typedef int composite_tag;
 
     // in case someone needs to know
@@ -228,7 +228,7 @@ private:
         }    
         exit_pt():m_forward(){}
         // by assignments, we keep our forwarding functor unchanged as our containing SM did not change
-	template <class RHS>
+    template <class RHS>
         exit_pt(RHS& rhs):m_forward(){}
         exit_pt<ExitPoint>& operator= (const exit_pt<ExitPoint>& ) 
         { 
@@ -684,7 +684,10 @@ private:
         // if a guard condition is here, call it to check that the event is accepted
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
-            if ( ROW::guard_call(fsm,evt,fsm,fsm,fsm.m_substate_list) )
+            if ( ROW::guard_call(fsm,evt,
+                ::boost::fusion::at_key<StateType>(fsm.m_substate_list),
+                ::boost::fusion::at_key<StateType>(fsm.m_substate_list),
+                fsm.m_substate_list) )
                 return true;
             return false;
         }
@@ -698,7 +701,10 @@ private:
             }
 
             // then call the action method
-            ROW::action_call(fsm,evt,fsm,fsm,fsm.m_substate_list);
+            ROW::action_call(fsm,evt,
+                ::boost::fusion::at_key<StateType>(fsm.m_substate_list),
+                ::boost::fusion::at_key<StateType>(fsm.m_substate_list),
+                fsm.m_substate_list);
             return HANDLED_TRUE;
         }
     };
@@ -716,7 +722,10 @@ private:
         static HandledEnum execute(library_sm& fsm, int region_index, int state, transition_event const& evt)
         {
             // then call the action method
-            ROW::action_call(fsm,evt,fsm,fsm,fsm.m_substate_list);
+            ROW::action_call(fsm,evt,
+                ::boost::fusion::at_key<StateType>(fsm.m_substate_list),
+                ::boost::fusion::at_key<StateType>(fsm.m_substate_list),
+                fsm.m_substate_list);
             return HANDLED_TRUE;
         }
     };
@@ -733,7 +742,10 @@ private:
         // if a guard condition is here, call it to check that the event is accepted
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
-            if ( ROW::guard_call(fsm,evt,fsm,fsm,fsm.m_substate_list) )
+            if ( ROW::guard_call(fsm,evt,
+                ::boost::fusion::at_key<StateType>(fsm.m_substate_list),
+                ::boost::fusion::at_key<StateType>(fsm.m_substate_list),
+                fsm.m_substate_list) )
                 return true;
             return false;
         }
@@ -792,37 +804,37 @@ private:
     {
         typedef g_row_<Transition> type;
     };
-	template <class Transition,class StateType>
+    template <class Transition,class StateType>
     struct create_backend_stt<a_row_tag,Transition,StateType>
     {
         typedef a_row_<Transition> type;
     };
-	template <class Transition,class StateType>
+    template <class Transition,class StateType>
     struct create_backend_stt<_row_tag,Transition,StateType>
     {
         typedef _row_<Transition> type;
     };
-	template <class Transition,class StateType>
-	struct create_backend_stt<row_tag,Transition,StateType>
-	{
-		typedef row_<Transition> type;
-	};
+    template <class Transition,class StateType>
+    struct create_backend_stt<row_tag,Transition,StateType>
+    {
+        typedef row_<Transition> type;
+    };
     // internal transitions
     template <class Transition,class StateType>
     struct create_backend_stt<g_irow_tag,Transition,StateType>
     {
         typedef g_irow_<Transition> type;
     };
-	template <class Transition,class StateType>
+    template <class Transition,class StateType>
     struct create_backend_stt<a_irow_tag,Transition,StateType>
     {
         typedef a_irow_<Transition> type;
     };
-	template <class Transition,class StateType>
-	struct create_backend_stt<irow_tag,Transition,StateType>
-	{
-		typedef irow_<Transition> type;
-	};
+    template <class Transition,class StateType>
+    struct create_backend_stt<irow_tag,Transition,StateType>
+    {
+        typedef irow_<Transition> type;
+    };
     template <class Transition,class StateType>
     struct create_backend_stt<_irow_tag,Transition,StateType>
     {
@@ -859,22 +871,22 @@ private:
     struct create_real_stt 
     {
         //typedef typename BaseType::transition_table stt_simulated;
-	    typedef typename ::boost::mpl::fold<
-		    stt_simulated,mpl::vector0<>,
+        typedef typename ::boost::mpl::fold<
+            stt_simulated,mpl::vector0<>,
             ::boost::mpl::push_back< ::boost::mpl::placeholders::_1,
                                      make_row_tag< ::boost::mpl::placeholders::_2 , BaseType > >
-	    >::type type;
+        >::type type;
     };
 
-	template <class Table,class Intermediate,class StateType>
-	struct add_forwarding_row_helper
-	{
-		typedef typename generate_event_set<Table>::type all_events;
-		typedef typename ::boost::mpl::fold<
-			all_events, Intermediate,
-			::boost::mpl::push_back< ::boost::mpl::placeholders::_1,
-			frow<StateType, ::boost::mpl::placeholders::_2> > >::type type;
-	};
+    template <class Table,class Intermediate,class StateType>
+    struct add_forwarding_row_helper
+    {
+        typedef typename generate_event_set<Table>::type all_events;
+        typedef typename ::boost::mpl::fold<
+            all_events, Intermediate,
+            ::boost::mpl::push_back< ::boost::mpl::placeholders::_1,
+            frow<StateType, ::boost::mpl::placeholders::_2> > >::type type;
+    };
     // gets the transition table from a composite and make from it a forwarding row
     template <class StateType,class IsComposite>
     struct get_internal_transition_table
@@ -886,18 +898,18 @@ private:
         // Note: these are added first because they must have a lesser prio
         // than the deeper transitions in the sub regions
         typedef typename StateType::internal_transition_table istt_simulated;
-	    typedef typename ::boost::mpl::fold<
-		    istt_simulated,::boost::mpl::vector0<>,
+        typedef typename ::boost::mpl::fold<
+            istt_simulated,::boost::mpl::vector0<>,
             ::boost::mpl::push_back< ::boost::mpl::placeholders::_1,
                                      make_row_tag< ::boost::mpl::placeholders::_2 , StateType> >
-	    >::type intermediate;
+        >::type intermediate;
 
         // and add for every event a forwarding row
-		typedef typename ::boost::mpl::eval_if<
-				typename CompilePolicy::add_forwarding_rows,
-				add_forwarding_row_helper<original_table,intermediate,StateType>,
-				::boost::mpl::identity<intermediate>
-		>::type type;
+        typedef typename ::boost::mpl::eval_if<
+                typename CompilePolicy::add_forwarding_rows,
+                add_forwarding_row_helper<original_table,intermediate,StateType>,
+                ::boost::mpl::identity<intermediate>
+        >::type type;
     };
     template <class StateType>
     struct get_internal_transition_table<StateType, ::boost::mpl::false_ >
@@ -921,14 +933,14 @@ private:
         typedef typename Composite::stt Stt;
         // for every state, add its transition table (if any)
         // transformed as frow
-		typedef typename ::boost::mpl::fold<state_list,Stt,
-				::boost::mpl::insert_range< 
+        typedef typename ::boost::mpl::fold<state_list,Stt,
+                ::boost::mpl::insert_range< 
                         ::boost::mpl::placeholders::_1, 
                         ::boost::mpl::end< ::boost::mpl::placeholders::_1>,
-						get_internal_transition_table< 
+                        get_internal_transition_table< 
                                 ::boost::mpl::placeholders::_2,
                                 is_composite_state< ::boost::mpl::placeholders::_2> > > 
-		>::type type;
+        >::type type;
     };
     // extend the table with tables from composite states
     typedef typename extend_table<library_sm>::type complete_table;
@@ -1051,7 +1063,7 @@ private:
     get_state(::boost::msm::back::dummy<1> = 0)
     {
         return ::boost::fusion::at_key<typename ::boost::remove_reference<State>::type>(m_substate_list);
-    }	
+    }
 
     // checks if a flag is active using the BinaryOp as folding function
     template <class Flag,class BinaryOp>
@@ -1066,7 +1078,7 @@ private:
                     ::boost::bind(::boost::msm::back::deref<flag_handler>(),
                         ::boost::bind(::boost::msm::back::plus2<flag_handler*,int>(),
                         flags_entries, _2)),
-                        ::boost::ref(*this)), _1));		
+                        ::boost::ref(*this)), _1));
     }
     // checks if a flag is active using no binary op if 1 region, or OR if > 1 regions
     template <class Flag>
@@ -1129,10 +1141,10 @@ private:
      public:
      // Construct with the default initial states
      state_machine<Derived,HistoryPolicy,CompilePolicy   >()
-	     :Derived()
-	     ,m_events_queue() 
-	     ,m_deferred_events_queue()
-	     ,m_history()
+         :Derived()
+         ,m_events_queue() 
+         ,m_deferred_events_queue()
+         ,m_history()
          ,m_event_processing(false)
          ,m_is_included(false)
          ,m_visitors()
@@ -1153,9 +1165,9 @@ private:
         state_machine<Derived,HistoryPolicy,CompilePolicy                           \
         >(BOOST_PP_ENUM(n, MSM_CONSTRUCTOR_HELPER_EXECUTE_SUB, ~ ) )                \
         :Derived(BOOST_PP_ENUM_PARAMS(n,t))                                         \
-	     ,m_events_queue()                                                          \
-	     ,m_deferred_events_queue()                                                 \
-	     ,m_history()                                                               \
+         ,m_events_queue()                                                          \
+         ,m_deferred_events_queue()                                                 \
+         ,m_history()                                                               \
          ,m_event_processing(false)                                                 \
          ,m_is_included(false)                                                      \
          ,m_visitors()                                                              \
@@ -1432,8 +1444,8 @@ private:
         if (!handled && !is_contained() && !is_completion_event<Event>::type::value)
         {
             for (int i=0; i<nr_regions::value;++i)
-            {	
-                no_transition(evt,*this,this->m_states[i]);
+            {
+                this->no_transition(evt,*this,this->m_states[i]);
             }
         }
         return handled;
@@ -1445,7 +1457,9 @@ private:
     template <class Event>
     void no_action(Event const&){}
 
-	HandledEnum process_any_event( ::boost::any const& evt);
+#ifndef BOOST_NO_RTTI
+    HandledEnum process_any_event( ::boost::any const& evt);
+#endif
 
 private:
     // composite accept implementation. First calls accept on the composite, then accept on all its active states.
@@ -1467,21 +1481,21 @@ private:
 #undef MSM_COMPOSITE_ACCEPT_EXECUTE
 #undef MSM_COMPOSITE_ACCEPT_SUB
 
-	// helper used to call the init states at the start of the state machine
+    // helper used to call the init states at the start of the state machine
     template <class Event>
-	struct call_init
-	{
-		call_init(Event const& an_event,library_sm* self_):
+    struct call_init
+    {
+        call_init(Event const& an_event,library_sm* self_):
                 evt(an_event),self(self_){}
-		template <class State>
-		void operator()(boost::msm::wrap<State> const&)
-		{
+        template <class State>
+        void operator()(boost::msm::wrap<State> const&)
+        {
             execute_entry(::boost::fusion::at_key<State>(self->m_substate_list),evt,*self);
-		}
-	private:
+        }
+    private:
         Event const& evt;
         library_sm* self;
-	};
+    };
     // helper for flag handling. Uses OR by default on orthogonal zones.
     template <class Flag,bool orthogonalStates>
     struct FlagHelper 
@@ -1516,7 +1530,7 @@ private:
         }
         static bool forward(library_sm& fsm)
         {
-            return ::boost::fusion::at_key<StateType>(fsm.m_substate_list).is_flag_active<Flag>();
+            return ::boost::fusion::at_key<StateType>(fsm.m_substate_list).template is_flag_active<Flag>();
         }
     };
     template <class Flag>
@@ -1580,7 +1594,7 @@ private:
         // build a state list
         ::boost::mpl::for_each<state_list, boost::msm::wrap< ::boost::mpl::placeholders::_1> >
                         (init_flags<Flag>(flags_entries));
-        return flags_entries;	
+        return flags_entries;
     }
 
     // helper used to create a state using the correct constructor
@@ -1589,7 +1603,7 @@ private:
     {
         static void set_sm(library_sm* )
         {
-	        // state doesn't need its sm
+            // state doesn't need its sm
         }
     };
     // create a state requiring a pointer to the state machine
@@ -1598,8 +1612,8 @@ private:
     {
         static void set_sm(library_sm* sm)
         {
-	        // create and set the fsm
-	        ::boost::fusion::at_key<State>(sm->m_substate_list).set_sm_ptr(sm);
+            // create and set the fsm
+            ::boost::fusion::at_key<State>(sm->m_substate_list).set_sm_ptr(sm);
         }
     };
         // main unspecialized helper class
@@ -1642,13 +1656,13 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
         m_is_included=true;
         ::boost::fusion::for_each(m_substate_list,add_state<ContainingSM>(this,sm));
     }
-	// A function object for use with mpl::for_each that stuffs
+    // A function object for use with mpl::for_each that stuffs
     // states into the state list.
     template<class ContainingSM>
     struct add_state
     {
         add_state(library_sm* self_,ContainingSM* sm)
-	        : self(self_),containing_sm(sm){}
+            : self(self_),containing_sm(sm){}
 
         // State is a sub fsm with exit pseudo states and gets a pointer to this fsm, so it can build a callback
         template <class StateType>
@@ -1659,7 +1673,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
             ::boost::fusion::at_key<StateType>(self->m_substate_list).set_containing_sm(containing_sm);
         }
         // State is a sub fsm without exit pseudo states and does not get a callback to this fsm
-		// or state is a normal state and needs nothing except creation
+        // or state is a normal state and needs nothing except creation
         template <class StateType>
         typename ::boost::enable_if<
             typename boost::mpl::and_<typename boost::mpl::not_
@@ -1742,7 +1756,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
              // nothing to do
          }
 
-         library_sm*	 m_sm;
+         library_sm*     m_sm;
      };
      // helper to copy the active states attribute
      template <class region_id,int Dummy=0>
@@ -1841,7 +1855,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          static void do_start(library_sm*,Event const& ){}
      };
      // start for states machines which are themselves embedded in other state machines (composites)
-	 template <class Event>
+     template <class Event>
      void start(Event const& incomingEvent)
      {
          region_start_helper< ::boost::mpl::int_<0> >::template do_start(this,incomingEvent);
@@ -1852,16 +1866,16 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
      {
          direct_event_start_helper(library_sm* self_):self(self_){}
          // this variant is for the standard case, entry due to activation of the containing FSM
-         template <class EventType>
+         template <class EventType,class FsmType>
          typename ::boost::disable_if<typename has_direct_entry<EventType>::type,void>::type
-             operator()(EventType const& evt, ::boost::msm::back::dummy<0> = 0)
+             operator()(EventType const& evt,FsmType& fsm, ::boost::msm::back::dummy<0> = 0)
          {
-             (static_cast<Derived*>(self))->on_entry(evt,*self);
+             (static_cast<Derived*>(self))->on_entry(evt,fsm);
              self->start(evt);
          }
 
          // this variant is for the direct entry case (just one entry, not a sequence of entries)
-         template <class EventType>
+         template <class EventType,class FsmType>
          typename ::boost::enable_if<
              typename ::boost::mpl::and_<
                         typename ::boost::mpl::not_< typename is_pseudo_entry<
@@ -1871,9 +1885,9 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
                                                             <typename EventType::active_state>::type >::type 
                                                     >::type>::type,void
                                   >::type
-         operator()(EventType const& evt, ::boost::msm::back::dummy<1> = 0)
+         operator()(EventType const& evt,FsmType& fsm, ::boost::msm::back::dummy<1> = 0)
          {
-             (static_cast<Derived*>(self))->on_entry(evt,*self);
+             (static_cast<Derived*>(self))->on_entry(evt,fsm);
              int state_id = get_state_id<stt,typename EventType::active_state>::value;
              BOOST_STATIC_ASSERT(EventType::active_state::zone_index >= 0);
              BOOST_STATIC_ASSERT(EventType::active_state::zone_index <= nr_regions::value);
@@ -1883,7 +1897,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          }
 
          // this variant is for the fork entry case (a sequence on entries)
-         template <class EventType>
+         template <class EventType,class FsmType>
          typename ::boost::enable_if<
              typename ::boost::mpl::and_<
                     typename ::boost::mpl::not_<
@@ -1893,9 +1907,9 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
                                                                 typename EventType::active_state>::type 
                                                 >::type>::type,void 
                                 >::type
-         operator()(EventType const& evt, ::boost::msm::back::dummy<2> = 0)
+         operator()(EventType const& evt,FsmType& fsm, ::boost::msm::back::dummy<2> = 0)
          {
-             (static_cast<Derived*>(self))->on_entry(evt,*self);
+             (static_cast<Derived*>(self))->on_entry(evt,fsm);
              ::boost::mpl::for_each<typename EventType::active_state, 
                                     ::boost::msm::wrap< ::boost::mpl::placeholders::_1> >
                                                         (fork_helper<EventType>(self,evt));
@@ -1904,14 +1918,14 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          }
 
          // this variant is for the pseudo state entry case
-         template <class EventType>
+         template <class EventType,class FsmType>
          typename ::boost::enable_if<
              typename is_pseudo_entry<typename EventType::active_state >::type,void
                                     >::type
-         operator()(EventType const& evt, ::boost::msm::back::dummy<3> = 0)
+         operator()(EventType const& evt,FsmType& fsm, ::boost::msm::back::dummy<3> = 0)
          {
              // entry on the FSM
-             (static_cast<Derived*>(self))->on_entry(evt,*self);
+             (static_cast<Derived*>(self))->on_entry(evt,fsm);
              int state_id = get_state_id<stt,typename EventType::active_state>::value;
              // given region starts with the entry pseudo state as active state
              self->m_states[EventType::active_state::zone_index] = state_id;
@@ -1973,27 +1987,27 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          static void do_exit(library_sm*,Event const& ){}
      };
      // entry/exit for states machines which are themselves embedded in other state machines (composites)
-	 template <class Event>
-     void do_entry(Event const& incomingEvent)
+     template <class Event,class FsmType>
+     void do_entry(Event const& incomingEvent,FsmType& fsm)
      {
         // by default we activate the history/init states, can be overwritten by direct_event_start_helper
         region_entry_exit_helper< ::boost::mpl::int_<0> >::template do_entry(this,incomingEvent);
         // block immediate handling of events
         m_event_processing = true;
         // if the event is generating a direct entry/fork, set the current state(s) to the direct state(s)
-        direct_event_start_helper(this)(incomingEvent);
+        direct_event_start_helper(this)(incomingEvent,fsm);
         // handle messages which were generated and blocked in the init calls
         m_event_processing = false;
         process_message_queue(this);
      }
-	 template <class Event>
-     void do_exit(Event const& incomingEvent)
+     template <class Event,class FsmType>
+     void do_exit(Event const& incomingEvent,FsmType& fsm)
      {
         // first recursively exit the sub machines
         // forward the event for handling by sub state machines
         region_entry_exit_helper< ::boost::mpl::int_<0> >::template do_exit(this,incomingEvent);
         // then call our own exit
-        (static_cast<Derived*>(this))->on_exit(incomingEvent,*this);
+        (static_cast<Derived*>(this))->on_exit(incomingEvent,fsm);
         // give the history a chance to handle this (or not).
         m_history.history_exit(this->m_states);
      }
@@ -2052,7 +2066,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
         execute_entry(StateType& astate,EventType const& evt,FsmType& fsm,boost::msm::back::dummy<0> = 0)
     {
         // calls on_entry on the fsm then handles direct entries, fork, entry pseudo state
-        astate.do_entry(evt);
+        astate.do_entry(evt,fsm);
     }
     // variant for states
     template <class StateType,class EventType,class FsmType>
@@ -2079,9 +2093,9 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
     template <class StateType,class EventType,class FsmType>
     static
         typename ::boost::enable_if<typename is_composite_state<StateType>::type,void >::type
-    execute_exit(StateType& astate,EventType const& evt,FsmType& , ::boost::msm::back::dummy<0> = 0)
+    execute_exit(StateType& astate,EventType const& evt,FsmType& fsm, ::boost::msm::back::dummy<0> = 0)
     {
-        astate.do_exit(evt);
+        astate.do_exit(evt,fsm);
     }
     template <class StateType,class EventType,class FsmType>
     static
