@@ -103,7 +103,7 @@ struct lambda_parameter<0>
         return boost::fusion::at_c<0>(block.lambda_params);
     }
 };
-proto::terminal<lambda_parameter< 0 > >::type const _p1={{}};
+proto::terminal<lambda_parameter< 0 > >::type const _c1={{}};
 
 template<int I>
 struct placeholder;
