@@ -96,7 +96,7 @@ BOOST_MSM_LPP_BINARY_OPERATOR(bitwise_xor_assign,^=)
         static B& block;                                                                                                    \
         BOOST_PP_REPEAT(n, BOOST_MSM_LPP_ARGS_HELPER2, ~)                                                                   \
         BOOST_TYPEOF_NESTED_TYPEDEF_TPL(nested,BOOST_PP_TUPLE_ELEM(2, 1, data)T1()(block BOOST_PP_COMMA_IF(n) BOOST_PP_ENUM(n, BOOST_MSM_LPP_ARGS_HELPER3, ~ )) ) \
-        typedef typename nested::type type;                                                                                 \
+        typedef typename nested::type& type;                                                                                \
     };                                                                                                                      \
     template<typename B BOOST_PP_COMMA_IF(n) BOOST_PP_ENUM_PARAMS(n, class ARG)>                                            \
     typename boost::result_of<BOOST_PP_TUPLE_ELEM(2, 0, data)(B& BOOST_PP_COMMA_IF(n) BOOST_PP_ENUM(n, BOOST_MSM_LPP_ARGS_HELPER4, ~ ) )>::type       \

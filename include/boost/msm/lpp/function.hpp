@@ -28,13 +28,16 @@ template <  > struct funcname ## impl< void,void,void,void>                     
     template<class This,class B, class A0>                                                                                  \
     struct result<This(B& block,A0& a0)>                                                                                    \
     {                                                                                                                       \
-        BOOST_TYPEOF_NESTED_TYPEDEF_TPL(nested,userfunc())                                                                  \
+        static A0& a0;                                                                                                      \
+        BOOST_TYPEOF_NESTED_TYPEDEF_TPL(nested,userfunc(a0))                                                                \
         typedef typename nested::type type;                                                                                 \
     };                                                                                                                      \
     template<class This,class B, class A0, class A1>                                                                        \
     struct result<This(B& block,A0& a0,A1& a1)>                                                                             \
     {                                                                                                                       \
-        BOOST_TYPEOF_NESTED_TYPEDEF_TPL(nested,userfunc())                                                                  \
+        static A0& a0;                                                                                                      \
+        static A1& a1;                                                                                                      \
+        BOOST_TYPEOF_NESTED_TYPEDEF_TPL(nested,userfunc(a0,a1))                                                             \
         typedef typename nested::type type;                                                                                 \
     };                                                                                                                      \
     template<typename B,typename A0>                                                                                        \
