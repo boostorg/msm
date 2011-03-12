@@ -334,6 +334,14 @@ template<>
 struct placeholder<1>
 {
     template<class Sig> struct result;
+
+    template<class This,class B, class A0> 
+    struct result<This(B& block,A0& a0)>
+    {
+        struct INCORRECT_ARITY_FOR_LAMBDA {};
+        typedef INCORRECT_ARITY_FOR_LAMBDA type;
+    };
+
     template<class This,class B, class A0, class A1> 
     struct result<This(B& block,A0& a0,A1& a1)>
     {
@@ -346,7 +354,6 @@ struct placeholder<1>
     typename boost::result_of<placeholder<1>(B&,A0&)>::type
     operator ()(B&,A0 &a0) const
     {
-        //TODO error
     }
 
     template<typename B,typename A0, typename A1>
