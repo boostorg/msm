@@ -19,10 +19,10 @@ namespace boost { namespace msm { namespace lpp
 //todo variadic macro for number of arguments
 #define BOOST_MSM_LPP_FUNCTION(funcname,userfunc)                                                                           \
 template <class Param1=void , class Param2=void , class Param3=void , class Param4=void>                                    \
-struct funcname ## impl : proto::extends< proto::terminal< boost::msm::lpp::action_tag>::type,                              \
+struct funcname ## impl : proto::extends< proto::terminal< boost::msm::lpp::tag::actor>::type,                             \
                           funcname ## impl<Param1,Param2,Param3,Param4> >{};                                                \
 template <  > struct funcname ## impl< void,void,void,void>                                                                 \
-    : proto::extends< proto::terminal<boost::msm::lpp::action_tag>::type, funcname ## impl<void,void,void,void> >           \
+    : proto::extends< proto::terminal<boost::msm::lpp::tag::actor>::type, funcname ## impl<void,void,void,void> >          \
 {                                                                                                                           \
     template<class Sig> struct result;                                                                                      \
     template<class This,class B, class A0>                                                                                  \
@@ -54,7 +54,7 @@ template <  > struct funcname ## impl< void,void,void,void>                     
     }                                                                                                                       \
 };                                                                                                                          \
 template < class Param1 > struct funcname ## impl< Param1, void,void,void>                                                  \
-    : proto::extends< proto::terminal<boost::msm::lpp::action_tag>::type, funcname ## impl<Param1, void,void,void> >        \
+    : proto::extends< proto::terminal<boost::msm::lpp::tag::actor>::type, funcname ## impl<Param1, void,void,void> >       \
 {                                                                                                                           \
     template<class Sig> struct result;                                                                                      \
     template<class This,class B, class A0>                                                                                  \
@@ -86,7 +86,7 @@ template < class Param1 > struct funcname ## impl< Param1, void,void,void>      
         return userfunc(Param1()(block,a0,a1));                                                                             \
     }                                                                                                                       \
 };                                                                                                                          \
-struct funcname ## helper : proto::extends< proto::terminal< boost::msm::lpp::action_tag >::type,funcname ## helper>        \
+struct funcname ## helper : proto::extends< proto::terminal< boost::msm::lpp::tag::actor >::type,funcname ## helper>       \
 {                                                                                                                           \
     funcname ## helper(){}                                                                                                  \
     template <class Arg1,class Arg2,class Arg3,class Arg4>                                                                  \

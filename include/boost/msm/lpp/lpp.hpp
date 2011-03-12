@@ -7,9 +7,9 @@
 
 //include everything (at cost of longer compile)
 
+#include <boost/msm/lpp/common_types.hpp>
 #include <boost/msm/lpp/basic_grammar.hpp>
 #include <boost/msm/lpp/operator.hpp>
-#include <boost/msm/lpp/common_types.hpp>
 #include <boost/msm/lpp/function.hpp>
 
 

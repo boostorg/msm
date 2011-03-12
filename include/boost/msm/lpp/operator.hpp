@@ -40,7 +40,7 @@ namespace boost { namespace msm { namespace lpp
 
 #define BOOST_MSM_LPP_BINARY_OPERATOR(functor,op)                                                                           \
 template <class T1,class T2>                                                                                                \
-struct functor ## _ : proto::extends<typename proto::terminal<action_tag>::type, functor ## _<T1,T2> >                      \
+    struct functor ## _ : proto::extends<typename proto::terminal<tag::actor>::type, functor ## _<T1,T2> >                 \
 {                                                                                                                           \
     template<class Sig> struct result;                                                                                      \
     BOOST_PP_REPEAT(5, BOOST_MSM_LPP_BINARY_OPERATOR_EXECUTE, (functor ## _ ,op) )                                          \
@@ -107,7 +107,7 @@ BOOST_MSM_LPP_BINARY_OPERATOR(bitwise_xor_assign,^=)
 
 #define BOOST_MSM_LPP_PRE_UNARY_OPERATOR(functor,op)                                                                        \
 template <class T1>                                                                                                         \
-struct functor ## _ : proto::extends<typename proto::terminal<action_tag>::type, functor ## _ <T1> >                        \
+struct functor ## _ : proto::extends<typename proto::terminal<tag::actor>::type, functor ## _ <T1> >                       \
 {                                                                                                                           \
     template<class Sig> struct result;                                                                                      \
     BOOST_PP_REPEAT(5, BOOST_MSM_LPP_PRE_UNARY_OPERATOR_EXECUTE, (functor ## _ ,op) )                                       \
@@ -152,14 +152,14 @@ BOOST_MSM_LPP_PRE_UNARY_OPERATOR(pre_dec,--)
 
 #define BOOST_MSM_LPP_POST_UNARY_OPERATOR(functor,op)                                                                       \
 template <class T1>                                                                                                         \
-struct functor ## _ : proto::extends<typename proto::terminal<action_tag>::type, functor ## _<T1> >                         \
+struct functor ## _ : proto::extends<typename proto::terminal<tag::actor>::type, functor ## _<T1> >                        \
 {                                                                                                                           \
     template<class Sig> struct result;                                                                                      \
     BOOST_PP_REPEAT(5, BOOST_MSM_LPP_POST_UNARY_OPERATOR_EXECUTE, (functor ## _ ,op) )                                      \
 };                                                                                                                          \
-template<> struct BuildLambdaCases::case_<proto::tag::functor>                                                          \
+template<> struct BuildLambdaCases::case_<proto::tag::functor>                                                              \
     : proto::when<                                                                                                          \
-            proto::functor <BuildLambda >,                                                                              \
+            proto::functor <BuildLambda >,                                                                                  \
             functor ## _< BuildLambda(proto::_child)>()                                                                     \
             >{};
 

@@ -9,17 +9,218 @@
 #include <boost/fusion/container/vector.hpp>
 #include <boost/fusion/include/as_vector.hpp>
 
+#include <boost/mpl/eval_if.hpp>
+#include <boost/mpl/next_prior.hpp>
+#include <boost/mpl/deref.hpp>
+#include <boost/mpl/for_each.hpp>
+#include <boost/mpl/vector.hpp>
+
+#include <boost/proto/core.hpp>
+#include <boost/proto/context.hpp>
+#include <boost/proto/transform.hpp>
+
 #include <boost/type_traits/remove_reference.hpp>
 #include <boost/type_traits/add_reference.hpp>
 #include <boost/utility/enable_if.hpp>
 #include <boost/typeof/typeof.hpp>
-#include <boost/msm/lpp/basic_grammar.hpp>
+#include <boost/utility/result_of.hpp>
+
+#include <boost/msm/lpp/tags.hpp>
 
 
 namespace boost { namespace msm { namespace lpp
 {
 
-struct lambda_tag{};
+template <class T,class Arg1=void,class Arg2=void,class Arg3=void,class Arg4=void>
+struct get_fct 
+{
+    typedef typename T::template In<Arg1,Arg2,Arg3,Arg4>::type type;
+};
+
+// wrapper for mpl::for_each as showed in the C++ Template Metaprogramming ch. 9
+template <class T>
+struct wrap{};
+
+template <class Sequence>
+struct LambdaSequence_
+{
+    typedef Sequence sequence;
+    typedef typename ::boost::mpl::deref< typename ::boost::mpl::prior< typename ::boost::mpl::end<Sequence>::type >::type>::type last;
+
+    template<class Sig> struct result;
+    template<class This,class B, class A0> 
+    struct result<This(B& block,A0& a0)>
+    {
+        static B& block;
+        static A0& a0;
+        BOOST_TYPEOF_NESTED_TYPEDEF_TPL(nested,last()(block,a0) )
+        typedef typename nested::type type;
+    };
+    template<class This,class B, class A0, class A1> 
+    struct result<This(B& block,A0& a0,A1& a1)>
+    {
+        static B& block;
+        static A0& a0;
+        static A1& a1;
+        BOOST_TYPEOF_NESTED_TYPEDEF_TPL(nested,last()(block,a0,a1) )
+        typedef typename nested::type type;
+    };
+
+    template <typename B,class A0,class A1=void>
+    struct Call
+    {
+        Call(B& block,A0& a0,A1& a1): block_(block),a0_(a0),a1_(a1){}
+        template <class FCT>
+        void operator()(wrap<FCT> const& )
+        {
+            FCT()(block_,a0_,a1_);
+        }
+    private:
+        B&   block_;
+        A0&  a0_;
+        A1&  a1_;
+    };
+    template <typename B,class A0>
+    struct Call<B,A0,void>
+    {
+        Call(B& block,A0& a0): block_(block),a0_(a0){}
+        template <class FCT>
+        void operator()(wrap<FCT> const& )
+        {
+            FCT()(block_,a0_);
+        }
+        private:
+            B&   block_;
+            A0&  a0_;
+    };
+
+    template<typename B,typename A0>
+    typename boost::result_of<LambdaSequence_(B&,A0&)>::type
+    operator ()(B& block, A0 & a0) const
+    {
+        boost::mpl::for_each< typename ::boost::mpl::pop_back<Sequence>::type,
+                       wrap< ::boost::mpl::placeholders::_1> >
+            (Call<B,A0>(block,a0));
+        return last()(block,a0);
+    }
+    template<typename B,typename A0,typename A1>
+    typename boost::result_of<LambdaSequence_(B&,A0&,A1&)>::type
+    operator ()(B& block, A0 & a0, A1 & a1) const
+    {
+        boost::mpl::for_each< typename ::boost::mpl::pop_back<Sequence>::type,
+                       wrap< ::boost::mpl::placeholders::_1> >
+            (Call<B,A0,A1>(block,a0,a1));
+        return last()(block,a0,a1);
+    }
+};
+
+
+template <class T>
+struct get_condition 
+{
+    typedef typename T::condition type;
+};
+template <class T>
+struct get_ifclause 
+{
+    typedef typename T::ifclause type;
+};
+struct ignored {};
+template <class Condition,class IfClause=void>
+struct if_then_
+{
+    typedef Condition condition;
+    typedef IfClause ifclause;
+
+    template<class Sig> struct result;
+    template<class This,class B, class A0> 
+    struct result<This(B& block,A0& a0)>
+    {
+        typedef ignored type;
+    };
+    template<class This,class B, class A0, class A1> 
+    struct result<This(B& block,A0& a0,A1& a1)>
+    {
+        typedef ignored type;
+    };
+    template<typename B,typename A0>
+    typename boost::result_of<if_then_(B&,A0&)>::type
+    operator()(B& block, A0 & a0)const
+    {
+        if (Condition()(block,a0))
+        {
+            IfClause()(block,a0);
+        }
+        return ignored();
+    }
+    template<typename B,typename A0,typename A1>
+    typename boost::result_of<if_then_(B&,A0&,A1&)>::type
+    operator()(B& block, A0 & a0, A0 & a1)const
+    {
+        if (Condition()(block,a0,a1))
+        {
+            IfClause()(block,a0,a1);
+        }
+        return ignored();
+    }
+};
+
+struct if_then_helper : proto::extends< proto::terminal<tag::if_then>::type, if_then_helper >
+{
+    template <class Arg1,class Arg2,class Arg3,class Arg4>
+    struct In {typedef if_then_<Arg1,Arg2> type;};
+};
+if_then_helper const if_;
+
+
+template <class Condition,class IfClause,class ElseClause>
+struct if_then_else
+{
+    template<class Sig> struct result;
+    template<class This,class B, class A0> 
+    struct result<This(B& block,A0& a0)>
+    {
+        static B& block;
+        static A0& a0;
+        BOOST_TYPEOF_NESTED_TYPEDEF_TPL(nested,IfClause()(block,a0))
+        typedef typename nested::type type;
+    };
+    template<class This,class B, class A0, class A1> 
+    struct result<This(B& block,A0& a0,A1& a1)>
+    {
+        static B& block;
+        static A0& a0;
+        static A1& a1;
+        BOOST_TYPEOF_NESTED_TYPEDEF_TPL(nested,IfClause()(block,a0,a1))
+        typedef typename nested::type type;
+    };
+    template<typename B,typename A0>
+    typename boost::result_of<if_then_else(B&,A0&)>::type
+    operator()(B& block, A0 & a0)const
+    {
+        if (Condition()(block,a0))
+        {
+            return IfClause()(block,a0);
+        }
+        else
+        {
+            return ElseClause()(block,a0);
+        }
+    }
+    template<typename B,typename A0,typename A1>
+    typename boost::result_of<if_then_else(B&,A0&,A1&)>::type
+    operator()(B& block, A0 & a0, A0 & a1)const
+    {
+        if (Condition()(block,a0,a1))
+        {
+            return IfClause()(block,a0,a1);
+        }
+        else
+        {
+            return ElseClause()(block,a0,a1);
+        }
+    }
+};
 
 template <class T>
 struct get_nested_type
@@ -168,7 +369,7 @@ struct placeholder<1>
 // Define some lambda placeholders
 proto::terminal<placeholder< 0 > >::type const _1={{}};
 proto::terminal<placeholder< 1 > >::type const _2={{}};
-proto::terminal<params_tag>::type const _params={{}};
+proto::terminal<tag::param>::type const _params={{}};
 
 
 
@@ -219,100 +420,6 @@ struct Block
     params lambda_params;
 };
 
-
-struct BuildParams
-    : proto::or_<
-        proto::when<
-            proto::subscript< proto::terminal<lambda_tag> , FoldToList >,
-            FoldToList(proto::_child_c<1>, boost::fusion::nil())
-        >
-    >
-{};
-
-struct Lambda:
-    proto::when<
-        BuildLambdaSequence, LambdaSequence_<BuildLambdaSequence(proto::_child_c<1>) >()
-    >
-{};
-#define BOOST_MSM_LPP_LAMBDA_EXPR(expr) BOOST_TYPEOF( Lambda()(expr) ) 
-
-
-
-struct BuildLambdaWithParams
-    : proto::or_<
-        proto::when<
-            proto::subscript< proto::terminal<lambda_tag> ,BuildLambdaSequence>,
-            Block<LambdaSequence_<BuildLambdaSequence(proto::_child_c<1>) > >()
-        >,
-        proto::when<
-            proto::subscript< BuildParams , BuildLambdaSequence >,
-            Block<
-                LambdaSequence_<BuildLambdaSequence(proto::_child_c<1>)>, 
-                boost::fusion::result_of::as_vector<BuildParams(proto::_child_c<0>)>  >
-                    ( (BuildParams(proto::_value) ) )
-        >
-    >
-{};
-
-template<typename Expr>
-struct lambda_expr;
-
-struct lambda_dom
-  : proto::domain<proto::pod_generator<lambda_expr>, BuildLambdaWithParams>
-{};
-
-template<typename Expr>
-struct lambda_expr
-{
-    BOOST_PROTO_BASIC_EXTENDS(Expr, lambda_expr<Expr>, lambda_dom)
-    BOOST_PROTO_EXTENDS_SUBSCRIPT() 
-    template<class Sig> struct result;
-    template<class This,class B, class A0> 
-    struct result<This(B& block,A0& a0)>
-    {
-        static A0& a0;
-        typedef A0& type;
-    };
-    template<typename A0>
-    typename ::boost::result_of<
-        typename ::boost::result_of<BuildLambdaWithParams(Expr,A0&)>::type (A0&)
-    >::type
-    operator()(A0 &a0)const
-    {
-        BOOST_MPL_ASSERT((proto::matches<Expr, BuildLambdaWithParams>));
-        return BuildLambdaWithParams()(*this)(a0);
-    }
-    template<typename A0>
-    typename ::boost::result_of<
-        typename ::boost::result_of<BuildLambdaWithParams(Expr,A0&)>::type (A0&)
-    >::type
-    operator()(A0 const &a0)const
-    {
-        BOOST_MPL_ASSERT((proto::matches<Expr, BuildLambdaWithParams>));
-        return BuildLambdaWithParams()(*this)(a0);
-    }
-
-    template<typename A0,typename A1>
-    typename ::boost::result_of<
-        typename ::boost::result_of<BuildLambdaWithParams(Expr,A0&,A1&)>::type (A0&,A1&)
-    >::type
-    operator()(A0 &a0,A1 &a1)const
-    {
-        BOOST_MPL_ASSERT((proto::matches<Expr, BuildLambdaWithParams>));
-        return BuildLambdaWithParams()(*this)(a0,a1);
-    }
-    template<typename A0,typename A1>
-    typename ::boost::result_of<
-        typename ::boost::result_of<BuildLambdaWithParams(Expr,A0&,A1&)>::type (A0&,A1&)
-    >::type
-    operator()(A0 const &a0,A1 const &a1)const
-    {
-        BOOST_MPL_ASSERT((proto::matches<Expr, BuildLambdaWithParams>));
-        return BuildLambdaWithParams()(*this)(a0,a1);
-    }
-};
-
-lambda_expr<proto::terminal<lambda_tag>::type> const lambda = {{{}}};
 
 } } }// boost::msm::lpp
 #endif //BOOST_MSM_LPP_COMMON_TYPES_H
