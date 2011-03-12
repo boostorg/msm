@@ -25,6 +25,12 @@
 #include <boost/typeof/typeof.hpp>
 #include <boost/utility/result_of.hpp>
 
+#include <boost/preprocessor/tuple/elem.hpp> 
+#include <boost/preprocessor/punctuation/comma_if.hpp> 
+#include <boost/preprocessor/repetition/enum.hpp>
+#include <boost/preprocessor/repetition/enum_params.hpp>
+#include <boost/preprocessor/repetition/repeat.hpp>
+
 #include <boost/msm/lpp/tags.hpp>
 
 
@@ -245,66 +251,52 @@ struct lambda_parameter_result
 template<int I>
 struct lambda_parameter;
 
-template<>
-struct lambda_parameter<0>
-{
-    template<class Sig> struct result;
-    template<class This,class B, class A0> 
-    struct result<This(B& block,A0& a0)>
-    {
-        static B& block;
-        static A0& a0;
-        typedef typename lambda_parameter_result<B,0>::type type;
-    };
-    template<class This,class B, class A0, class A1> 
-    struct result<This(B& block,A0& a0,A1& a1)>
-    {
-        static B& block;
-        static A0& a0;
-        static A1& a1;
-        typedef typename lambda_parameter_result<B,0>::type type;
-    };
+#define BOOST_MSM_LPP_CAPTURE_HELPER(z, n, unused) ARG ## n & t ## n
+#define BOOST_MSM_LPP_CAPTURE_HELPER2(z, n, unused) static ARG ## n & t ## n;
+#define BOOST_MSM_LPP_CAPTURE_HELPER3(z, n, unused) t ## n
+#define BOOST_MSM_LPP_CAPTURE_HELPER4(z, n, unused) ARG ## n &
 
-    template<typename B,typename A0>
-    typename ::boost::enable_if<
-        typename ::boost::is_reference_wrapper< typename lambda_parameter_result<B,0>::contained_type >::type,
-        typename boost::result_of<lambda_parameter<0>(B&,A0&)>::type
-    >::type
-    operator ()(B& block, A0&) const
-    {
-        return boost::fusion::at_c<0>(block.lambda_params).get();
-    }
+#define BOOST_MSM_LPP_LAMBDA_CAPTURE_EXECUTE(z, n, data)                                                                    \
+    template <class This,class B BOOST_PP_COMMA_IF(n) BOOST_PP_ENUM_PARAMS(n, class ARG)>                                   \
+    struct result<This(B& block BOOST_PP_COMMA_IF(n) BOOST_PP_ENUM(n, BOOST_MSM_LPP_CAPTURE_HELPER, ~ ) )>                  \
+    {                                                                                                                       \
+        static B& block;                                                                                                    \
+        BOOST_PP_REPEAT(n, BOOST_MSM_LPP_CAPTURE_HELPER2, ~)                                                                \
+        typedef typename lambda_parameter_result<B,data>::type type;                                                        \
+    };                                                                                                                      \
+    template<typename B BOOST_PP_COMMA_IF(n) BOOST_PP_ENUM_PARAMS(n, class ARG)>                                            \
+    typename ::boost::enable_if<                                                                                            \
+        typename ::boost::is_reference_wrapper< typename lambda_parameter_result<B,data>::contained_type >::type,           \
+        typename boost::result_of<lambda_parameter<data>(B& BOOST_PP_COMMA_IF(n) BOOST_PP_ENUM(n, BOOST_MSM_LPP_CAPTURE_HELPER4, ~ ) )>::type  \
+    >::type                                                                                                                 \
+    operator()(B& block BOOST_PP_COMMA_IF(n) BOOST_PP_ENUM(n, BOOST_MSM_LPP_CAPTURE_HELPER, ~ ) )const                      \
+    {return boost::fusion::at_c<data>(block.lambda_params).get();}                                                          \
+    template<typename B BOOST_PP_COMMA_IF(n) BOOST_PP_ENUM_PARAMS(n, class ARG)>                                            \
+    typename ::boost::disable_if<                                                                                           \
+        typename ::boost::is_reference_wrapper< typename lambda_parameter_result<B,data>::contained_type >::type,           \
+        typename boost::result_of<lambda_parameter<0>(B& BOOST_PP_COMMA_IF(n) BOOST_PP_ENUM(n, BOOST_MSM_LPP_CAPTURE_HELPER4, ~ ) )>::type \
+    >::type                                                                                                                 \
+    operator ()(B& block BOOST_PP_COMMA_IF(n) BOOST_PP_ENUM(n, BOOST_MSM_LPP_CAPTURE_HELPER, ~ ) ) const                    \
+    { return boost::fusion::at_c<0>(block.lambda_params); }
 
-    template<typename B,typename A0>
-    typename ::boost::disable_if<
-        typename ::boost::is_reference_wrapper< typename lambda_parameter_result<B,0>::contained_type >::type,
-        typename boost::result_of<lambda_parameter<0>(B&,A0&)>::type
-    >::type
-    operator ()(B& block, A0&) const
-    {
-        return boost::fusion::at_c<0>(block.lambda_params);
-    }
-    template<typename B,typename A0,typename A1>
-    typename ::boost::enable_if<
-        typename ::boost::is_reference_wrapper< typename lambda_parameter_result<B,0>::contained_type >::type,
-        typename boost::result_of<lambda_parameter<0>(B&,A0&,A1&)>::type
-    >::type
-    operator ()(B& block, A0&, A1&) const
-    {
-        return boost::fusion::at_c<0>(block.lambda_params).get();
-    }
 
-    template<typename B,typename A0,typename A1>
-    typename ::boost::disable_if<
-        typename ::boost::is_reference_wrapper< typename lambda_parameter_result<B,0>::contained_type >::type,
-        typename boost::result_of<lambda_parameter<0>(B&,A0&,A1&)>::type
-    >::type
-    operator ()(B& block, A0&, A1&) const
-    {
-        return boost::fusion::at_c<0>(block.lambda_params);
-    }
+#define BOOST_MSM_LPP_LAMBDA_CAPTURE_DEF(index)                                                                             \
+    template<> struct lambda_parameter<index> {                                                                             \
+    template<class Sig> struct result;                                                                                      \
+    BOOST_PP_REPEAT(5, BOOST_MSM_LPP_LAMBDA_CAPTURE_EXECUTE, index )                                                        \
 };
-proto::terminal<lambda_parameter< 0 > >::type const _c1={{}};
+
+#define BOOST_MSM_LPP_LAMBDA_CAPTURE(index,name)                                                                            \
+    BOOST_MSM_LPP_LAMBDA_CAPTURE_DEF(index)                                                                                 \
+    proto::terminal<lambda_parameter< index > >::type const name={{}};
+
+// we define a few capture names
+BOOST_MSM_LPP_LAMBDA_CAPTURE(0,_c1)
+BOOST_MSM_LPP_LAMBDA_CAPTURE(1,_c2)
+BOOST_MSM_LPP_LAMBDA_CAPTURE(2,_c3)
+BOOST_MSM_LPP_LAMBDA_CAPTURE(3,_c4)
+BOOST_MSM_LPP_LAMBDA_CAPTURE(4,_c5)
+
 
 template<int I>
 struct placeholder;
