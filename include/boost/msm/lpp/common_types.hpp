@@ -287,10 +287,16 @@ struct lambda_parameter;
 };
 
 #define BOOST_MSM_LPP_LAMBDA_CAPTURE(index,name)                                                                            \
-    BOOST_MSM_LPP_LAMBDA_CAPTURE_DEF(index)                                                                                 \
     proto::terminal<lambda_parameter< index > >::type const name={{}};
 
-// we define a few capture names
+// provide some capture parameters
+BOOST_MSM_LPP_LAMBDA_CAPTURE_DEF(0)
+BOOST_MSM_LPP_LAMBDA_CAPTURE_DEF(1)
+BOOST_MSM_LPP_LAMBDA_CAPTURE_DEF(2)
+BOOST_MSM_LPP_LAMBDA_CAPTURE_DEF(3)
+BOOST_MSM_LPP_LAMBDA_CAPTURE_DEF(4)
+
+// define a few capture names
 BOOST_MSM_LPP_LAMBDA_CAPTURE(0,_c1)
 BOOST_MSM_LPP_LAMBDA_CAPTURE(1,_c2)
 BOOST_MSM_LPP_LAMBDA_CAPTURE(2,_c3)
