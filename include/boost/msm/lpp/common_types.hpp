@@ -274,10 +274,10 @@ struct lambda_parameter;
     template<typename B BOOST_PP_COMMA_IF(n) BOOST_PP_ENUM_PARAMS(n, class ARG)>                                            \
     typename ::boost::disable_if<                                                                                           \
         typename ::boost::is_reference_wrapper< typename lambda_parameter_result<B,data>::contained_type >::type,           \
-        typename boost::result_of<lambda_parameter<0>(B& BOOST_PP_COMMA_IF(n) BOOST_PP_ENUM(n, BOOST_MSM_LPP_CAPTURE_HELPER4, ~ ) )>::type \
+        typename boost::result_of<lambda_parameter<data>(B& BOOST_PP_COMMA_IF(n) BOOST_PP_ENUM(n, BOOST_MSM_LPP_CAPTURE_HELPER4, ~ ) )>::type \
     >::type                                                                                                                 \
     operator ()(B& block BOOST_PP_COMMA_IF(n) BOOST_PP_ENUM(n, BOOST_MSM_LPP_CAPTURE_HELPER, ~ ) ) const                    \
-    { return boost::fusion::at_c<0>(block.lambda_params); }
+    { return boost::fusion::at_c<data>(block.lambda_params); }
 
 
 #define BOOST_MSM_LPP_LAMBDA_CAPTURE_DEF(index)                                                                             \
