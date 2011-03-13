@@ -374,7 +374,7 @@ struct placeholder<1>
 // Define some lambda placeholders
 proto::terminal<placeholder< 0 > >::type const _1={{}};
 proto::terminal<placeholder< 1 > >::type const _2={{}};
-proto::terminal<tag::param>::type const _params={{}};
+proto::terminal<tag::capture>::type const _capture={{}};
 
 
 

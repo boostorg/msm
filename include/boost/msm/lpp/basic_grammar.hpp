@@ -117,7 +117,7 @@ struct FoldToList
   : proto::or_<
         // Don't add the params_ terminal to the list
         proto::when<
-        proto::terminal< tag::param >
+        proto::terminal< tag::capture >
           , proto::_state
         >
         // Put all other terminals at the head of the

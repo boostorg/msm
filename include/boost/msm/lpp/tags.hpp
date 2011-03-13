@@ -11,7 +11,7 @@ namespace boost { namespace msm { namespace lpp { namespace tag
 {
 
     struct actor {};
-    struct param{};
+    struct capture{};
     struct if_then {};
     struct lambda{};
 
