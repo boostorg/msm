@@ -151,15 +151,6 @@ struct BuildParams
     >
 {};
 
-struct Lambda:
-    proto::when<
-        BuildLambdaSequence, LambdaSequence_<BuildLambdaSequence(proto::_child_c<1>) >()
-    >
-{};
-#define BOOST_MSM_LPP_LAMBDA_EXPR(expr) BOOST_TYPEOF( Lambda()(expr) ) 
-
-
-
 struct BuildLambdaWithParams
     : proto::or_<
         proto::when<
@@ -235,6 +226,14 @@ struct lambda_expr
 };
 
 lambda_expr<proto::terminal<tag::lambda>::type> const lambda = {{{}}};
+
+struct Lambda:
+    proto::when<
+        BuildLambdaSequence, LambdaSequence_<BuildLambdaSequence(proto::_child_c<0>) >()
+    >
+{};
+#define BOOST_MSM_LPP_LAMBDA_EXPR(expr) BOOST_TYPEOF( BuildLambdaWithParams()(lambda[ expr ]) ) 
+
 
 } } }// boost::msm::lpp
 #endif //BOOST_MSM_LPP_BASIC_GRAMMAR_H
