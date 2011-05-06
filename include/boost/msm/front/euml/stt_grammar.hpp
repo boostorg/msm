@@ -109,10 +109,12 @@ struct fusion_left_right
 };
 
 struct BuildEventPlusGuard
-    : proto::when<
-            proto::subscript<proto::terminal<event_tag>, boost::phoenix::meta_grammar >,
-            TempRow<none,proto::_left,none,none, proto::_right>(proto::_right)
+    : proto::or_<
+        proto::when<
+            proto::subscript<proto::terminal<event_tag>, GuardGrammar >,
+            TempRow<none,proto::_left,none,none, GuardGrammar(proto::_right)>(proto::_right)
         >
+    >
  {};
 
 struct BuildSourceState
@@ -130,8 +132,8 @@ struct BuildSourceState
 
 struct BuildSourcePlusGuard
     : proto::when<
-            proto::subscript<BuildSourceState,boost::phoenix::meta_grammar >,
-            TempRow<BuildSourceState(proto::_left),none,none,none,proto::_right>(proto::_right)
+            proto::subscript<BuildSourceState,GuardGrammar >,
+            TempRow<BuildSourceState(proto::_left),none,none,none,GuardGrammar(proto::_right)>(proto::_right)
         >
 {};
 
@@ -143,17 +145,17 @@ struct BuildEvent
                 TempRow<none,proto::_,none>() >
         // event / action
        , proto::when<
-                proto::divides<proto::terminal<event_tag>,boost::phoenix::meta_grammar >,
-                TempRow<none,proto::_left,none,proto::_right >(proto::_right) >
+                proto::divides<proto::terminal<event_tag>,ActionGrammar >,
+                TempRow<none,proto::_left,none,ActionGrammar(proto::_right) >(proto::_right) >
         // event [ guard ]
        , proto::when<
-                proto::subscript<proto::terminal<event_tag>,boost::phoenix::meta_grammar >,
-                TempRow<none,proto::_left,none,none,proto::_right>(proto::_right) >
+                proto::subscript<proto::terminal<event_tag>,GuardGrammar >,
+                TempRow<none,proto::_left,none,none,GuardGrammar(proto::_right)>(proto::_right) >
         // event [ guard ] / action 
        , proto::when<
-                proto::divides<BuildEventPlusGuard, boost::phoenix::meta_grammar>,
+                proto::divides<BuildEventPlusGuard, ActionGrammar>,
                 fusion_event_action_guard<BuildEventPlusGuard(proto::_left),
-                                          TempRow<none,none,none,proto::_right>(proto::_right)
+                                          TempRow<none,none,none,ActionGrammar(proto::_right)>(proto::_right)
                                            >() 
                 >
         >
@@ -166,18 +168,18 @@ struct BuildSource
                 TempRow<BuildSourceState(proto::_),none,none>() >
         // == source / action
        , proto::when<
-                proto::divides<BuildSourceState,boost::phoenix::meta_grammar >,
-                TempRow<BuildSourceState(proto::_left),none,none,proto::_right >(proto::_right) >
+                proto::divides<BuildSourceState,ActionGrammar >,
+                TempRow<BuildSourceState(proto::_left),none,none,ActionGrammar(proto::_right) >(proto::_right) >
         // == source [ guard ]
        , proto::when<
-                proto::subscript<BuildSourceState,boost::phoenix::meta_grammar >,
-                TempRow<BuildSourceState(proto::_left),none,none,none,proto::_right>(proto::_right) >
+                proto::subscript<BuildSourceState,GuardGrammar >,
+                TempRow<BuildSourceState(proto::_left),none,none,none,GuardGrammar(proto::_right)>(proto::_right) >
         // == source [ guard ] / action 
        , proto::when<
                 proto::divides<BuildSourcePlusGuard,
-                               boost::phoenix::meta_grammar >,
+                               ActionGrammar >,
                 fusion_source_action_guard<BuildSourcePlusGuard(proto::_left),
-                                           TempRow<none,none,none,proto::_right>(proto::_right)
+                                           TempRow<none,none,none,ActionGrammar(proto::_right)>(proto::_right)
                                            >() 
                 >
         >
