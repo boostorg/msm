@@ -15,9 +15,6 @@
 #include <boost/mpl/vector.hpp>
 #include <boost/mpl/eval_if.hpp>
 
-#include <boost/phoenix/core/meta_grammar.hpp>
-#include <boost/phoenix/phoenix.hpp>
-
 #include <boost/msm/front/euml/operator.hpp>
 #include <boost/msm/front/euml/guard_grammar.hpp>
 #include <boost/msm/front/euml/state_grammar.hpp>

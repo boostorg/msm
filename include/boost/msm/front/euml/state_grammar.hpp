@@ -11,6 +11,10 @@
 #ifndef BOOST_MSM_FRONT_EUML_STATE_GRAMMAR_H
 #define BOOST_MSM_FRONT_EUML_STATE_GRAMMAR_H
 
+#ifdef BOOST_MSM_EUML_PHOENIX_SUPPORT
+#include <boost/phoenix/core/meta_grammar.hpp>
+#endif
+
 #include <boost/msm/front/euml/common.hpp>
 #include <boost/fusion/container/vector.hpp>
 #include <boost/fusion/include/pair.hpp>
@@ -210,8 +214,9 @@ struct BuildActionSequence
    >
 {};
 
-struct my_custom_phoenix_grammar
-    : proto::switch_<my_custom_phoenix_grammar>
+#ifdef BOOST_MSM_EUML_PHOENIX_SUPPORT
+struct CustomPhoenixGrammar
+    : proto::switch_<CustomPhoenixGrammar>
 {
     template <typename Tag, typename Dummy = void>
     struct case_ 
@@ -222,13 +227,16 @@ struct my_custom_phoenix_grammar
         >
     {};
 };
+#endif
 
 struct GuardGrammar
         : proto::or_<
+#ifdef BOOST_MSM_EUML_PHOENIX_SUPPORT
             proto::when<
-                my_custom_phoenix_grammar ,
+                CustomPhoenixGrammar ,
                 proto::_
             >,
+#endif
             proto::when<
                 BuildGuards ,
                 BuildGuards
@@ -238,10 +246,12 @@ struct GuardGrammar
 
 struct ActionGrammar
         : proto::or_<
+#ifdef BOOST_MSM_EUML_PHOENIX_SUPPORT
             proto::when<
-                my_custom_phoenix_grammar ,
+                CustomPhoenixGrammar ,
                 proto::_
             >,
+#endif
             proto::when<
                 BuildActionSequence ,
                 BuildActionSequence
