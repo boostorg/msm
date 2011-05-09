@@ -11,11 +11,10 @@
 #include <vector>
 #include <iostream>
 
-#include <boost/phoenix/core.hpp>
-#include <boost/phoenix/function.hpp>
-#include <boost/phoenix/core/argument.hpp>
+#include <boost/phoenix/phoenix.hpp>
 
-
+// add phoenix support in eUML
+#define BOOST_MSM_EUML_PHOENIX_SUPPORT
 #include <boost/msm/back/state_machine.hpp>
 #include <boost/msm/front/euml/euml.hpp>
 
@@ -25,31 +24,51 @@ using namespace boost::msm::front::euml;
 namespace msm = boost::msm;
 using namespace boost::phoenix;
 
-using boost::phoenix::arg_names::arg1;
-using boost::phoenix::arg_names::arg2;
-using boost::phoenix::arg_names::arg3;
-using boost::phoenix::arg_names::arg4;
-//namespace boost { namespace phoenix { namespace arg_names
-//{
-//    expression::argument<3>::type const arg4 = {};
-//
-//}} }
-using boost::phoenix::arg_names::arg4;
 // entry/exit/action/guard logging functors
 #include "logging_functors.h"
 
 namespace  // Concrete FSM implementation
 {
     // events
+    BOOST_MSM_EUML_EVENT(end_pause)
+    BOOST_MSM_EUML_EVENT(stop)
+    BOOST_MSM_EUML_EVENT(pause)
     BOOST_MSM_EUML_EVENT(open_close)
+    struct play_event : boost::msm::front::euml::euml_event<play_event>
+    {
+    };
+    play_event play;
+
+    enum DiskTypeEnum
+    {
+        DISK_CD=0,
+        DISK_DVD=1
+    };
+    // A "complicated" event type that carries some data.
+    struct cd_detected_event : boost::msm::front::euml::euml_event<cd_detected_event>
+    {
+        cd_detected_event(){}
+        cd_detected_event(std::string const& name,DiskTypeEnum disk):cd_name(name),cd_type(disk){}
+        std::string cd_name;
+        DiskTypeEnum cd_type;
+    };
+    // define an instance for a nicer transition table
+    cd_detected_event cd_detected;
 
     // Concrete FSM implementation 
     // The list of FSM states
+    // state not needing any entry or exit
+    BOOST_MSM_EUML_STATE((),Paused)
 
+    // states with standard eUML actions
+    BOOST_MSM_EUML_STATE(( Stopped_Entry,Stopped_Exit ),Stopped)
+    BOOST_MSM_EUML_STATE(( Playing_Entry,Playing_Exit ),Playing)
+
+    // a "standard" msm state
     struct Empty_impl : public msm::front::state<> , public euml_state<Empty_impl>
     {
         // this allows us to add some functions
-        void activate_empty() {std::cout << "switching to Empty " << std::endl;}
+        void foo() {std::cout << "Empty::foo " << std::endl;}
         // standard entry behavior
         template <class Event,class FSM>
         void on_entry(Event const& evt,FSM& fsm) 
@@ -65,40 +84,110 @@ namespace  // Concrete FSM implementation
     //instance for use in the transition table
     Empty_impl const Empty;
 
-    // define more states
-    BOOST_MSM_EUML_STATE(( Open_Entry,Open_Exit ),Open)
+    // entry and exit actions as phoenix functions
+    struct open_entry_impl
+    {
+        typedef void result_type;
+        void operator()()
+        {
+            cout << "entering: Open" << endl;
+        }
+    };
+    boost::phoenix::function<open_entry_impl> open_entry;
+    struct open_exit_impl
+    {
+        typedef void result_type;
+        void operator()()
+        {
+            cout << "leaving: Open" << endl;
+        }
+    };
+    boost::phoenix::function<open_exit_impl> open_exit;
 
-    struct some_guard_impl
+    // a state using phoenix for entry/exit actions
+    BOOST_MSM_EUML_STATE(( open_entry(),open_exit() ),Open)
+
+    // actions and guards using boost::phoenix
+    struct start_playback_impl
+    {
+        typedef void result_type;
+        void operator()()
+        {
+            cout << "calling: start_playback" << endl;
+        }
+    };
+    boost::phoenix::function<start_playback_impl> start_playback;
+
+    // a guard taking the event as argument
+    struct good_disk_format_impl
     {
         typedef bool result_type;
 
-        bool operator()()
+        template <class Event>
+        bool operator()(Event const& evt)
         {
-            cout << "calling: some_guard" << endl;
+            // to test a guard condition, let's say we understand only CDs, not DVD
+            if (evt.cd_type!=DISK_CD)
+            {
+                std::cout << "wrong disk, sorry" << std::endl;
+                return false;
+            }
+            std::cout << "good disk" << std::endl;
             return true;
         }
     };
-    boost::phoenix::function<some_guard_impl> some_guard;
-    
-    struct some_action_impl
+    boost::phoenix::function<good_disk_format_impl> good_disk_format;
+
+    // a simple action
+    struct store_cd_info_impl
+    {
+        typedef void result_type;
+        void operator()()
+        {
+            cout << "calling: store_cd_info" << endl;
+        }
+    };
+    boost::phoenix::function<store_cd_info_impl> store_cd_info;
+
+    // an action taking the fsm as argument and sending it a new event
+    struct process_play_impl
     {
         typedef void result_type;
 
-        void operator()()
+        template <class Fsm>
+        void operator()(Fsm& fsm)
         {
-            cout << "calling: some_action" << endl;
+            cout << "queuing a play event" << endl;
+            fsm.process_event(play);
         }
     };
-    boost::phoenix::function<some_action_impl> some_action;
+    boost::phoenix::function<process_play_impl> process_play;
 
-    // replaces the old transition table
+ 
+    // transition table. Actions and guards are written as phoenix functions
     BOOST_MSM_EUML_TRANSITION_TABLE((
-          Open     == Empty     + open_close  [some_guard()&&some_guard()] / (some_action(),some_action())
-          
-          // these ones are also ok
-          //Open     == Empty     + open_close  / some_action()
-          //Empty     + open_close  [some_guard()] / some_action()
-          //Open     == Empty   / some_action()
+          //an action without arguments
+          Playing   == Stopped  + play        / start_playback()                            , 
+          Playing   == Paused   + end_pause                                                 ,
+          //  +------------------------------------------------------------------------------+
+          Empty     == Open     + open_close                                                ,
+          //  +------------------------------------------------------------------------------+
+          Open      == Empty    + open_close                                                ,
+          Open      == Paused   + open_close                                                ,
+          Open      == Stopped  + open_close                                                ,
+          Open      == Playing  + open_close                                                ,
+          //  +------------------------------------------------------------------------------+
+          Paused    == Playing  + pause                                                     ,
+          //  +------------------------------------------------------------------------------+
+          Stopped   == Playing  + stop                                                      ,
+          Stopped   == Paused   + stop                                                      ,
+          // a guard taking the event as argument
+          // and an action made of a phoenix expression of 2 actions
+          // _event is a placeholder for the current event
+          // _fsm is a placeholder for the current state machine
+          Stopped   == Empty    + cd_detected [good_disk_format(_event)] 
+                                              / (store_cd_info(),process_play(_fsm)),
+          Stopped   == Stopped  + stop                            
           //  +------------------------------------------------------------------------------+
          ),transition_table)
 
@@ -135,10 +224,28 @@ namespace  // Concrete FSM implementation
         player p;
         // needed to start the highest-level SM. This will call on_entry and mark the start of the SM
         p.start();
-        // note that we write open_close and not open_close(), like usual. Both are possible with eUML, but 
-        // you now have less to type.
         // go to Open, call on_exit on Empty, then action, then on_entry on Open
         p.process_event(open_close); pstate(p);
+        p.process_event(open_close); pstate(p);
+        // will be rejected, wrong disk type
+        p.process_event(
+            cd_detected_event("louie, louie",DISK_DVD)); pstate(p);
+        p.process_event(
+            cd_detected_event("louie, louie",DISK_CD)); pstate(p);
+        // no need to call play as the previous event does it in its action method
+        //p.process_event(play);
+
+        // at this point, Play is active      
+        p.process_event(pause); pstate(p);
+        // go back to Playing
+        p.process_event(end_pause);  pstate(p);
+        p.process_event(pause); pstate(p);
+        p.process_event(stop);  pstate(p);
+        // event leading to the same state
+        // no action method called as none is defined in the transition table
+        p.process_event(stop);  pstate(p);
+        // test call to no_transition
+        p.process_event(pause); pstate(p);
     }
 }
 
