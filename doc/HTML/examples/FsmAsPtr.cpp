@@ -8,12 +8,12 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#include <vector>
-#include <iostream>
+#include "FsmAsPtr.h"
 
 #include <boost/msm/back/state_machine.hpp>
 #include <boost/msm/front/euml/euml.hpp>
 
+// cpp: using directives are okay
 using namespace std;
 using namespace boost::msm::front::euml;
 namespace msm = boost::msm;
@@ -21,7 +21,7 @@ namespace msm = boost::msm;
 // entry/exit/action/guard logging functors
 #include "logging_functors.h"
 
-namespace  // Concrete FSM implementation
+namespace
 {
     // events
     BOOST_MSM_EUML_EVENT(play)
@@ -29,12 +29,7 @@ namespace  // Concrete FSM implementation
     BOOST_MSM_EUML_EVENT(stop)
     BOOST_MSM_EUML_EVENT(pause)
     BOOST_MSM_EUML_EVENT(open_close)
-
-    // A "complicated" event type that carries some data.
-    BOOST_MSM_EUML_DECLARE_ATTRIBUTE(std::string,cd_name)
-    BOOST_MSM_EUML_DECLARE_ATTRIBUTE(DiskTypeEnum,cd_type)
-    BOOST_MSM_EUML_ATTRIBUTES((attributes_ << cd_name << cd_type ), cd_detected_attributes)
-    BOOST_MSM_EUML_EVENT_WITH_ATTRIBUTES(cd_detected,cd_detected_attributes)
+    BOOST_MSM_EUML_EVENT(cd_detected)
 
     // Concrete FSM implementation 
     // The list of FSM states
@@ -70,24 +65,6 @@ namespace  // Concrete FSM implementation
     BOOST_MSM_EUML_STATE(( Stopped_Entry,Stopped_Exit ),Stopped)
     BOOST_MSM_EUML_STATE(( Playing_Entry,Playing_Exit ),Playing)
 
-    
-    // guard conditions
-    BOOST_MSM_EUML_ACTION(good_disk_format)
-    {
-        template <class FSM,class EVT,class SourceState,class TargetState>
-        bool operator()(EVT const& evt,FSM&,SourceState& ,TargetState& )
-        {
-            // to test a guard condition, let's say we understand only CDs, not DVD
-            if (evt.get_attribute(cd_type)!=DISK_CD)
-            {
-                std::cout << "wrong disk, sorry" << std::endl;
-                // just for logging, does not block any transition
-                return true;
-            }
-            std::cout << "good disk" << std::endl;
-            return true;
-        }
-    };
     // it is also possible to use a plain functor, with default-constructor in the transition table
     struct start_play 
     {
@@ -113,9 +90,7 @@ namespace  // Concrete FSM implementation
           //  +------------------------------------------------------------------------------+
           Stopped   == Playing  + stop        / stop_playback,
           Stopped   == Paused   + stop        / stop_playback,
-          Stopped   == Empty    + cd_detected [good_disk_format &&
-                                                    (event_(cd_type)==Int_<DISK_CD>())] 
-                                                  / (store_cd_info,process_(play)),
+          Stopped   == Empty    + cd_detected / (store_cd_info,process_(play)),
           Stopped   == Stopped  + stop                            
           //  +------------------------------------------------------------------------------+
          ),transition_table)
@@ -129,59 +104,66 @@ namespace  // Concrete FSM implementation
                                         configure_ << no_configure_, // configuration
                                         Log_No_Transition // no_transition handler
                                         ),
-                                      player_) //fsm name
+                                      my_machine_impl_) //fsm name
 
-    // or simply, if no no_transition handler needed:
-    //BOOST_MSM_EUML_DECLARE_STATE_MACHINE(( transition_table, //STT
-    //                                    Empty // Init State
-    //                                 ),player_)
 
     // choice of back-end
-    typedef msm::back::state_machine<player_> player;
-
-    //
-    // Testing utilities.
-    //
-    static char const* const state_names[] = { "Stopped", "Paused", "Open", "Empty", "Playing" };
-    void pstate(player const& p)
-    {
-        std::cout << " -> " << state_names[p.current_state()[0]] << std::endl;
-    }
-
-    void test()
-    {        
-        player p;
-        // needed to start the highest-level SM. This will call on_entry and mark the start of the SM
-        p.start();
-        // note that we write open_close and not open_close(), like usual. Both are possible with eUML, but 
-        // you now have less to type.
-        // go to Open, call on_exit on Empty, then action, then on_entry on Open
-        p.process_event(open_close); pstate(p);
-        p.process_event(open_close); pstate(p);
-        // will be rejected, wrong disk type
-        p.process_event(
-            cd_detected("louie, louie",DISK_DVD)); pstate(p);
-        p.process_event(
-            cd_detected("louie, louie",DISK_CD)); pstate(p);
-        // no need to call play as the previous event does it in its action method
-        //p.process_event(play);
-
-        // at this point, Play is active      
-        p.process_event(pause); pstate(p);
-        // go back to Playing
-        p.process_event(end_pause);  pstate(p);
-        p.process_event(pause); pstate(p);
-        p.process_event(stop);  pstate(p);
-        // event leading to the same state
-        // no action method called as none is defined in the transition table
-        p.process_event(stop);  pstate(p);
-        // test call to no_transition
-        p.process_event(pause); pstate(p);
-    }
+    typedef msm::back::state_machine<my_machine_impl_> my_machine_impl;
 }
+player::player()
+: fsm_(new my_machine_impl)
+{
+    boost::static_pointer_cast<my_machine_impl>(fsm_)->start();
+}
+
+void player::do_play()
+{
+    boost::static_pointer_cast<my_machine_impl>(fsm_)->process_event(play);
+}
+void player::do_pause()
+{
+    boost::static_pointer_cast<my_machine_impl>(fsm_)->process_event(pause);
+}
+void player::do_open_close()
+{
+    boost::static_pointer_cast<my_machine_impl>(fsm_)->process_event(open_close);
+}
+void player::do_end_pause()
+{
+    boost::static_pointer_cast<my_machine_impl>(fsm_)->process_event(end_pause);
+}
+void player::do_stop()
+{
+    boost::static_pointer_cast<my_machine_impl>(fsm_)->process_event(stop);
+}
+void player::do_cd_detected()
+{
+    boost::static_pointer_cast<my_machine_impl>(fsm_)->process_event(cd_detected);
+}
+
 
 int main()
 {
-    test();
-    return 0;
+    player p;
+    // note that we write open_close and not open_close(), like usual. Both are possible with eUML, but 
+    // you now have less to type.
+    // go to Open, call on_exit on Empty, then action, then on_entry on Open
+    p.do_open_close();
+    p.do_open_close();
+    p.do_cd_detected();
+    // no need to call play as the previous event does it in its action method
+
+    // at this point, Play is active      
+    p.do_pause();
+    // go back to Playing
+    p.do_end_pause();
+    p.do_pause();
+    p.do_stop();
+    // event leading to the same state
+    // no action method called as none is defined in the transition table
+    p.do_stop();
+    // test call to no_transition
+    p.do_pause();
+	return 0;
 }
+
