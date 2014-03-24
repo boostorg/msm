@@ -266,6 +266,7 @@ private:
     template <class StateType,class Enable=int>
     struct deferred_msg_queue_helper 
     {
+        void clear(){}
     };
     template <class StateType>
     struct deferred_msg_queue_helper<StateType,
@@ -274,6 +275,10 @@ private:
     {
     public:
         deferred_msg_queue_helper():m_deferred_events_queue(){}
+        void clear()
+        {
+            m_deferred_events_queue.clear();
+        }
         deferred_events_queue_t         m_deferred_events_queue;
     };
 
@@ -1316,6 +1321,11 @@ private:
         return m_events_queue.m_events_queue;
     }
 
+    void clear_deferred_queue()
+    {
+        m_deferred_events_queue.clear();
+    }
+
     deferred_events_queue_t& get_deferred_queue()
     {
         return m_deferred_events_queue.m_deferred_events_queue;
@@ -1748,7 +1758,7 @@ private:
             this->exception_caught(evt,*this,e);
         }
         BOOST_CATCH_END
-        return HANDLED_FALSE;
+        return HANDLED_TRUE;
     }
     // handling of deferred events
     // if none is found in the SM, take the following empty main version
@@ -2617,7 +2627,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
         // history decides what happens with deferred events
         if (!m_history.process_deferred_events(incomingEvent))
         {
-            get_deferred_queue().clear();
+            clear_deferred_queue();
         }
      }
 
