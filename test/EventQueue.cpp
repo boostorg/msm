@@ -19,7 +19,9 @@
 // for And_ operator
 #include <boost/msm/front/euml/operator.hpp>
 
+#ifndef BOOST_MSM_NONSTANDALONE_TEST
 #define BOOST_TEST_MODULE MyTest
+#endif
 #include <boost/test/unit_test.hpp>
 
 using namespace std;
