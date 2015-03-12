@@ -77,6 +77,7 @@ BOOST_MPL_HAS_XXX_TRAIT_DEF(fsm_check)
 BOOST_MPL_HAS_XXX_TRAIT_DEF(compile_policy)
 BOOST_MPL_HAS_XXX_TRAIT_DEF(queue_container_policy)
 BOOST_MPL_HAS_XXX_TRAIT_DEF(using_declared_table)
+BOOST_MPL_HAS_XXX_TRAIT_DEF(no_bugfix_wrong_event_order)
 
 #ifndef BOOST_MSM_CONSTRUCTOR_ARG_SIZE
 #define BOOST_MSM_CONSTRUCTOR_ARG_SIZE 5 // default max number of arguments for constructors
@@ -1741,14 +1742,39 @@ private:
         m_event_processing = true;
         return true;
     }
-    void do_post_msg_queue_helper( ::boost::mpl::true_ const &)
+    void do_post_msg_queue_helper( ::boost::mpl::true_ const &,::boost::mpl::true_ const &)
     {
         // no message queue needed
     }
-    void do_post_msg_queue_helper( ::boost::mpl::false_ const &)
+    void do_post_msg_queue_helper( ::boost::mpl::true_ const &,::boost::mpl::false_ const &)
     {
+        // no message queue needed
+    }
+    void do_post_msg_queue_helper( ::boost::mpl::false_ const &,::boost::mpl::true_ const &)
+    {
+        // keep old buggy behaviour (deferred events enqueued, not executed after transition)
         m_event_processing = false;
         process_message_queue(this);
+    }
+    void do_post_msg_queue_helper( ::boost::mpl::false_ const &,::boost::mpl::false_ const &)
+    {
+        process_message_queue(this);
+    }
+    void do_allow_event_processing_after_transition( ::boost::mpl::true_ const &,::boost::mpl::true_ const &)
+    {
+        // no message queue needed
+    }
+    void do_allow_event_processing_after_transition( ::boost::mpl::true_ const &,::boost::mpl::false_ const &)
+    {
+        // no message queue needed
+    }
+    void do_allow_event_processing_after_transition( ::boost::mpl::false_ const &,::boost::mpl::true_ const &)
+    {
+        // keep old buggy behaviour (deferred events enqueued, not executed after transition)
+    }
+    void do_allow_event_processing_after_transition( ::boost::mpl::false_ const &,::boost::mpl::false_ const &)
+    {
+        m_event_processing = false;
     }
     // the following 2 functions handle the processing either with a try/catch protection or without
     template <class StateType,class EventType>
@@ -2000,6 +2026,10 @@ private:
             {
                 ret_handled = handled;
             }
+            // at this point we allow the next transition be executed without enqueing
+            // so that completion events and deferred events execute now (if any)
+            do_allow_event_processing_after_transition(::boost::mpl::bool_<is_no_message_queue<library_sm>::type::value>(),
+                                                       ::boost::mpl::bool_<has_no_bugfix_wrong_event_order<library_sm>::type::value>());
 
             // process completion transitions BEFORE any other event in the pool (UML Standard 2.3 15.3.14)
             handle_eventless_transitions_helper<library_sm> eventless_helper(this,(handled == HANDLED_TRUE));
@@ -2010,7 +2040,8 @@ private:
 
             // now check if some events were generated in a transition and was not handled
             // because of another processing, and if yes, start handling them
-            do_post_msg_queue_helper(::boost::mpl::bool_<is_no_message_queue<library_sm>::type::value>());
+            do_post_msg_queue_helper(::boost::mpl::bool_<is_no_message_queue<library_sm>::type::value>(),
+                                     ::boost::mpl::bool_<has_no_bugfix_wrong_event_order<library_sm>::type::value>());
 
             return ret_handled;
         }       
