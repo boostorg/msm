@@ -1828,7 +1828,7 @@ private:
 
         void do_post_handle_deferred(HandledEnum handled)
         {
-            if (handled == HANDLED_TRUE)
+            if (handled & HANDLED_TRUE)
             {
                 // a transition has been taken, it makes sense again to try processing waiting deferred events
                 // reset all events to not tested 
@@ -2032,7 +2032,7 @@ private:
                                                        ::boost::mpl::bool_<has_no_bugfix_wrong_event_order<library_sm>::type::value>());
 
             // process completion transitions BEFORE any other event in the pool (UML Standard 2.3 15.3.14)
-            handle_eventless_transitions_helper<library_sm> eventless_helper(this,(handled == HANDLED_TRUE));
+            handle_eventless_transitions_helper<library_sm> eventless_helper(this,(handled & HANDLED_TRUE));
             eventless_helper.process_completion_event();
 
             // after handling, take care of the deferred events
