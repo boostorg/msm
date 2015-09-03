@@ -1874,7 +1874,7 @@ private:
     struct handle_eventless_transitions_helper
     {
         handle_eventless_transitions_helper(library_sm* , bool ){}
-        void process_completion_event(EventSource = 0){}
+        void process_completion_event(EventSource = EVENT_SOURCE_DEFAULT){}
     };
     // otherwise
     template <class StateType>
@@ -1882,7 +1882,7 @@ private:
         <StateType, typename enable_if< typename ::boost::msm::back::has_fsm_eventless_transition<StateType>::type >::type>
     {
         handle_eventless_transitions_helper(library_sm* self_, bool handled_):self(self_),handled(handled_){}
-        void process_completion_event(EventSource source = 0)
+        void process_completion_event(EventSource source = EVENT_SOURCE_DEFAULT)
         {
             typedef typename ::boost::mpl::deref<
                 typename ::boost::mpl::begin<
