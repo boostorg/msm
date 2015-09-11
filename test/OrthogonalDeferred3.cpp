@@ -255,7 +255,6 @@ namespace
             bool operator()(EVT const& evt,FSM&,SourceState& ,TargetState& )
             {
                 bool is_play = boost::any_cast<play>(&evt) != 0;
-                std::cout << "is_play: " << is_play << std::endl;
                 return is_play;
             }
         };
@@ -266,7 +265,6 @@ namespace
             template <class EVT,class FSM,class SourceState,class TargetState>
             void operator()(EVT const& ,FSM& fsm,SourceState& ,TargetState& ) const
             {
-                std::cout << "MyDefer" << std::endl;
                 fsm.defer_event(play());
             }
         };
@@ -305,7 +303,6 @@ namespace
         template <class FSM,class Event>
         void no_transition(Event const& , FSM&,int)
         {
-            std::cout << "event: " << typeid(Event).name() << std::endl;
             BOOST_ERROR("no_transition called!");
         }
         // init counters
@@ -348,27 +345,22 @@ namespace
         p.start(); 
         // test deferred event
         // deferred in Empty and Open, will be handled only after event cd_detected
-        std::cout << "play 0" << std::endl;
         p.process_event(play());
-        std::cout << "play 1" << std::endl;
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 2,"Empty should be active"); //Empty
         BOOST_CHECK_MESSAGE(p.get_state<player_::Open&>().exit_counter == 0,"Open exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Playing&>().entry_counter == 0,"Playing entry not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Empty&>().entry_counter == 1,"Empty entry not called correctly");
         //flags
         BOOST_CHECK_MESSAGE(p.is_flag_active<CDLoaded>() == false,"CDLoaded should not be active");
-        std::cout << "play 1b" << std::endl;
         p.process_event(open_close()); 
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 1,"Open should be active"); //Open
         BOOST_CHECK_MESSAGE(p.get_state<player_::Empty&>().exit_counter == 1,"Empty exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Open&>().entry_counter == 1,"Open entry not called correctly");
-        std::cout << "play 1c" << std::endl;
         p.process_event(open_close()); 
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 2,"Empty should be active"); //Empty
         BOOST_CHECK_MESSAGE(p.get_state<player_::Open&>().exit_counter == 1,"Open exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Empty&>().entry_counter == 2,"Empty entry not called correctly");
         BOOST_CHECK_MESSAGE(p.can_close_drawer_counter == 1,"guard not called correctly");
-        std::cout << "play 1d" << std::endl;
         //deferred event should have been processed
         p.process_event(cd_detected("louie, louie")); 
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
@@ -469,7 +461,6 @@ namespace
         BOOST_CHECK_MESSAGE(p.get_state<player_::ErrorMode&>().entry_counter == 1,"ErrorMode entry not called correctly");
 
         // try generating more events
-        std::cout << "play 2" << std::endl;
         p.process_event(play());
         BOOST_CHECK_MESSAGE(p.current_state()[1] == 6,"ErrorMode should be active"); //ErrorMode
         BOOST_CHECK_MESSAGE(p.get_state<player_::AllOk&>().exit_counter == 1,"AllOk exit not called correctly");
@@ -483,7 +474,6 @@ namespace
         BOOST_CHECK_MESSAGE(p.get_state<player_::ErrorMode&>().exit_counter == 1,"ErrorMode exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::AllOk&>().entry_counter == 2,"AllOk entry not called correctly");
 
-        std::cout << "play 3" << std::endl;
         p.process_event(play());
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
         BOOST_CHECK_MESSAGE(p.get_state<player_::Stopped&>().exit_counter == 3,"Stopped exit not called correctly");
