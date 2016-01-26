@@ -593,7 +593,7 @@ a_row&lt; Paused  , open_close ,  Open     , &amp;player_::stop_and_open        
                     <para>Action methods return nothing and take the argument as const reference. Of
                         course nothing forbids you from using the same action for several
                         events:</para>
-                    <programlisting>template &lt;class Event> void stop_playback(Eventconst&amp;)</programlisting>
+                    <programlisting>template &lt;class Event> void stop_playback(Event const&amp;)</programlisting>
                     <para>Guards have as only difference the return value, which is a
                         boolean:</para>
                     <programlisting>bool good_disk_format(cd_detected const&amp; evt)</programlisting>
