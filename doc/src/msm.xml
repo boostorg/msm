@@ -802,12 +802,12 @@ typedef msm::back::state_machine&lt;Playing_> Playing;</programlisting>
                         <programlisting> 
 struct transition_table : mpl::vector&lt;
 //    Start    Event    Target    Action                      Guard 
-//   +--------+---------+--------+---------------------------+------+ 
-a_row&lt; Song1  , NextSong, Song2  , &amp;Playing_::start_next_song        >,
-a_row&lt; Song2  , NextSong, Song1  , &amp;Playing_::start_prev_song        >,
-a_row&lt; Song2  , NextSong, Song3  , &amp;Playing_::start_next_song        >,
-a_row&lt; Song3  , NextSong, Song2  , &amp;Playing_::start_prev_song        >
-//   +--------+---------+--------+---------------------------+------+ 
+//   +--------+-------------+--------+---------------------------+------+ 
+a_row&lt; Song1  , NextSong    , Song2  , &amp;Playing_::start_next_song        >,
+a_row&lt; Song2  , PreviousSong, Song1  , &amp;Playing_::start_prev_song        >,
+a_row&lt; Song2  , NextSong    , Song3  , &amp;Playing_::start_next_song        >,
+a_row&lt; Song3  , PreviousSong, Song2  , &amp;Playing_::start_prev_song        >
+//   +--------+-------------+--------+---------------------------+------+ 
 > {};
                         </programlisting>
                     </para>
