@@ -1587,7 +1587,7 @@ private:
      void set_states(Expr const& expr)
      {
          ::boost::fusion::for_each(
-             ::boost::fusion::as_vector(FoldToList()(expr, boost::fusion::nil())),update_state(this->m_substate_list));
+             ::boost::fusion::as_vector(FoldToList()(expr, boost::fusion::nil_())),update_state(this->m_substate_list));
      }
 
      // Construct with the default initial states
