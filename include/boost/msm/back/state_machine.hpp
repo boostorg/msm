@@ -1634,6 +1634,9 @@ private:
          fill_states(this);
      }
      // Construct with the default initial states and some default argument(s)
+#if defined (BOOST_NO_CXX11_RVALUE_REFERENCES)                                      \
+    || defined (BOOST_NO_CXX11_VARIADIC_TEMPLATES)                                  \
+    || defined (BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS)
 #define MSM_CONSTRUCTOR_HELPER_EXECUTE_SUB(z, n, unused) ARG ## n t ## n
 #define MSM_CONSTRUCTOR_HELPER_EXECUTE(z, n, unused)                                \
         template <BOOST_PP_ENUM_PARAMS(n, class ARG)>                               \
@@ -1682,6 +1685,47 @@ private:
 #undef MSM_CONSTRUCTOR_HELPER_EXECUTE
 #undef MSM_CONSTRUCTOR_HELPER_EXECUTE_SUB
 
+#else
+    template <class ARG0,class... ARG,class=typename ::boost::disable_if<typename ::boost::proto::is_expr<ARG0>::type >::type>
+    state_machine<A0,A1,A2,A3,A4
+    >(ARG0&& t0,ARG&&... t)
+    :Derived(std::forward<ARG0>(t0), std::forward<ARG>(t)...)
+     ,m_events_queue()
+     ,m_deferred_events_queue()
+     ,m_history()
+     ,m_event_processing(false)
+     ,m_is_included(false)
+     ,m_visitors()
+     ,m_substate_list()
+     {
+         ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
+                        (init_states(m_states));
+         m_history.set_initial_states(m_states);
+         fill_states(this);
+     }
+    template <class Expr,class... ARG,class=typename ::boost::enable_if<typename ::boost::proto::is_expr<Expr>::type >::type>
+    state_machine<A0,A1,A2,A3,A4
+    >(Expr const& expr,ARG&&... t)
+    :Derived(std::forward<ARG>(t)...)
+     ,m_events_queue()
+     ,m_deferred_events_queue()
+     ,m_history()
+     ,m_event_processing(false)
+     ,m_is_included(false)
+     ,m_visitors()
+     ,m_substate_list()
+     {
+         BOOST_MPL_ASSERT_MSG(
+         ( ::boost::proto::matches<Expr, FoldToList>::value),
+             THE_STATES_EXPRESSION_PASSED_DOES_NOT_MATCH_GRAMMAR,
+             (FoldToList));
+         ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
+                        (init_states(m_states));
+         m_history.set_initial_states(m_states);
+         set_states(expr);
+         fill_states(this);
+     }
+#endif
 
 
      // assignment operator using the copy policy to decide if non_copyable, shallow or deep copying is necessary
@@ -2883,4 +2927,3 @@ private:
 
 } } }// boost::msm::back
 #endif //BOOST_MSM_BACK_STATEMACHINE_H
-
