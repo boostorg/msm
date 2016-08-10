@@ -1587,6 +1587,24 @@ private:
              ::boost::fusion::as_vector(FoldToList()(expr, boost::fusion::nil())),update_state(this->m_substate_list));
      }
 
+     // Construct with the default initial states
+     state_machine<A0,A1,A2,A3,A4 >()
+         :Derived()
+         ,m_events_queue() 
+         ,m_deferred_events_queue()
+         ,m_history()
+         ,m_event_processing(false)
+         ,m_is_included(false)
+         ,m_visitors()
+         ,m_substate_list()
+     {
+         // initialize our list of states with the ones defined in Derived::initial_state
+         ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
+                        (init_states(m_states));
+         m_history.set_initial_states(m_states);
+         // create states
+         fill_states(this);
+     }
 #ifdef BOOST_MSM_INTERNAL_USE_VARIADIC_TEMPLATES
     template<class FirstArg, class... Args,
         typename = typename ::boost::disable_if<typename ::boost::proto::is_expr<FirstArg>::type>::type>
@@ -1626,24 +1644,6 @@ private:
         fill_states(this);
     }
 #else
-     // Construct with the default initial states
-     state_machine<A0,A1,A2,A3,A4 >()
-         :Derived()
-         ,m_events_queue() 
-         ,m_deferred_events_queue()
-         ,m_history()
-         ,m_event_processing(false)
-         ,m_is_included(false)
-         ,m_visitors()
-         ,m_substate_list()
-     {
-         // initialize our list of states with the ones defined in Derived::initial_state
-         ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
-                        (init_states(m_states));
-         m_history.set_initial_states(m_states);
-         // create states
-         fill_states(this);
-     }
      template <class Expr>
      state_machine<A0,A1,A2,A3,A4 >
          (Expr const& expr,typename ::boost::enable_if<typename ::boost::proto::is_expr<Expr>::type >::type* =0)
