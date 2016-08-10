@@ -78,6 +78,14 @@ BOOST_MPL_HAS_XXX_TRAIT_DEF(compile_policy)
 BOOST_MPL_HAS_XXX_TRAIT_DEF(queue_container_policy)
 BOOST_MPL_HAS_XXX_TRAIT_DEF(using_declared_table)
 
+#ifndef BOOST_MSM_FORCE_PP
+# ifndef BOOST_NO_CXX11_VARIADIC_TEMPLATES
+#  ifndef BOOST_NO_CXX11_RVALUE_REFERENCES
+#   define BOOST_MSM_INTERNAL_USE_VARIADIC_TEMPLATES
+#  endif
+# endif
+#endif
+
 #ifndef BOOST_MSM_CONSTRUCTOR_ARG_SIZE
 #define BOOST_MSM_CONSTRUCTOR_ARG_SIZE 5 // default max number of arguments for constructors
 #endif
@@ -1579,6 +1587,45 @@ private:
              ::boost::fusion::as_vector(FoldToList()(expr, boost::fusion::nil())),update_state(this->m_substate_list));
      }
 
+#ifdef BOOST_MSM_INTERNAL_USE_VARIADIC_TEMPLATES
+    template<class FirstArg, class... Args,
+        typename = typename ::boost::disable_if<typename ::boost::proto::is_expr<FirstArg>::type>::type>
+    state_machine<A0,A1,A2,A3,A4>(FirstArg&& first, Args&&... args)
+        : Derived(std::forward<FirstArg>(first), std::forward<Args>(args)...),
+          m_events_queue(),
+          m_deferred_events_queue(),
+          m_history(),
+          m_event_processing(false),
+          m_is_included(false),
+          m_visitors(),
+          m_substate_list()
+    {
+        ::boost::mpl::for_each<seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >(init_states(m_states));
+        m_history.set_initial_states(m_states);
+        fill_states(this);
+    }
+
+    template<class Expr, class... Args,
+        typename = typename ::boost::enable_if<typename ::boost::proto::is_expr<Expr>::type>::type>
+    state_machine<A0,A1,A2,A3,A4>(Expr expr, Args&&... args)
+        : Derived(std::forward<Args>(args)...),
+          m_events_queue(),
+          m_deferred_events_queue(),
+          m_history(),
+          m_event_processing(false),
+          m_is_included(false),
+          m_visitors(),
+          m_substate_list()
+    {
+        BOOST_MPL_ASSERT_MSG((::boost::proto::matches<Expr, FoldToList>::value),
+            THE_STATES_EXPRESSION_PASSED_DOES_NOT_MATCH_GRAMMAR, (FoldToList));
+
+        ::boost::mpl::for_each<seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >(init_states(m_states));
+        m_history.set_initial_states(m_states);
+        set_states(expr);
+        fill_states(this);
+    }
+#else
      // Construct with the default initial states
      state_machine<A0,A1,A2,A3,A4 >()
          :Derived()
@@ -1670,6 +1717,7 @@ private:
      BOOST_PP_REPEAT_FROM_TO(1,BOOST_PP_ADD(BOOST_MSM_CONSTRUCTOR_ARG_SIZE,1), MSM_CONSTRUCTOR_HELPER_EXECUTE, ~)
 #undef MSM_CONSTRUCTOR_HELPER_EXECUTE
 #undef MSM_CONSTRUCTOR_HELPER_EXECUTE_SUB
+#endif
 
 
 
