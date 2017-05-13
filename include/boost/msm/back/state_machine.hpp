@@ -1275,7 +1275,7 @@ private:
         m_events_queue.m_events_queue.push_back(
             ::boost::bind(
                 pf, this, evt,
-                EVENT_SOURCE_MSG_QUEUE));
+                static_cast<EventSource>(EVENT_SOURCE_MSG_QUEUE)));
     }
     template <class EventType>
     void enqueue_event_helper(EventType const& , ::boost::mpl::true_ const &)
@@ -1552,8 +1552,8 @@ private:
         m_deferred_events_queue.m_deferred_events_queue.push_back(
             std::make_pair(
                 ::boost::bind(
-                    pf, this, e, (EVENT_SOURCE_DIRECT|EVENT_SOURCE_DEFERRED)),
-                m_deferred_events_queue.m_cur_seq+1));
+                    pf, this, e, static_cast<EventSource>(EVENT_SOURCE_DIRECT|EVENT_SOURCE_DEFERRED)),
+                static_cast<char>(m_deferred_events_queue.m_cur_seq+1)));
     }
 
  protected:    // interface for the derived class
@@ -1748,7 +1748,7 @@ private:
             m_events_queue.m_events_queue.push_back(
                 ::boost::bind(
                     pf, this, evt,
-                    EVENT_SOURCE_DIRECT | EVENT_SOURCE_MSG_QUEUE));
+                    static_cast<EventSource>(EVENT_SOURCE_DIRECT | EVENT_SOURCE_MSG_QUEUE)));
 
             return false;
         }
