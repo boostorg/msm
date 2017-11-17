@@ -42,7 +42,6 @@
 #include <boost/type_traits/is_convertible.hpp>
 
 #include <boost/bind.hpp>
-#include <boost/bind/apply.hpp>
 #include <boost/function.hpp>
 #ifndef BOOST_NO_RTTI
 #include <boost/any.hpp>
