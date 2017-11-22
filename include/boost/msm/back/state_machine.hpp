@@ -76,7 +76,7 @@ BOOST_MPL_HAS_XXX_TRAIT_DEF(fsm_check)
 BOOST_MPL_HAS_XXX_TRAIT_DEF(compile_policy)
 BOOST_MPL_HAS_XXX_TRAIT_DEF(queue_container_policy)
 BOOST_MPL_HAS_XXX_TRAIT_DEF(using_declared_table)
-BOOST_MPL_HAS_XXX_TRAIT_DEF(no_bugfix_wrong_event_order)
+BOOST_MPL_HAS_XXX_TRAIT_DEF(event_queue_before_deferred_queue)
 
 #ifndef BOOST_MSM_CONSTRUCTOR_ARG_SIZE
 #define BOOST_MSM_CONSTRUCTOR_ARG_SIZE 5 // default max number of arguments for constructors
@@ -1727,6 +1727,39 @@ private:
         // no terminate/interrupt states detected
         return false;
     }
+    void do_handle_prio_msg_queue_deferred_queue(EventSource source, HandledEnum handled, ::boost::mpl::true_ const &)
+    {
+        // non-default. Handle msg queue with higher prio than deferred queue
+        if (!(EVENT_SOURCE_MSG_QUEUE & source))
+        {
+            do_post_msg_queue_helper(
+                ::boost::mpl::bool_<
+                    is_no_message_queue<library_sm>::type::value>());
+            if (!(EVENT_SOURCE_DEFERRED & source))
+            {
+                handle_defer_helper<library_sm> defer_helper(m_deferred_events_queue);
+                defer_helper.do_handle_deferred(HANDLED_TRUE & handled);
+            }
+        }
+    }
+    void do_handle_prio_msg_queue_deferred_queue(EventSource source, HandledEnum handled, ::boost::mpl::false_ const &)
+    {
+        // default. Handle deferred queue with higher prio than msg queue
+        if (!(EVENT_SOURCE_DEFERRED & source))
+        {
+            handle_defer_helper<library_sm> defer_helper(m_deferred_events_queue);
+            defer_helper.do_handle_deferred(HANDLED_TRUE & handled);
+
+            // Handle any new events generated into the queue, but only if
+            // we're not already processing from the message queue.
+            if (!(EVENT_SOURCE_MSG_QUEUE & source))
+            {
+                do_post_msg_queue_helper(
+                    ::boost::mpl::bool_<
+                        is_no_message_queue<library_sm>::type::value>());
+            }
+        }
+    }
     // the following functions handle pre/post-process handling  of a message queue
     template <class StateType,class EventType>
     bool do_pre_msg_queue_helper(EventType const&, ::boost::mpl::true_ const &)
@@ -1756,37 +1789,19 @@ private:
         m_event_processing = true;
         return true;
     }
-    void do_post_msg_queue_helper( ::boost::mpl::true_ const &,::boost::mpl::true_ const &)
+    void do_post_msg_queue_helper( ::boost::mpl::true_ const &)
     {
         // no message queue needed
     }
-    void do_post_msg_queue_helper( ::boost::mpl::true_ const &,::boost::mpl::false_ const &)
-    {
-        // no message queue needed
-    }
-    void do_post_msg_queue_helper( ::boost::mpl::false_ const &,::boost::mpl::true_ const &)
-    {
-        // keep old buggy behaviour (deferred events enqueued, not executed after transition)
-        m_event_processing = false;
-        process_message_queue(this);
-    }
-    void do_post_msg_queue_helper( ::boost::mpl::false_ const &,::boost::mpl::false_ const &)
+    void do_post_msg_queue_helper( ::boost::mpl::false_ const &)
     {
         process_message_queue(this);
     }
-    void do_allow_event_processing_after_transition( ::boost::mpl::true_ const &,::boost::mpl::true_ const &)
+    void do_allow_event_processing_after_transition( ::boost::mpl::true_ const &)
     {
         // no message queue needed
     }
-    void do_allow_event_processing_after_transition( ::boost::mpl::true_ const &,::boost::mpl::false_ const &)
-    {
-        // no message queue needed
-    }
-    void do_allow_event_processing_after_transition( ::boost::mpl::false_ const &,::boost::mpl::true_ const &)
-    {
-        // keep old buggy behaviour (deferred events enqueued, not executed after transition)
-    }
-    void do_allow_event_processing_after_transition( ::boost::mpl::false_ const &,::boost::mpl::false_ const &)
+    void do_allow_event_processing_after_transition( ::boost::mpl::false_ const &)
     {
         m_event_processing = false;
     }
@@ -2030,8 +2045,7 @@ private:
             // at this point we allow the next transition be executed without enqueing
             // so that completion events and deferred events execute now (if any)
             do_allow_event_processing_after_transition(
-                ::boost::mpl::bool_<is_no_message_queue<library_sm>::type::value>(),
-                ::boost::mpl::bool_<has_no_bugfix_wrong_event_order<library_sm>::type::value>());
+                ::boost::mpl::bool_<is_no_message_queue<library_sm>::type::value>());
 
             // Process completion transitions BEFORE any other event in the
             // pool (UML Standard 2.3 15.3.14)
@@ -2041,23 +2055,9 @@ private:
 
             // After handling, take care of the deferred events, but only if
             // we're not already processing from the deferred queue.
-            if (!(EVENT_SOURCE_DEFERRED & source))
-            {
-                handle_defer_helper<library_sm> defer_helper(m_deferred_events_queue);
-                defer_helper.do_handle_deferred(HANDLED_TRUE & handled);
-
-                // Handle any new events generated into the queue, but only if
-                // we're not already processing from the message queue.
-                if (!(EVENT_SOURCE_MSG_QUEUE & source))
-                {
-                    do_post_msg_queue_helper(
-                        ::boost::mpl::bool_<
-                            is_no_message_queue<library_sm>::type::value>(),
-                        ::boost::mpl::bool_<
-                            has_no_bugfix_wrong_event_order<library_sm>::type::value>());
-                }
-            }
-
+            do_handle_prio_msg_queue_deferred_queue(
+                        source,handled,
+                        ::boost::mpl::bool_<has_event_queue_before_deferred_queue<library_sm>::type::value>());
             return handled;
         }
     }
