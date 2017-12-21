@@ -11,13 +11,15 @@ import testing ;
 project msm
     :
     requirements
-        <include>.
+       <include>.
        <toolset>gcc:<cxxflags>"-ftemplate-depth-300 -g0"
        <toolset>darwin:<cxxflags>"-ftemplate-depth-300 -g0"
        <toolset>intel:<cxxflags>"-g0"
+       <toolset>clang:<cxxflags>"-g0"
        <toolset>gcc:<optimization>off
        <toolset>darwin:<optimization>off
        <toolset>intel:<optimization>off
+       <toolset>clang:<optimization>off
        <library>/boost/test//boost_unit_test_framework/<link>static
        <library>/boost/serialization//boost_serialization/<link>static
     ;
@@ -48,3 +50,4 @@ test-suite msm-unit-tests
     [ run TestConstructor.cpp ]
     ;
 
+unit-test TestConstructorMovableOnlyTypes : TestConstructorMovableOnlyTypes.cpp : <cxxflags>-std=c++14 ;
