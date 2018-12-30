@@ -2,8 +2,8 @@
 #
 # Copyright (c) 2010 Christophe Henry
 #
-# Use, modification and distribution is subject to the Boost Software License,
-# Version 1.0. (See accompanying file LICENSE_1_0.txt or copy at
+# Distributed under the Boost Software License, Version 1.0.
+# (See accompanying file LICENSE_1_0.txt or copy at
 # http://www.boost.org/LICENSE_1_0.txt)
 
 import testing ;
@@ -12,17 +12,32 @@ project msm
     :
     requirements
         <include>.
-       <toolset>gcc:<cxxflags>"-ftemplate-depth-300 -g0"
-       <toolset>darwin:<cxxflags>"-ftemplate-depth-300 -g0"
-       <toolset>intel:<cxxflags>"-g0"
-       <toolset>gcc:<optimization>off
-       <toolset>darwin:<optimization>off
-       <toolset>intel:<optimization>off
-       <library>/boost/test//boost_unit_test_framework/<link>static
-       <library>/boost/serialization//boost_serialization/<link>static
+        <toolset>gcc:<cxxflags>"-ftemplate-depth-300 -g0"
+        <toolset>darwin:<cxxflags>"-ftemplate-depth-300 -g0"
+        <toolset>intel:<cxxflags>"-g0"
+        <toolset>gcc:<optimization>off
+        <toolset>darwin:<optimization>off
+        <toolset>intel:<optimization>off
+        <library>/boost/test//boost_unit_test_framework/<link>static
+        <library>/boost/serialization//boost_serialization/<link>static
     ;
 
-test-suite msm-unit-tests
+alias msm_tests_standard
+    :
+    :
+        <toolset>gcc
+        <toolset-gcc:version>3.4
+    ;
+
+alias msm_tests_standard
+    :
+    :
+        <target-os>windows
+        <toolset>msvc
+        <toolset-msvc:version>7.1
+    ;
+
+alias msm_tests_standard
     :
     [ run Anonymous.cpp ]
     [ run AnonymousEuml.cpp ]
@@ -31,10 +46,6 @@ test-suite msm-unit-tests
     [ run Constructor.cpp ]
     [ run Entries.cpp ]
     [ run History.cpp ]
-    [ run OrthogonalDeferred.cpp ]
-    [ run OrthogonalDeferred2.cpp ]
-    [ run OrthogonalDeferred3.cpp ]
-    [ run OrthogonalDeferredEuml.cpp ]
     [ run SimpleEuml.cpp ]
     [ run SimpleEuml2.cpp ]
     [ run SimpleInternal.cpp ]
@@ -42,9 +53,95 @@ test-suite msm-unit-tests
     [ run SimpleInternalFunctors.cpp ]
     [ run SimpleMachine.cpp ]
     [ run SimpleWithFunctors.cpp ]
+    ;
+
+alias msm_tests_orthogonal_deferred
+    :
+    :
+        <target-os>windows
+        <toolset>msvc
+        <toolset-msvc:version>7.1
+    ;
+
+alias msm_tests_orthogonal_deferred
+    :
+    :
+        <target-os>windows
+        <toolset>msvc
+        <toolset-msvc:version>8.0
+    ;
+
+alias msm_tests_orthogonal_deferred
+    :
+    [ run OrthogonalDeferred.cpp ]
+    [ run OrthogonalDeferred2.cpp ]
+    [ run OrthogonalDeferred3.cpp ]
+    [ run OrthogonalDeferredEuml.cpp ]
+    ;
+
+alias msm_tests_serialize
+    :
+    :
+        <toolset>gcc
+        <toolset-gcc:version>4.3
+    ;
+
+alias msm_tests_serialize
+    :
+    :
+        <target-os>windows
+        <toolset>msvc
+        <toolset-msvc:version>7.1
+    ;
+
+alias msm_tests_serialize
+    :
     [ run Serialize.cpp ]
     [ run SerializeWithHistory.cpp ]
     [ run SerializeSimpleEuml.cpp ]
+    ;
+
+alias msm_test_test_constructor
+    :
+    :
+        <toolset>gcc
+        <toolset-gcc:version>4.4.7
+    ;
+
+alias msm_test_test_constructor
+    :
+    :
+        <target-os>windows
+        <toolset>msvc
+        <toolset-msvc:version>7.1
+    ;
+
+alias msm_test_test_constructor
+    :
+    :
+        <target-os>windows
+        <toolset>msvc
+        <toolset-msvc:version>8.0
+    ;
+
+alias msm_test_test_constructor
+    :
+    :
+        <target-os>windows
+        <toolset>msvc
+        <toolset-msvc:version>14.1
+    ;
+
+alias msm_test_test_constructor
+    :
     [ run TestConstructor.cpp ]
+    ;
+
+test-suite msm-unit-tests
+    :
+    msm_tests_standard
+    msm_tests_orthogonal_deferred
+    msm_tests_serialize
+    msm_test_test_constructor
     ;
 
