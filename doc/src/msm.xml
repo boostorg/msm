@@ -4037,6 +4037,19 @@ typename ::boost::enable_if&lt;
         <chapter>
             <title>Version history</title>
             <sect1>
+                <title>From V2.28 to V2.29 (Boost 1.72)</title>
+                <para>
+                    <itemizedlist>
+                        <listitem>
+                            <para>Merged from develop new implementation of deferred events</para>
+                        </listitem>
+                        <listitem>
+                            <para>Div. bugfixes</para>
+                        </listitem>
+                    </itemizedlist>
+                </para>
+            </sect1>
+            <sect1>
                 <title>From V2.27 to V2.28 (Boost 1.57)</title>
                 <para>
                     <itemizedlist>
