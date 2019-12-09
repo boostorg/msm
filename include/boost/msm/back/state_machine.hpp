@@ -1217,9 +1217,10 @@ private:
     // start the state machine (calls entry of the initial state)
     void start()
     {
-         // reinitialize our list of currently active states with the ones defined in Derived::initial_state
-         ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
+        // reinitialize our list of currently active states with the ones defined in Derived::initial_state
+        ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
                         (init_states(m_states));
+        m_event_processing = true;
         // call on_entry on this SM
         (static_cast<Derived*>(this))->on_entry(fsm_initial_event(),*this);
         ::boost::mpl::for_each<initial_states, boost::msm::wrap<mpl::placeholders::_1> >
@@ -1227,6 +1228,7 @@ private:
         // give a chance to handle an anonymous (eventless) transition
         handle_eventless_transitions_helper<library_sm> eventless_helper(this,true);
         eventless_helper.process_completion_event();
+        do_post_msg_queue_helper(::boost::mpl::bool_<is_no_message_queue<library_sm>::type::value>());
     }
 
     // start the state machine (calls entry of the initial state passing incomingEvent to on_entry's)
@@ -1236,6 +1238,7 @@ private:
         // reinitialize our list of currently active states with the ones defined in Derived::initial_state
         ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
                         (init_states(m_states));
+        m_event_processing = true;
         // call on_entry on this SM
         (static_cast<Derived*>(this))->on_entry(incomingEvent,*this);
         ::boost::mpl::for_each<initial_states, boost::msm::wrap<mpl::placeholders::_1> >
@@ -1243,6 +1246,7 @@ private:
         // give a chance to handle an anonymous (eventless) transition
         handle_eventless_transitions_helper<library_sm> eventless_helper(this,true);
         eventless_helper.process_completion_event();
+        do_post_msg_queue_helper(::boost::mpl::bool_<is_no_message_queue<library_sm>::type::value>());
     }
 
     // stop the state machine (calls exit of the current state)
