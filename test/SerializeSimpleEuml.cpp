@@ -134,9 +134,9 @@ namespace
                             "Open entry not called correctly");
 
         // test the serialization
-        std::ofstream ofs("fsm.txt");
         // save fsm to archive (current state is Open)
         {
+            std::ofstream ofs("fsm_serializeSimpleEuml.txt");
             boost::archive::text_oarchive oa(ofs);
             // write class instance to archive
             oa << p2;
@@ -145,7 +145,7 @@ namespace
         player p;
         {
             // create and open an archive for input
-            std::ifstream ifs("fsm.txt");
+            std::ifstream ifs("fsm_serializeSimpleEuml.txt");
             boost::archive::text_iarchive ia(ifs);
             // read class state from archive
             ia >> p;

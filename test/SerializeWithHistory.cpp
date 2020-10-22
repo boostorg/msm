@@ -326,9 +326,9 @@ namespace
         BOOST_CHECK_MESSAGE(p.get_state<player_::Playing&>().exit_counter == 1,"Playing exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Paused&>().entry_counter == 1,"Paused entry not called correctly");
 
-        std::ofstream ofs("fsm.txt");
         // save fsm to archive (current state is Pause, Playing is in Song2)
         {
+            std::ofstream ofs("fsm_SerializeWithHistory.txt");
             boost::archive::text_oarchive oa(ofs);
             // write class instance to archive
             oa << p;
@@ -337,7 +337,7 @@ namespace
         player p2;
         {
             // create and open an archive for input
-            std::ifstream ifs("fsm.txt");
+            std::ifstream ifs("fsm_SerializeWithHistory.txt");
             boost::archive::text_iarchive ia(ifs);
             // read class state from archive
             ia >> p2;

@@ -232,9 +232,9 @@ namespace
         BOOST_CHECK_MESSAGE(p.get_state<player_::Open&>().entry_counter == 1,"Open entry not called correctly");
 
         // test the serialization
-        std::ofstream ofs("fsm.txt");
         // save fsm to archive (current state is Open)
         {
+            std::ofstream ofs("fsm_Serialize.txt");
             boost::archive::text_oarchive oa(ofs);
             // write class instance to archive
             oa << p;
@@ -243,7 +243,7 @@ namespace
         player p2;
         {
             // create and open an archive for input
-            std::ifstream ifs("fsm.txt");
+            std::ifstream ifs("fsm_Serialize.txt");
             boost::archive::text_iarchive ia(ifs);
             // read class state from archive
             ia >> p2;
