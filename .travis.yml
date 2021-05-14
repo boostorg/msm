@@ -4,9 +4,7 @@
 
 language: cpp
 
-sudo: false
-
-python: "2.7"
+dist: xenial
 
 branches:
   only:
@@ -25,8 +23,84 @@ matrix:
 
   include:
     - os: linux
-      compiler: g++
+      compiler: g++-4.4
+      env: TOOLSET=gcc CXXSTD=98,0x
+      addons:
+        apt:
+          packages:
+            - g++-4.4
+          sources:
+            - ubuntu-toolchain-r-test
+
+    - os: linux
+      compiler: g++-4.6
+      env: TOOLSET=gcc CXXSTD=03,0x
+      addons:
+        apt:
+          packages:
+            - g++-4.6
+          sources:
+            - ubuntu-toolchain-r-test
+
+    - os: linux
+      compiler: g++-4.8
       env: TOOLSET=gcc CXXSTD=03,11
+      addons:
+        apt:
+          packages:
+            - g++-4.8
+          sources:
+            - ubuntu-toolchain-r-test
+
+    - os: linux
+      compiler: g++-5
+      env: TOOLSET=gcc CXXSTD=03,11,14
+      addons:
+        apt:
+          packages:
+            - g++-5
+          sources:
+            - ubuntu-toolchain-r-test
+
+    - os: linux
+      compiler: g++-7
+      env: TOOLSET=gcc CXXSTD=03,11,14,17
+      addons:
+        apt:
+          packages:
+            - g++-7
+          sources:
+            - ubuntu-toolchain-r-test
+
+    - os: linux
+      compiler: g++-9
+      env: TOOLSET=gcc CXXSTD=03,11,14,17
+      addons:
+        apt:
+          packages:
+            - g++-9
+          sources:
+            - ubuntu-toolchain-r-test
+
+    - os: linux
+      compiler: g++-10
+      env: TOOLSET=gcc CXXSTD=03,11,14,17,2a
+      addons:
+        apt:
+          packages:
+            - g++-10
+          sources:
+            - ubuntu-toolchain-r-test
+
+    - os: linux
+      compiler: g++-11
+      env: TOOLSET=gcc CXXSTD=03,11,14,17,2a
+      addons:
+        apt:
+          packages:
+            - g++-11
+          sources:
+            - ubuntu-toolchain-r-test
 
     - os: linux
       compiler: clang++
@@ -56,7 +130,9 @@ install:
   - ./b2 headers
 
 script:
-  - ./b2 libs/msm/test toolset=$TOOLSET cxxstd=$CXXSTD
+  - |-
+    echo "using $TOOLSET : : $TRAVIS_COMPILER ;" > ~/user-config.jam
+  - ./b2 -j3 libs/msm/test toolset=$TOOLSET cxxstd=$CXXSTD
 
 notifications:
   email:
