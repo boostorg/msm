@@ -24,7 +24,7 @@ matrix:
   include:
     - os: linux
       compiler: g++-4.4
-      env: TOOLSET=gcc CXXSTD=98,0x
+      env: TOOLSET=gcc CXXSTD=98
       addons:
         apt:
           packages:
@@ -83,6 +83,7 @@ matrix:
             - ubuntu-toolchain-r-test
 
     - os: linux
+      dist: bionic
       compiler: g++-10
       env: TOOLSET=gcc CXXSTD=03,11,14,17,2a
       addons:
@@ -90,9 +91,10 @@ matrix:
           packages:
             - g++-10
           sources:
-            - ubuntu-toolchain-r-test
+            - sourceline: "ppa:ubuntu-toolchain-r/test"
 
     - os: linux
+      dist: bionic
       compiler: g++-11
       env: TOOLSET=gcc CXXSTD=03,11,14,17,2a
       addons:
@@ -100,17 +102,40 @@ matrix:
           packages:
             - g++-11
           sources:
-            - ubuntu-toolchain-r-test
+            - sourceline: "ppa:ubuntu-toolchain-r/test"
 
     - os: linux
-      compiler: clang++
-      env: TOOLSET=clang CXXSTD=03,11,14,1z
+      compiler: clang++-11
+      env: TOOLSET=clang CXXSTD=03,11,14,17,20
       addons:
         apt:
           packages:
-            - libstdc++-4.9-dev
+            - clang-11
           sources:
             - ubuntu-toolchain-r-test
+            - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-11 main'
+              key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
+
+    - os: linux
+      compiler: clang++-12
+      env: TOOLSET=clang CXXSTD=03,11,14,17,20
+      addons:
+        apt:
+          packages:
+            - clang-12
+          sources:
+            - ubuntu-toolchain-r-test
+            - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-12 main'
+              key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
+
+    - os: linux
+      dist: bionic
+      compiler: clang++-libc++
+      env: TOOLSET=clang CXXSTD=03,11,14,17,2a
+      addons:
+        apt:
+          packages:
+            - libc++-dev
 
     - os: osx
       compiler: clang++
