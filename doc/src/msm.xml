@@ -684,7 +684,7 @@ template &lt;class Fire> void send_rocket(Fire const&amp; evt)
        fire_rocket(evt.direction, fsm.current_calculation);
     } 
 };</programlisting>
-                    <para>Exit actions are also ideal for clanup when the state becomes
+                    <para>Exit actions are also ideal for cleanup when the state becomes
                         inactive.</para>
                     <para>Another possible use of the entry action is to pass data to substates /
                         submachines. Launching is a substate containing  a <code>data</code> attribute:</para>
@@ -982,7 +982,7 @@ g_row &lt; Empty , play , Playing , &amp;player_::condition2 ></programlisting>
                         Playing state would become active and the first song would play again. Soon
                         would the first client complaints follow. They'd of course demand, that if
                         the player was paused, then it should remember which song was playing. But
-                        it the player was stopped, then it should restart from the first song. How
+                        if the player was stopped, then it should restart from the first song. How
                         can it be done? Of course, you could add a bit of programming logic and
                         generate extra events to make the second song start if coming from Pause.
                         Something like: </para>
