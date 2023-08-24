@@ -264,6 +264,10 @@ namespace
 
 // error C2440: '<function-style-cast>': cannot convert from 'const boost::msm::msm_terminal<Expr>' to '`anonymous-namespace'::player_::Playing'
 
+#elif defined(BOOST_CLANG_VERSION) && BOOST_CLANG_VERSION >= 160000 && BOOST_CLANG_VERSION < 170000
+
+// error: ambiguous conversion for functional-style cast from 'const typename boost::proto::detail::enable_binary<deduce_domain, deduce_domain::proto_grammar, boost::mpl::or_<is_extension<const define_states_creation<is_proto_expr> &>, is_extension<Song1>>, boost::proto::tag::shift_left, const define_states_creation<> &, const Song1 &>::type'
+
 #else
 
         ctx.bla = 3;
