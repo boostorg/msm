@@ -2274,10 +2274,12 @@ private:
         BOOST_STATIC_CONSTANT(int, max_state = (mpl::size<state_list>::value));
 
         static flag_handler flags_entries[max_state];
-        // build a state list
-        ::boost::mpl::for_each<state_list, boost::msm::wrap< ::boost::mpl::placeholders::_1> >
-                        (init_flags<Flag>(flags_entries));
-        return flags_entries;
+        // build a state list, but only once
+        static flag_handler* flags_entries_ptr =
+            (::boost::mpl::for_each<state_list, boost::msm::wrap< ::boost::mpl::placeholders::_1> >
+                            (init_flags<Flag>(flags_entries)),
+            flags_entries);
+        return flags_entries_ptr;
     }
 
     // helper used to create a state using the correct constructor
