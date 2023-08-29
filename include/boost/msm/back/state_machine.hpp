@@ -97,11 +97,6 @@ struct direct_entry_event
     Event const& m_event;
 };
 
-// This declares the statically-initialized dispatch_table instance.
-template <class Fsm,class Stt, class Event,class CompilePolicy>
-const boost::msm::back::dispatch_table<Fsm,Stt, Event,CompilePolicy>
-dispatch_table<Fsm,Stt, Event,CompilePolicy>::instance;
-
 BOOST_PARAMETER_TEMPLATE_KEYWORD(front_end)
 BOOST_PARAMETER_TEMPLATE_KEYWORD(history_policy)
 BOOST_PARAMETER_TEMPLATE_KEYWORD(compile_policy)
@@ -1984,7 +1979,7 @@ private:
             if (result != HANDLED_TRUE)
             {
                 typedef dispatch_table<library_sm,complete_table,Event,CompilePolicy> table;
-                HandledEnum res_internal = table::instance.entries[0](*self_, 0, self_->m_states[0], evt);
+                HandledEnum res_internal = table::instance().entries[0](*self_, 0, self_->m_states[0], evt);
                 result = (HandledEnum)((int)result | (int)res_internal);
             }
         }
@@ -2008,7 +2003,7 @@ private:
             typedef dispatch_table<library_sm,complete_table,Event,CompilePolicy> table;
             // +1 because index 0 is reserved for this fsm
             HandledEnum res =
-                table::instance.entries[self->m_states[0]+1](
+                table::instance().entries[self->m_states[0]+1](
                 *self, 0, self->m_states[0], evt);
             result = (HandledEnum)((int)result | (int)res);
             // process the event in the internal table of this fsm if the event is processable (present in the table)
@@ -2034,7 +2029,7 @@ private:
                 typedef dispatch_table<library_sm,complete_table,Event,CompilePolicy> table;
                 // +1 because index 0 is reserved for this fsm
                 HandledEnum res =
-                    table::instance.entries[self_->m_states[region_id::value]+1](
+                    table::instance().entries[self_->m_states[region_id::value]+1](
                     *self_, region_id::value , self_->m_states[region_id::value], evt);
                 result_ = (HandledEnum)((int)result_ | (int)res);
                 In< ::boost::mpl::int_<region_id::value+1> >::process(evt,self_,result_);
