@@ -100,7 +100,7 @@ namespace
             bool operator()(EVT const& evt,FSM& fsm,SourceState& src,TargetState& tgt)
             {
                 std::cout << "always_false" << std::endl;
-                return true;
+                return false;
             }
         };
 
