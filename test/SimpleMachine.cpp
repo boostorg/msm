@@ -14,7 +14,7 @@
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE MyTest
+#define BOOST_TEST_MODULE simple_machine_test
 #endif
 #include <boost/test/unit_test.hpp>
 
@@ -191,7 +191,7 @@ namespace
 //    static char const* const state_names[] = { "Stopped", "Open", "Empty", "Playing", "Paused" };
 
 
-    BOOST_AUTO_TEST_CASE( my_test )
+    BOOST_AUTO_TEST_CASE( simple_machine_test )
     {     
         player p;
 

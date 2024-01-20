@@ -10,12 +10,11 @@
 
 #include <iostream>
 // back-end
-#include <boost/msm/back/state_machine.hpp>
+#include <boost/msm/back11/state_machine.hpp>
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>
-
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE MyTest
+#define BOOST_TEST_MODULE back11_anonymous_test
 #endif
 #include <boost/test/unit_test.hpp>
 
@@ -105,7 +104,7 @@ namespace
         typedef my_machine_ p; // makes transition table cleaner
 
         // Transition table for player
-        struct transition_table : mpl::vector<
+        struct transition_table : boost::fusion::vector<
             //    Start     Event         Next      Action               Guard
             //  +---------+-------------+---------+---------------------+----------------------+
            _row < State1  , none        , State2                                               >,
@@ -137,12 +136,12 @@ namespace
         }
     };
     // Pick a back-end
-    typedef msm::back::state_machine<my_machine_> my_machine;
+    typedef msm::back11::state_machine<my_machine_> my_machine;
 
     //static char const* const state_names[] = { "State1", "State2", "State3", "State4" };
 
 
-    BOOST_AUTO_TEST_CASE( anonymous_test )
+    BOOST_AUTO_TEST_CASE( back11_anonymous_test )
     {        
         my_machine p;
 

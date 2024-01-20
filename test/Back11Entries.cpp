@@ -10,16 +10,17 @@
 
 #include <iostream>
 // back-end
-#include <boost/msm/back/state_machine.hpp>
+#include <boost/msm/back11/state_machine.hpp>
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE MyTest
+#define BOOST_TEST_MODULE back11_entries_test
 #endif
 #include <boost/test/unit_test.hpp>
 
 namespace msm = boost::msm;
 namespace mpl = boost::mpl;
+namespace fusion = boost::fusion;
 
 namespace
 {
@@ -59,7 +60,7 @@ namespace
         };
         struct SubFsm2_ : public msm::front::state_machine_def<SubFsm2_>
         {
-            typedef msm::back::state_machine<SubFsm2_> SubFsm2;
+            typedef msm::back11::state_machine<SubFsm2_> SubFsm2;
 
             unsigned int entry_action_counter;
 
@@ -140,12 +141,12 @@ namespace
                 ++entry_action_counter;
             }
             // the initial state. Must be defined
-            typedef mpl::vector<SubState1,SubState1b> initial_state;
+            typedef fusion::vector<SubState1,SubState1b> initial_state;
 
-            typedef mpl::vector<SubState2b> explicit_creation;
+            typedef fusion::vector<SubState2b> explicit_creation;
 
             // Transition table for SubFsm2
-            struct transition_table : mpl::vector<
+            struct transition_table : fusion::vector<
                 //      Start          Event         Next         Action                  Guard
                 //    +--------------+-------------+------------+------------------------+----------------------+
                 a_row < PseudoEntry1 , event4      , SubState3  ,&SubFsm2_::entry_action                        >,
@@ -160,7 +161,7 @@ namespace
                 BOOST_FAIL("no_transition called!");
             }
         };
-        typedef msm::back::state_machine<SubFsm2_> SubFsm2;
+        typedef msm::back11::state_machine<SubFsm2_> SubFsm2;
 
         // the initial state of the player SM. Must be defined
         typedef State1 initial_state;
@@ -169,13 +170,13 @@ namespace
         // guard conditions
 
         // Transition table for Fsm
-        struct transition_table : mpl::vector<
+        struct transition_table : fusion::vector<
             //    Start                 Event    Next                                 Action  Guard
             //   +---------------------+--------+------------------------------------+-------+--------+
             _row < State1              , event1 , SubFsm2                                             >,
             _row < State1              , event2 , SubFsm2::direct<SubFsm2_::SubState2>                >,
-            _row < State1              , event3 , mpl::vector<SubFsm2::direct<SubFsm2_::SubState2>,
-                                                              SubFsm2::direct<SubFsm2_::SubState2b> > >,
+            _row < State1              , event3 , fusion::vector<SubFsm2::direct<SubFsm2_::SubState2>,
+                                                                 SubFsm2::direct<SubFsm2_::SubState2b> > >,
             _row < State1              , event4 , SubFsm2::entry_pt
                                                         <SubFsm2_::PseudoEntry1>                      >,
             //   +---------------------+--------+------------------------------------+-------+--------+
@@ -219,11 +220,11 @@ namespace
 
         }
     };
-    typedef msm::back::state_machine<Fsm_> Fsm;
+    typedef msm::back11::state_machine<Fsm_> Fsm;
 //    static char const* const state_names[] = { "State1", "SubFsm2","State2"  };
 
 
-    BOOST_AUTO_TEST_CASE( entries_test )
+    BOOST_AUTO_TEST_CASE( back11_entries_test )
     {     
         Fsm p;
 

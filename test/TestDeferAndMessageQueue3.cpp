@@ -42,7 +42,7 @@ namespace
         // The list of FSM states
         struct State11 : public msm::front::state<>
         {
-            typedef mpl::vector<eventd> deferred_events;
+            typedef boost::fusion::vector<eventd> deferred_events;
 
             template <class Event,class FSM>
             void on_entry(Event const&,FSM& ) {++entry_counter;}

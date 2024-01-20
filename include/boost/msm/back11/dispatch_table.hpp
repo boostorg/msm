@@ -8,8 +8,8 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef BOOST_MSM_BACK_DISPATCH_TABLE_H
-#define BOOST_MSM_BACK_DISPATCH_TABLE_H
+#ifndef BOOST_MSM_BACK11_DISPATCH_TABLE_H
+#define BOOST_MSM_BACK11_DISPATCH_TABLE_H
 
 #include <utility>
 
@@ -19,17 +19,18 @@
 #include <boost/mpl/pop_front.hpp>
 #include <boost/mpl/for_each.hpp>
 #include <boost/mpl/advance.hpp>
+#include <boost/fusion/container/vector.hpp>
 
 #include <boost/type_traits/is_base_of.hpp>
 #include <boost/type_traits/is_same.hpp>
 
 #include <boost/msm/event_traits.hpp>
-#include <boost/msm/back/metafunctions.hpp>
+#include <boost/msm/back11/metafunctions.hpp>
 #include <boost/msm/back/common_types.hpp>
 
 BOOST_MPL_HAS_XXX_TRAIT_DEF(is_frow)
 
-namespace boost { namespace msm { namespace back 
+namespace boost { namespace msm { namespace back11
 {
 
 // Generates a singleton runtime lookup table that maps current state
@@ -40,8 +41,8 @@ struct dispatch_table
 {
  private:
     // This is a table of these function pointers.
-    typedef HandledEnum (*cell)(Fsm&, int,int,Event const&);
-    typedef bool (*guard)(Fsm&, Event const&);
+    typedef boost::msm::back::HandledEnum (*cell)(Fsm&, int,int,Event&);
+    typedef bool (*guard)(Fsm&, Event&);
 
     // class used to build a chain (or sequence) of transitions for a given event and start state
     // (like an UML diamond). Allows transition conflicts.
@@ -56,32 +57,32 @@ struct dispatch_table
         {
             template <class Sequence>
             static
-            HandledEnum
+            boost::msm::back::HandledEnum
             execute(Fsm& , int, int, Event& , ::boost::mpl::true_ const & )
             {
                 // if at least one guard rejected, this will be ignored, otherwise will generate an error
-                return HANDLED_FALSE;
+                return ::boost::msm::back::HANDLED_FALSE;
             }
 
             template <class Sequence>
             static
-            HandledEnum
+            boost::msm::back::HandledEnum
             execute(Fsm& fsm, int region_index , int state, Event& evt,
                     ::boost::mpl::false_ const & )
             {
                  // try the first guard
                  typedef typename ::boost::mpl::front<Sequence>::type first_row;
-                 HandledEnum res = first_row::execute(fsm,region_index,state,evt);
-                 if (HANDLED_TRUE!=res && HANDLED_DEFERRED!=res)
+                 boost::msm::back::HandledEnum res = first_row::execute(fsm,region_index,state,evt);
+                 if (::boost::msm::back::HANDLED_TRUE!=res && ::boost::msm::back::HANDLED_DEFERRED!=res)
                  {
                     // if the first rejected, move on to the next one
-                    HandledEnum sub_res = 
+                    boost::msm::back::HandledEnum sub_res =
                          execute<typename ::boost::mpl::pop_front<Sequence>::type>(fsm,region_index,state,evt,
                             ::boost::mpl::bool_<
                                 ::boost::mpl::empty<typename ::boost::mpl::pop_front<Sequence>::type>::type::value>());
                     // if at least one guards rejects, the event will not generate a call to no_transition
-                    if ((HANDLED_FALSE==sub_res) && (HANDLED_GUARD_REJECT==res) )
-                        return HANDLED_GUARD_REJECT;
+                    if ((::boost::msm::back::HANDLED_FALSE==sub_res) && (::boost::msm::back::HANDLED_GUARD_REJECT==res) )
+                        return ::boost::msm::back::HANDLED_GUARD_REJECT;
                     else
                         return sub_res;
                  }
@@ -89,7 +90,7 @@ struct dispatch_table
             }
         };
         // Take the transition action and return the next state.
-        static HandledEnum execute(Fsm& fsm, int region_index, int state, Event& evt)
+        static boost::msm::back::HandledEnum execute(Fsm& fsm, int region_index, int state, Event& evt)
         {
             // forward to helper
             return execute_helper::template execute<Seq>(fsm,region_index,state,evt,
@@ -126,6 +127,39 @@ struct dispatch_table
         typedef chain_row<filtered_stt,Event,
             typename Entry::first > type;
     }; 
+    template< typename Entry >
+    struct make_chain_row_from_map_entry2
+    {
+        // if we have more than one frow with the same state as source, remove the ones extra
+        // note: we know the frow's are located at the beginning so we remove at the beginning (number of frows - 1) elements
+        typedef typename boost::fusion::result_of::first<Entry>::type entry_vec_first;
+        typedef typename boost::fusion::result_of::second<Entry>::type entry_vec_second;
+        //typedef typename Entry::second_type entry_vec_second;
+
+        enum {number_frows = ::boost::mpl::count_if<entry_vec_second,has_is_frow< ::boost::mpl::placeholders::_1> >::value};
+
+        //erases the first NumberToDelete rows
+        template<class Sequence, int NumberToDelete>
+        struct erase_first_rows
+        {
+            typedef typename ::boost::mpl::erase<
+                typename Entry::second,
+                typename ::boost::mpl::begin<Sequence>::type,
+                typename ::boost::mpl::advance<
+                        typename ::boost::mpl::begin<Sequence>::type,
+                        ::boost::mpl::int_<NumberToDelete> >::type
+            >::type type;
+        };
+        // if we have more than 1 frow with this event (not allowed), delete the spare
+        typedef typename ::boost::mpl::eval_if<
+            typename ::boost::mpl::bool_< number_frows >= 2 >::type,
+            erase_first_rows<entry_vec_second,number_frows-1>,
+            ::boost::mpl::identity<entry_vec_second>
+        >::type filtered_stt;
+
+        typedef chain_row<filtered_stt,Event,entry_vec_first > type;
+    };
+
     // helper for lazy evaluation in eval_if of change_frow_event
     template <class Transition,class NewEvent>
     struct replace_event
@@ -151,11 +185,33 @@ struct dispatch_table
     template <class Transition>
     struct convert_event_and_forward
     {
-        static HandledEnum execute(Fsm& fsm, int region_index, int state, Event const& evt)
+        static boost::msm::back::HandledEnum execute(Fsm& fsm, int region_index, int state, Event& evt)
         {
             typename Transition::transition_event forwarded(evt);
             return Transition::execute(fsm,region_index,state,forwarded);
         }
+    };
+
+    template <class T, class Map>
+    struct push_to_map_of_vec
+    {
+        typedef typename
+        boost::fusion::result_of::as_map<
+                typename boost::fusion::result_of::insert<
+                    Map,
+                    typename ::boost::fusion::result_of::end<Map>::type,
+                    typename ::boost::fusion::result_of::make_pair<
+                        typename transition_source_type<T>::type,
+                        typename ::boost::mpl::push_back<
+                            typename ::boost::fusion::result_of::value_at_key<
+                                Map,
+                                typename transition_source_type<T>::type
+                            >::type,
+                            typename change_frow_event<T>::type
+                        >::type
+                     >::type
+                 >::type
+        >::type type;
     };
 
     // A function object for use with mpl::for_each that stuffs
@@ -368,9 +424,6 @@ struct dispatch_table
                                boost::msm::wrap< ::boost::mpl::placeholders::_1> >
                         (default_init_cell<Event>(this,entries));
 
-        // build chaining rows for rows coming from the same state and the current event
-        // first we build a map of sequence for every source
-        // in reverse order so that the frow's are handled first (UML priority)
         typedef typename ::boost::mpl::reverse_fold<
                         // filter on event
                         ::boost::mpl::filter_view
@@ -380,43 +433,49 @@ struct dispatch_table
                                     >
                             >,
                         // build a map
-                        ::boost::mpl::map<>,
+                        ::boost::fusion::map<>,
                         ::boost::mpl::if_<
                             // if we already have a row on this source state
                             ::boost::mpl::has_key< ::boost::mpl::placeholders::_1,
                                                    transition_source_type< ::boost::mpl::placeholders::_2> >,
                             // insert a new element in the value type
-                            ::boost::mpl::insert< 
+//                            push_to_map_of_vec<::boost::mpl::placeholders::_2, ::boost::mpl::placeholders::_1>,
+                            boost::fusion::result_of::as_map<boost::fusion::result_of::insert<
                                 ::boost::mpl::placeholders::_1,
-                                ::boost::mpl::pair<transition_source_type< ::boost::mpl::placeholders::_2>,
-                                                   ::boost::mpl::push_back< 
-                                                        ::boost::mpl::at< ::boost::mpl::placeholders::_1,
+                                ::boost::fusion::result_of::end<mpl::placeholders::_1 >,
+                                ::boost::fusion::result_of::make_pair<transition_source_type< ::boost::mpl::placeholders::_2>,
+                                                   ::boost::mpl::push_back<
+                                                        ::boost::fusion::result_of::value_at_key< ::boost::mpl::placeholders::_1,
                                                         transition_source_type< ::boost::mpl::placeholders::_2> >,
-                                                        change_frow_event< ::boost::mpl::placeholders::_2 > > 
-                                                   > >,
+                                                        change_frow_event< ::boost::mpl::placeholders::_2 > >
+                                                   > > >,
                             // first row on this source state, make a vector with 1 element
-                            ::boost::mpl::insert< 
+                            boost::fusion::result_of::as_map<boost::fusion::result_of::insert<
                                         ::boost::mpl::placeholders::_1,
-                                        ::boost::mpl::pair<transition_source_type< ::boost::mpl::placeholders::_2>,
-                                        make_vector< change_frow_event< ::boost::mpl::placeholders::_2> > > >
+                                        ::boost::fusion::result_of::end<mpl::placeholders::_1 >,
+                                        ::boost::fusion::result_of::make_pair<transition_source_type< ::boost::mpl::placeholders::_2>,
+                                        make_vector< change_frow_event< ::boost::mpl::placeholders::_2> > > > >
                                >
                        >::type map_of_row_seq;
+
         // and then build chaining rows for all source states having more than 1 row
         typedef typename ::boost::mpl::fold<
-            map_of_row_seq,::boost::mpl::vector0<>,
+            map_of_row_seq,::boost::fusion::vector<>,
             ::boost::mpl::if_<
-                     ::boost::mpl::greater< ::boost::mpl::size< 
-                                                    ::boost::mpl::second< ::boost::mpl::placeholders::_2> >,
+                     ::boost::mpl::greater< ::boost::mpl::size<
+                                                    ::boost::fusion::result_of::second< ::boost::mpl::placeholders::_2> >,
                                             ::boost::mpl::int_<1> >,
                      // we need row chaining
-                     ::boost::mpl::push_back< ::boost::mpl::placeholders::_1, 
-                                    make_chain_row_from_map_entry< ::boost::mpl::placeholders::_2> >,
+                     ::boost::mpl::push_back< ::boost::mpl::placeholders::_1,
+                                    make_chain_row_from_map_entry2< ::boost::mpl::placeholders::_2> >,
                      // just one row, no chaining, we rebuild the row like it was before
-                     ::boost::mpl::push_back< ::boost::mpl::placeholders::_1, 
-                                              get_first_element_pair_second< ::boost::mpl::placeholders::_2> > 
-             > >::type chained_rows; 
+                     ::boost::mpl::push_back< ::boost::mpl::placeholders::_1,
+                                              get_first_element_pair_second2< ::boost::mpl::placeholders::_2> >
+             > >::type chained_rows;
+
         // Go back and fill in cells for matching transitions.
         ::boost::mpl::for_each<chained_rows>(init_cell(this));
+
     }
 
     // The singleton instance.
@@ -424,14 +483,13 @@ struct dispatch_table
         static dispatch_table table;
         return table;
     }
-
  public: // data members
      // +1 => 0 is reserved for this fsm (internal transitions)
     cell entries[max_state+1];
 };
 
-}}} // boost::msm::back
+}}} // boost::msm::back11
 
 
-#endif //BOOST_MSM_BACK_DISPATCH_TABLE_H
+#endif //BOOST_MSM_BACK11_DISPATCH_TABLE_H
 

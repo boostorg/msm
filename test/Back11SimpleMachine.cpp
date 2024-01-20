@@ -10,19 +10,15 @@
 
 #include <iostream>
 // back-end
-#include <boost/msm/back/state_machine.hpp>
+#include <boost/msm/back11/state_machine.hpp>
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>
-#include <boost/msm/front/functor_row.hpp>
-#include <boost/msm/front/euml/common.hpp>
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE MyTest
+#define BOOST_TEST_MODULE back11_simple_machine_test
 #endif
 #include <boost/test/unit_test.hpp>
 
-using namespace std;
 namespace msm = boost::msm;
-using namespace msm::front;
 namespace mpl = boost::mpl;
 
 namespace
@@ -33,8 +29,6 @@ namespace
     struct stop {};
     struct pause {};
     struct open_close {};
-    struct internal_evt {};
-    struct to_ignore {};
 
     // A "complicated" event type that carries some data.
     enum DiskTypeEnum
@@ -58,14 +52,10 @@ namespace
     {
         unsigned int start_playback_counter;
         unsigned int can_close_drawer_counter;
-        unsigned int internal_action_counter;
-        unsigned int internal_guard_counter;
 
         player_():
         start_playback_counter(0),
-        can_close_drawer_counter(0),
-        internal_action_counter(0),
-        internal_guard_counter(0)
+        can_close_drawer_counter(0)
         {}
 
         // The list of FSM states
@@ -77,31 +67,6 @@ namespace
             void on_exit(Event const&,FSM& ) {++exit_counter;}
             int entry_counter;
             int exit_counter;
-            unsigned int empty_internal_guard_counter;
-            unsigned int empty_internal_action_counter;
-            struct internal_guard_fct 
-            {
-                template <class EVT,class FSM,class SourceState,class TargetState>
-                bool operator()(EVT const& ,FSM&,SourceState& src,TargetState& )
-                {
-                    ++src.empty_internal_guard_counter;
-                    return false;
-                }
-            };
-            struct internal_action_fct 
-            {
-                template <class EVT,class FSM,class SourceState,class TargetState>
-                void operator()(EVT const& ,FSM& ,SourceState& src,TargetState& )
-                {
-                    ++src.empty_internal_action_counter;
-                }
-            };
-            // Transition table for Empty
-            struct internal_transition_table : mpl::vector<
-                //    Start     Event         Next      Action               Guard
-           Internal <           internal_evt          , internal_action_fct ,internal_guard_fct    >
-                //  +---------+-------------+---------+---------------------+----------------------+
-            > {};        
         };
         struct Open : public msm::front::state<> 
         { 
@@ -157,32 +122,6 @@ namespace
         void resume_playback(end_pause const&)      {  }
         void stop_and_open(open_close const&)  {  }
         void stopped_again(stop const&){}
-        struct internal_action 
-        {
-            template <class EVT,class FSM,class SourceState,class TargetState>
-            void operator()(EVT const& ,FSM& fsm,SourceState& ,TargetState& )
-            {            
-                ++fsm.internal_action_counter;
-            }
-        };
-        struct internal_guard 
-        {
-            template <class EVT,class FSM,class SourceState,class TargetState>
-            bool operator()(EVT const& ,FSM& fsm,SourceState& ,TargetState& )
-            {            
-                ++fsm.internal_guard_counter;
-                return false;
-            }
-        };
-        struct internal_guard2 
-        {
-            template <class EVT,class FSM,class SourceState,class TargetState>
-            bool operator()(EVT const& ,FSM& fsm,SourceState& ,TargetState& )
-            {            
-                ++fsm.internal_guard_counter;
-                return true;
-            }
-        };
         // guard conditions
         bool good_disk_format(cd_detected const& evt)
         {
@@ -202,7 +141,7 @@ namespace
         typedef player_ p; // makes transition table cleaner
 
         // Transition table for player
-        struct transition_table : mpl::vector<
+        struct transition_table : boost::fusion::vector<
             //    Start     Event         Next      Action               Guard
             //  +---------+-------------+---------+---------------------+----------------------+
           a_row < Stopped , play        , Playing , &p::start_playback                         >,
@@ -213,9 +152,6 @@ namespace
             //  +---------+-------------+---------+---------------------+----------------------+
           a_row < Empty   , open_close  , Open    , &p::open_drawer                            >,
             row < Empty   , cd_detected , Stopped , &p::store_cd_info   ,&p::good_disk_format  >,
-            Row < Empty   , internal_evt, none    , internal_action     ,internal_guard2       >,
-            Row < Empty   , to_ignore   , none    , none                , none                 >,
-            Row < Empty   , cd_detected , none    , none                ,internal_guard        >,
             //  +---------+-------------+---------+---------------------+----------------------+
           a_row < Playing , stop        , Stopped , &p::stop_playback                          >,
           a_row < Playing , pause       , Paused  , &p::pause_playback                         >,
@@ -228,7 +164,7 @@ namespace
         > {};
         // Replaces the default no-transition response.
         template <class FSM,class Event>
-        void no_transition(Event const&, FSM&,int)
+        void no_transition(Event const& , FSM&,int)
         {
             BOOST_FAIL("no_transition called!");
         }
@@ -242,8 +178,6 @@ namespace
             fsm.template get_state<player_::Open&>().exit_counter=0;
             fsm.template get_state<player_::Empty&>().entry_counter=0;
             fsm.template get_state<player_::Empty&>().exit_counter=0;
-            fsm.template get_state<player_::Empty&>().empty_internal_guard_counter=0;
-            fsm.template get_state<player_::Empty&>().empty_internal_action_counter=0;
             fsm.template get_state<player_::Playing&>().entry_counter=0;
             fsm.template get_state<player_::Playing&>().exit_counter=0;
             fsm.template get_state<player_::Paused&>().entry_counter=0;
@@ -252,24 +186,17 @@ namespace
 
     };
     // Pick a back-end
-    typedef msm::back::state_machine<player_> player;
+    typedef msm::back11::state_machine<player_> player;
 
 //    static char const* const state_names[] = { "Stopped", "Open", "Empty", "Playing", "Paused" };
 
 
-    BOOST_AUTO_TEST_CASE( simple_internal_functors_test )
+    BOOST_AUTO_TEST_CASE( back11_simple_machine_test )
     {     
         player p;
 
         p.start(); 
         BOOST_CHECK_MESSAGE(p.get_state<player_::Empty&>().entry_counter == 1,"Empty entry not called correctly");
-        // internal events
-        p.process_event(to_ignore());
-        p.process_event(internal_evt());
-        BOOST_CHECK_MESSAGE(p.internal_action_counter == 1,"Internal action not called correctly");
-        BOOST_CHECK_MESSAGE(p.internal_guard_counter == 1,"Internal guard not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::Empty&>().empty_internal_action_counter == 0,"Empty internal action not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::Empty&>().empty_internal_guard_counter == 1,"Empty internal guard not called correctly");
 
         p.process_event(open_close()); 
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 1,"Open should be active"); //Open
@@ -287,14 +214,12 @@ namespace
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 2,"Empty should be active"); //Empty
         BOOST_CHECK_MESSAGE(p.get_state<player_::Open&>().exit_counter == 1,"Open exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Empty&>().entry_counter == 2,"Empty entry not called correctly");
-        BOOST_CHECK_MESSAGE(p.internal_guard_counter == 2,"Internal guard not called correctly");
 
         p.process_event(
             cd_detected("louie, louie",DISK_CD)); 
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 0,"Stopped should be active"); //Stopped
         BOOST_CHECK_MESSAGE(p.get_state<player_::Empty&>().exit_counter == 2,"Empty exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Stopped&>().entry_counter == 1,"Stopped entry not called correctly");
-        BOOST_CHECK_MESSAGE(p.internal_guard_counter == 3,"Internal guard not called correctly");
 
         p.process_event(play());
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing

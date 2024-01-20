@@ -10,16 +10,18 @@
 
 #include <iostream>
 // back-end
-#include <boost/msm/back/state_machine.hpp>
+#include <boost/msm/back11/state_machine.hpp>
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>
+#include <boost/msm/front/functor_row.hpp>
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE MyTest
+#define BOOST_TEST_MODULE back11_orthogonal_deferred3_test
 #endif
 #include <boost/test/unit_test.hpp>
 
 namespace msm = boost::msm;
 namespace mpl = boost::mpl;
+using namespace boost::msm::front;
 
 namespace
 {
@@ -31,23 +33,42 @@ namespace
     struct open_close {};
     struct NextSong {};
     struct PreviousSong {};
+    struct error_found {};
+    struct end_error {};
+    struct do_terminate {};
+
+    // Flags. Allow information about a property of the current state
+    struct PlayingPaused{};
+    struct CDLoaded {};
+    struct FirstSongPlaying {};
+
+    // A "complicated" event type that carries some data.
     struct cd_detected
     {
         cd_detected(std::string name)
             : name(name)
         {}
+
         std::string name;
     };
 
     // front-end: define the FSM structure 
     struct player_ : public msm::front::state_machine_def<player_>
     {
+        // we want deferred events and no state requires deferred events (only the fsm in the
+        // transition table), so the fsm does.
+        typedef int activate_deferred_events;
+
         unsigned int start_playback_counter;
         unsigned int can_close_drawer_counter;
+        unsigned int report_error_counter;
+        unsigned int report_end_error_counter;
 
         player_():
         start_playback_counter(0),
-        can_close_drawer_counter(0)
+        can_close_drawer_counter(0),
+        report_error_counter(0),
+        report_end_error_counter(0)
         {}
         // The list of FSM states
         struct Empty : public msm::front::state<> 
@@ -61,6 +82,8 @@ namespace
         };
         struct Open : public msm::front::state<> 
         { 
+            typedef boost::fusion::vector<CDLoaded>      flag_list;
+            
             template <class Event,class FSM>
             void on_entry(Event const&,FSM& ) {++entry_counter;}
             template <class Event,class FSM>
@@ -69,9 +92,10 @@ namespace
             int exit_counter;
         };
 
-        // sm_ptr still supported but deprecated as functors are a much better way to do the same thing
         struct Stopped : public msm::front::state<> 
         { 
+            typedef boost::fusion::vector<CDLoaded>      flag_list;
+
             template <class Event,class FSM>
             void on_entry(Event const&,FSM& ) {++entry_counter;}
             template <class Event,class FSM>
@@ -80,8 +104,14 @@ namespace
             int exit_counter;
         };
 
+        // the player state machine contains a state which is himself a state machine
+        // as you see, no need to declare it anywhere so Playing can be developed separately
+        // by another team in another module. For simplicity I just declare it inside player
         struct Playing_ : public msm::front::state_machine_def<Playing_>
         {
+            // when playing, the CD is loaded and we are in either pause or playing (duh)
+            typedef boost::fusion::vector<PlayingPaused,CDLoaded>        flag_list;
+
             template <class Event,class FSM>
             void on_entry(Event const&,FSM& ) {++entry_counter;}
             template <class Event,class FSM>
@@ -99,6 +129,8 @@ namespace
             // The list of FSM states
             struct Song1 : public msm::front::state<>
             {
+                typedef boost::fusion::vector<FirstSongPlaying>      flag_list;
+
                 template <class Event,class FSM>
                 void on_entry(Event const&,FSM& ) {++entry_counter;}
                 template <class Event,class FSM>
@@ -134,7 +166,7 @@ namespace
 
             typedef Playing_ pl; // makes transition table cleaner
             // Transition table for Playing
-            struct transition_table : mpl::vector<
+            struct transition_table : boost::fusion::vector<
                 //      Start     Event         Next      Action               Guard
                 //    +---------+-------------+---------+---------------------+----------------------+
                  _row < Song1   , NextSong    , Song2                                                >,
@@ -151,10 +183,21 @@ namespace
             }
         };
         // back-end
-        typedef msm::back::state_machine<Playing_> Playing;
+        typedef msm::back11::state_machine<Playing_> Playing;
 
         // state not defining any entry or exit
         struct Paused : public msm::front::state<>
+        {
+            typedef boost::fusion::vector<PlayingPaused,CDLoaded>        flag_list;
+
+            template <class Event,class FSM>
+            void on_entry(Event const&,FSM& ) {++entry_counter;}
+            template <class Event,class FSM>
+            void on_exit(Event const&,FSM& ) {++exit_counter;}
+            int entry_counter;
+            int exit_counter;
+        };
+        struct AllOk : public msm::front::state<>
         {
             template <class Event,class FSM>
             void on_entry(Event const&,FSM& ) {++entry_counter;}
@@ -163,9 +206,29 @@ namespace
             int entry_counter;
             int exit_counter;
         };
-
+        // this state is also made terminal so that all the events are blocked
+        struct ErrorMode :  //public msm::front::terminate_state<> // ErrorMode terminates the state machine
+            public msm::front::interrupt_state<end_error/*boost::fusion::vector<end_error>*/>   // ErroMode just interrupts. Will resume if
+                                                            // the event end_error is generated
+        {
+            template <class Event,class FSM>
+            void on_entry(Event const&,FSM& ) {++entry_counter;}
+            template <class Event,class FSM>
+            void on_exit(Event const&,FSM& ) {++exit_counter;}
+            int entry_counter;
+            int exit_counter;
+        };
+        struct ErrorTerminate :  public msm::front::terminate_state<> // terminates the state machine
+        {
+            template <class Event,class FSM>
+            void on_entry(Event const&,FSM& ) {++entry_counter;}
+            template <class Event,class FSM>
+            void on_exit(Event const&,FSM& ) {++exit_counter;}
+            int entry_counter;
+            int exit_counter;
+        };
         // the initial state of the player SM. Must be defined
-        typedef Empty initial_state;
+        typedef boost::fusion::vector<Empty,AllOk> initial_state;
 
         // transition actions
         void start_playback(play const&)       {++start_playback_counter; }
@@ -176,43 +239,70 @@ namespace
         void resume_playback(end_pause const&)      {  }
         void stop_and_open(open_close const&)  {  }
         void stopped_again(stop const&){}
+        void report_error(error_found const&) {++report_error_counter;}
+        void report_end_error(end_error const&) {++report_end_error_counter;}
+
         //guards
         bool can_close_drawer(open_close const&)   
         {
             ++can_close_drawer_counter;
             return true;
         }
-
-
+        struct is_play_event
+        {
+            template <class EVT,class FSM,class SourceState,class TargetState>
+            bool operator()(EVT const& evt,FSM&,SourceState& ,TargetState& )
+            {
+                bool is_play = boost::any_cast<play>(&evt) != 0;
+                return is_play;
+            }
+        };
+        struct MyDefer
+        {
+            // mark as deferring to avoid stack overflows in certain conditions
+            typedef int deferring_action;
+            template <class EVT,class FSM,class SourceState,class TargetState>
+            void operator()(EVT const& ,FSM& fsm,SourceState& ,TargetState& ) const
+            {
+                fsm.defer_event(play());
+            }
+        };
         typedef player_ p; // makes transition table cleaner
 
         // Transition table for player
-        struct transition_table : mpl::vector<
-            //    Start     Event         Next      Action               Guard
+        struct transition_table : boost::fusion::vector<
+            //      Start     Event         Next      Action               Guard
+            //    +---------+-------------+---------+---------------------+----------------------+
+            a_row < Stopped , play        , Playing , &p::start_playback                         >,
+            a_row < Stopped , open_close  , Open    , &p::open_drawer                            >,
+             _row < Stopped , stop        , Stopped                                              >,
             //  +---------+-------------+---------+---------------------+----------------------+
-          a_row < Stopped , play        , Playing , &p::start_playback                         >,
-          a_row < Stopped , open_close  , Open    , &p::open_drawer                            >,
-           _row < Stopped , stop        , Stopped                                              >,
+            g_row < Open    , open_close  , Empty   ,                     &p::can_close_drawer   >,
+            Row   < Open    , play        , none    , Defer             , none                   >,
             //  +---------+-------------+---------+---------------------+----------------------+
-          g_row < Open    , open_close  , Empty   ,                      &p::can_close_drawer  >,
+            a_row < Empty   , open_close  , Open    , &p::open_drawer                            >,
+            a_row < Empty   , cd_detected , Stopped , &p::store_cd_info                          >,
+            Row   < Empty   , boost::any        , none    , MyDefer             , is_play_event                   >,
             //  +---------+-------------+---------+---------------------+----------------------+
-          a_row < Empty   , open_close  , Open    , &p::open_drawer                            >,
-          a_row < Empty   , cd_detected , Stopped , &p::store_cd_info                          >,
+            a_row < Playing , stop        , Stopped , &p::stop_playback                          >,
+            a_row < Playing , pause       , Paused  , &p::pause_playback                         >,
+            a_row < Playing , open_close  , Open    , &p::stop_and_open                          >,
             //  +---------+-------------+---------+---------------------+----------------------+
-          a_row < Playing , stop        , Stopped , &p::stop_playback                          >,
-          a_row < Playing , pause       , Paused  , &p::pause_playback                         >,
-          a_row < Playing , open_close  , Open    , &p::stop_and_open                          >,
-            //  +---------+-------------+---------+---------------------+----------------------+
-          a_row < Paused  , end_pause   , Playing , &p::resume_playback                        >,
-          a_row < Paused  , stop        , Stopped , &p::stop_playback                          >,
-          a_row < Paused  , open_close  , Open    , &p::stop_and_open                          >
-            //  +---------+-------------+---------+---------------------+----------------------+
+            a_row < Paused  , end_pause   , Playing , &p::resume_playback                        >,
+            a_row < Paused  , stop        , Stopped , &p::stop_playback                          >,
+            a_row < Paused  , open_close  , Open    , &p::stop_and_open                          >,
+            //    +---------+-------------+---------+---------------------+----------------------+
+            a_row < AllOk   , error_found ,ErrorMode, &p::report_error                           >,
+            a_row <ErrorMode, end_error   ,AllOk    , &p::report_end_error                       >,
+             _row < AllOk   , do_terminate,ErrorTerminate                                        >
+            //    +---------+-------------+---------+---------------------+----------------------+
         > {};
+
         // Replaces the default no-transition response.
         template <class FSM,class Event>
-        void no_transition(Event const&, FSM&,int)
+        void no_transition(Event const& , FSM&,int)
         {
-            BOOST_FAIL("no_transition called!");
+            BOOST_ERROR("no_transition called!");
         }
         // init counters
         template <class Event,class FSM>
@@ -234,40 +324,47 @@ namespace
             fsm.template get_state<player_::Playing&>().template get_state<player_::Playing::Song3&>().exit_counter=0;
             fsm.template get_state<player_::Paused&>().entry_counter=0;
             fsm.template get_state<player_::Paused&>().exit_counter=0;
+            fsm.template get_state<player_::AllOk&>().entry_counter=0;
+            fsm.template get_state<player_::AllOk&>().exit_counter=0;
+            fsm.template get_state<player_::ErrorMode&>().entry_counter=0;
+            fsm.template get_state<player_::ErrorMode&>().exit_counter=0;
+            fsm.template get_state<player_::ErrorTerminate&>().entry_counter=0;
+            fsm.template get_state<player_::ErrorTerminate&>().exit_counter=0;
         }
-
     };
     // Pick a back-end
-    typedef msm::back::state_machine<player_> player;
+    typedef msm::back11::state_machine<player_> player;
 
-//    static char const* const state_names[] = { "Stopped", "Open", "Empty", "Playing", "Paused" };
+    //static char const* const state_names[] = { "Stopped", "Open", "Empty", "Playing", "Paused","AllOk","ErrorMode" };
 
-
-    BOOST_AUTO_TEST_CASE( composite_machine_test )
-    {     
+    BOOST_AUTO_TEST_CASE( back11_orthogonal_deferred3_test )
+    {
         player p;
-
+        // needed to start the highest-level SM. This will call on_entry and mark the start of the SM
         p.start(); 
+        // test deferred event
+        // deferred in Empty and Open, will be handled only after event cd_detected
+        p.process_event(play());
+        BOOST_CHECK_MESSAGE(p.current_state()[0] == 2,"Empty should be active"); //Empty
+        BOOST_CHECK_MESSAGE(p.get_state<player_::Open&>().exit_counter == 0,"Open exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.get_state<player_::Playing&>().entry_counter == 0,"Playing entry not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Empty&>().entry_counter == 1,"Empty entry not called correctly");
-
+        //flags
+        BOOST_CHECK_MESSAGE(p.is_flag_active<CDLoaded>() == false,"CDLoaded should not be active");
         p.process_event(open_close()); 
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 1,"Open should be active"); //Open
         BOOST_CHECK_MESSAGE(p.get_state<player_::Empty&>().exit_counter == 1,"Empty exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Open&>().entry_counter == 1,"Open entry not called correctly");
-
         p.process_event(open_close()); 
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 2,"Empty should be active"); //Empty
         BOOST_CHECK_MESSAGE(p.get_state<player_::Open&>().exit_counter == 1,"Open exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Empty&>().entry_counter == 2,"Empty entry not called correctly");
         BOOST_CHECK_MESSAGE(p.can_close_drawer_counter == 1,"guard not called correctly");
-
+        //deferred event should have been processed
         p.process_event(cd_detected("louie, louie")); 
-        BOOST_CHECK_MESSAGE(p.current_state()[0] == 0,"Stopped should be active"); //Stopped
+        BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
         BOOST_CHECK_MESSAGE(p.get_state<player_::Empty&>().exit_counter == 2,"Empty exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Stopped&>().entry_counter == 1,"Stopped entry not called correctly");
-
-        p.process_event(play());
-        BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
         BOOST_CHECK_MESSAGE(p.get_state<player_::Stopped&>().exit_counter == 1,"Stopped exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Playing&>().entry_counter == 1,"Playing entry not called correctly");
         BOOST_CHECK_MESSAGE(p.start_playback_counter == 1,"action not called correctly");
@@ -275,6 +372,11 @@ namespace
         BOOST_CHECK_MESSAGE(
             p.get_state<player_::Playing&>().get_state<player_::Playing::Song1&>().entry_counter == 1,
             "Song1 entry not called correctly");
+
+        //flags
+        BOOST_CHECK_MESSAGE(p.is_flag_active<PlayingPaused>() == true,"PlayingPaused should be active");
+        BOOST_CHECK_MESSAGE(p.is_flag_active<FirstSongPlaying>() == true,"FirstSongPlaying should be active");
+
 
         p.process_event(NextSong());
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
@@ -314,11 +416,16 @@ namespace
         BOOST_CHECK_MESSAGE(
             p.get_state<player_::Playing&>().start_prev_song_guard_counter == 1,
             "submachine guard not called correctly");
+        //flags
+        BOOST_CHECK_MESSAGE(p.is_flag_active<PlayingPaused>() == true,"PlayingPaused should be active");
+        BOOST_CHECK_MESSAGE(p.is_flag_active<FirstSongPlaying>() == false,"FirstSongPlaying should not be active");
 
         p.process_event(pause());
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 4,"Paused should be active"); //Paused
         BOOST_CHECK_MESSAGE(p.get_state<player_::Playing&>().exit_counter == 1,"Playing exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Paused&>().entry_counter == 1,"Paused entry not called correctly");
+        //flags
+        BOOST_CHECK_MESSAGE(p.is_flag_active<PlayingPaused>() == true,"PlayingPaused should be active");
 
         // go back to Playing
         p.process_event(end_pause());  
@@ -335,11 +442,69 @@ namespace
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 0,"Stopped should be active"); //Stopped
         BOOST_CHECK_MESSAGE(p.get_state<player_::Paused&>().exit_counter == 2,"Paused exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Stopped&>().entry_counter == 2,"Stopped entry not called correctly");
+        //flags
+        BOOST_CHECK_MESSAGE(p.is_flag_active<PlayingPaused>() == false,"PlayingPaused should not be active");
+        BOOST_CHECK_MESSAGE(p.is_flag_active<CDLoaded>() == true,"CDLoaded should be active");
+        //BOOST_CHECK_MESSAGE(p.is_flag_active<CDLoaded,player::Flag_AND>() == false,"CDLoaded with AND should not be active");
 
         p.process_event(stop());  
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 0,"Stopped should be active"); //Stopped
         BOOST_CHECK_MESSAGE(p.get_state<player_::Stopped&>().exit_counter == 2,"Stopped exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Stopped&>().entry_counter == 3,"Stopped entry not called correctly");
+
+        //test interrupt
+        BOOST_CHECK_MESSAGE(p.current_state()[1] == 5,"AllOk should be active"); //AllOk
+        p.process_event(error_found());
+        BOOST_CHECK_MESSAGE(p.current_state()[1] == 6,"ErrorMode should be active"); //ErrorMode
+        BOOST_CHECK_MESSAGE(p.get_state<player_::AllOk&>().exit_counter == 1,"AllOk exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.get_state<player_::ErrorMode&>().entry_counter == 1,"ErrorMode entry not called correctly");
+
+        // try generating more events
+        p.process_event(play());
+        BOOST_CHECK_MESSAGE(p.current_state()[1] == 6,"ErrorMode should be active"); //ErrorMode
+        BOOST_CHECK_MESSAGE(p.get_state<player_::AllOk&>().exit_counter == 1,"AllOk exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.get_state<player_::ErrorMode&>().entry_counter == 1,"ErrorMode entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.current_state()[0] == 0,"Stopped should be active"); //Stopped
+        BOOST_CHECK_MESSAGE(p.get_state<player_::Stopped&>().exit_counter == 2,"Stopped exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.get_state<player_::Stopped&>().entry_counter == 3,"Stopped entry not called correctly");
+
+        p.process_event(end_error());
+        BOOST_CHECK_MESSAGE(p.current_state()[1] == 5,"AllOk should be active"); //AllOk
+        BOOST_CHECK_MESSAGE(p.get_state<player_::ErrorMode&>().exit_counter == 1,"ErrorMode exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.get_state<player_::AllOk&>().entry_counter == 2,"AllOk entry not called correctly");
+
+        p.process_event(play());
+        BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
+        BOOST_CHECK_MESSAGE(p.get_state<player_::Stopped&>().exit_counter == 3,"Stopped exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.get_state<player_::Playing&>().entry_counter == 3,"Playing entry not called correctly");
+
+        //test terminate
+        BOOST_CHECK_MESSAGE(p.current_state()[1] == 5,"AllOk should be active"); //AllOk
+        p.process_event(do_terminate());
+        BOOST_CHECK_MESSAGE(p.current_state()[1] == 7,"ErrorTerminate should be active"); //ErrorTerminate
+        BOOST_CHECK_MESSAGE(p.get_state<player_::AllOk&>().exit_counter == 2,"AllOk exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.get_state<player_::ErrorTerminate&>().entry_counter == 1,"ErrorTerminate entry not called correctly");
+
+        // try generating more events
+        p.process_event(stop());
+        BOOST_CHECK_MESSAGE(p.current_state()[1] == 7,"ErrorTerminate should be active"); //ErrorTerminate
+        BOOST_CHECK_MESSAGE(p.get_state<player_::ErrorTerminate&>().exit_counter == 0,"ErrorTerminate exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
+        BOOST_CHECK_MESSAGE(p.get_state<player_::Playing&>().exit_counter == 2,"Playing exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.get_state<player_::Stopped&>().entry_counter == 3,"Stopped entry not called correctly");
+
+        p.process_event(end_error());
+        BOOST_CHECK_MESSAGE(p.current_state()[1] == 7,"ErrorTerminate should be active"); //ErrorTerminate
+        BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
+        BOOST_CHECK_MESSAGE(p.get_state<player_::Playing&>().exit_counter == 2,"Playing exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.get_state<player_::Stopped&>().entry_counter == 3,"Stopped entry not called correctly");
+
+        p.process_event(stop());
+        BOOST_CHECK_MESSAGE(p.current_state()[1] == 7,"ErrorTerminate should be active"); //ErrorTerminate
+        BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
+        BOOST_CHECK_MESSAGE(p.get_state<player_::Playing&>().exit_counter == 2,"Playing exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.get_state<player_::Stopped&>().entry_counter == 3,"Stopped entry not called correctly");
+
     }
 }
 

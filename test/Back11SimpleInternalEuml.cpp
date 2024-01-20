@@ -9,10 +9,10 @@
 // http://www.boost.org/LICENSE_1_0.txt)
 
 #include <iostream>
-#include <boost/msm/back/state_machine.hpp>
+#include <boost/msm/back11/state_machine.hpp>
 #include <boost/msm/front/euml/euml.hpp>
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE MyTest
+#define BOOST_TEST_MODULE back11_simple_internal_euml_test
 #endif
 #include <boost/test/unit_test.hpp>
 
@@ -154,12 +154,12 @@ namespace
                                         ),
                                       player_) //fsm name
 
-    typedef msm::back::state_machine<player_> player;
+    typedef msm::back11::state_machine<player_> player;
 
 //    static char const* const state_names[] = { "Stopped", "Paused", "Open", "Empty", "Playing" };
 
 
-    BOOST_AUTO_TEST_CASE( simple_internal_euml_test )
+    BOOST_AUTO_TEST_CASE( back11_simple_internal_euml_test )
     {     
         player p;
 

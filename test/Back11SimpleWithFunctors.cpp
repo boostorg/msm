@@ -9,32 +9,38 @@
 // http://www.boost.org/LICENSE_1_0.txt)
 
 #include <iostream>
+#include <boost/fusion/adapted/std_tuple.hpp>
+#include <boost/fusion/include/std_tuple.hpp>
+
 // back-end
-#include <boost/msm/back/state_machine.hpp>
+#include <boost/msm/back11/state_machine.hpp>
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>
+// functors
 #include <boost/msm/front/functor_row.hpp>
 #include <boost/msm/front/euml/common.hpp>
+// for And_ operator
+#include <boost/msm/front/euml/operator.hpp>
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE MyTest
+#define BOOST_TEST_MODULE back11_simple_with_functors_test
 #endif
 #include <boost/test/unit_test.hpp>
 
 using namespace std;
 namespace msm = boost::msm;
-using namespace msm::front;
 namespace mpl = boost::mpl;
+using namespace msm::front;
+// for And_ operator
+using namespace msm::front::euml;
 
 namespace
 {
     // events
-    struct play {};
-    struct end_pause {};
+    struct play {int cpt_ = 0;};
+    struct end_pause {int cpt_ = 0;};
     struct stop {};
     struct pause {};
     struct open_close {};
-    struct internal_evt {};
-    struct to_ignore {};
 
     // A "complicated" event type that carries some data.
     enum DiskTypeEnum
@@ -58,14 +64,12 @@ namespace
     {
         unsigned int start_playback_counter;
         unsigned int can_close_drawer_counter;
-        unsigned int internal_action_counter;
-        unsigned int internal_guard_counter;
+        unsigned int test_fct_counter;
 
         player_():
         start_playback_counter(0),
         can_close_drawer_counter(0),
-        internal_action_counter(0),
-        internal_guard_counter(0)
+        test_fct_counter(0)
         {}
 
         // The list of FSM states
@@ -77,31 +81,6 @@ namespace
             void on_exit(Event const&,FSM& ) {++exit_counter;}
             int entry_counter;
             int exit_counter;
-            unsigned int empty_internal_guard_counter;
-            unsigned int empty_internal_action_counter;
-            struct internal_guard_fct 
-            {
-                template <class EVT,class FSM,class SourceState,class TargetState>
-                bool operator()(EVT const& ,FSM&,SourceState& src,TargetState& )
-                {
-                    ++src.empty_internal_guard_counter;
-                    return false;
-                }
-            };
-            struct internal_action_fct 
-            {
-                template <class EVT,class FSM,class SourceState,class TargetState>
-                void operator()(EVT const& ,FSM& ,SourceState& src,TargetState& )
-                {
-                    ++src.empty_internal_action_counter;
-                }
-            };
-            // Transition table for Empty
-            struct internal_transition_table : mpl::vector<
-                //    Start     Event         Next      Action               Guard
-           Internal <           internal_evt          , internal_action_fct ,internal_guard_fct    >
-                //  +---------+-------------+---------+---------------------+----------------------+
-            > {};        
         };
         struct Open : public msm::front::state<> 
         { 
@@ -127,11 +106,16 @@ namespace
         struct Playing : public msm::front::state<>
         {
             template <class Event,class FSM>
-            void on_entry(Event const&,FSM& ) {++entry_counter;}
+            void on_entry(Event const& e,FSM& )
+            {
+                ++entry_counter;
+                event_counter = e.cpt_;
+            }
             template <class Event,class FSM>
             void on_exit(Event const&,FSM& ) {++exit_counter;}
             int entry_counter;
             int exit_counter;
+            int event_counter=0;
         };
 
         // state not defining any entry or exit
@@ -149,83 +133,150 @@ namespace
         typedef Empty initial_state;
 
         // transition actions
-        void start_playback(play const&)       {++start_playback_counter; }
-        void open_drawer(open_close const&)    {  }
-        void store_cd_info(cd_detected const&) {  }
-        void stop_playback(stop const&)        {  }
-        void pause_playback(pause const&)      {  }
-        void resume_playback(end_pause const&)      {  }
-        void stop_and_open(open_close const&)  {  }
-        void stopped_again(stop const&){}
-        struct internal_action 
+        struct TestFct 
+        {
+            template <class EVT,class FSM,class SourceState,class TargetState>
+            void operator()(EVT& e, FSM& fsm,SourceState& ,TargetState& )
+            {
+                ++e.cpt_;
+                ++fsm.test_fct_counter;
+            }
+        };
+        struct start_playback 
         {
             template <class EVT,class FSM,class SourceState,class TargetState>
             void operator()(EVT const& ,FSM& fsm,SourceState& ,TargetState& )
-            {            
-                ++fsm.internal_action_counter;
+            {
+                ++fsm.start_playback_counter;
             }
         };
-        struct internal_guard 
+        struct open_drawer 
         {
             template <class EVT,class FSM,class SourceState,class TargetState>
-            bool operator()(EVT const& ,FSM& fsm,SourceState& ,TargetState& )
-            {            
-                ++fsm.internal_guard_counter;
-                return false;
+            void operator()(EVT const& ,FSM& ,SourceState& ,TargetState& )
+            {
             }
         };
-        struct internal_guard2 
+        struct close_drawer 
         {
             template <class EVT,class FSM,class SourceState,class TargetState>
-            bool operator()(EVT const& ,FSM& fsm,SourceState& ,TargetState& )
-            {            
-                ++fsm.internal_guard_counter;
-                return true;
+            void operator()(EVT const& ,FSM& ,SourceState& ,TargetState& )
+            {
+            }
+        };
+        struct store_cd_info 
+        {
+            template <class EVT,class FSM,class SourceState,class TargetState>
+            void operator()(EVT const&,FSM& fsm ,SourceState& ,TargetState& )
+            {
+                fsm.process_event(play());
+            }
+        };
+        struct stop_playback 
+        {
+            template <class EVT,class FSM,class SourceState,class TargetState>
+            void operator()(EVT const& ,FSM& ,SourceState& ,TargetState& )
+            {
+            }
+        };
+        struct pause_playback 
+        {
+            template <class EVT,class FSM,class SourceState,class TargetState>
+            void operator()(EVT const& ,FSM& ,SourceState& ,TargetState& )
+            {
+            }
+        };
+        struct resume_playback 
+        {
+            template <class EVT,class FSM,class SourceState,class TargetState>
+            void operator()(EVT& e,FSM& ,SourceState& ,TargetState& )
+            {
+                ++e.cpt_;
+            }
+        };
+        struct stop_and_open 
+        {
+            template <class EVT,class FSM,class SourceState,class TargetState>
+            void operator()(EVT const& ,FSM& ,SourceState& ,TargetState& )
+            {
+            }
+        };
+        struct stopped_again 
+        {
+            template <class EVT,class FSM,class SourceState,class TargetState>
+            void operator()(EVT const& ,FSM& ,SourceState& ,TargetState& )
+            {
             }
         };
         // guard conditions
-        bool good_disk_format(cd_detected const& evt)
+        struct DummyGuard 
         {
-            // to test a guard condition, let's say we understand only CDs, not DVD
-            if (evt.disc_type != DISK_CD)
+            template <class EVT,class FSM,class SourceState,class TargetState>
+            bool operator()(EVT const&,FSM&,SourceState&,TargetState&)
             {
-                return false;
+                return true;
             }
-            return true;
-        }
-        bool can_close_drawer(open_close const&)   
+        };
+        struct good_disk_format 
         {
-            ++can_close_drawer_counter;
-            return true;
-        }
+            template <class EVT,class FSM,class SourceState,class TargetState>
+            bool operator()(EVT& evt ,FSM&,SourceState& ,TargetState& )
+            {
+                // to test a guard condition, let's say we understand only CDs, not DVD
+                if (evt.disc_type != DISK_CD)
+                {
+                    return false;
+                }
+                return true;
+            }
+        };
+        struct always_true 
+        {
+            template <class EVT,class FSM,class SourceState,class TargetState>
+            bool operator()(EVT const&  ,FSM&,SourceState& ,TargetState& )
+            {             
+                return true;
+            }
+        };
+        struct can_close_drawer 
+        {
+            template <class EVT,class FSM,class SourceState,class TargetState>
+            bool operator()(EVT const&  ,FSM& fsm,SourceState& ,TargetState& )
+            {      
+                ++fsm.can_close_drawer_counter;
+                return true;
+            }
+        };
 
         typedef player_ p; // makes transition table cleaner
 
         // Transition table for player
-        struct transition_table : mpl::vector<
+        struct transition_table : boost::fusion::vector<
             //    Start     Event         Next      Action               Guard
             //  +---------+-------------+---------+---------------------+----------------------+
-          a_row < Stopped , play        , Playing , &p::start_playback                         >,
-          a_row < Stopped , open_close  , Open    , &p::open_drawer                            >,
-           _row < Stopped , stop        , Stopped                                              >,
+            Row < Stopped , play        , Playing , ActionSequence_
+                                                     <boost::fusion::vector<
+                                                     TestFct,start_playback> >            
+                                                                              , DummyGuard           >,
+            Row < Stopped , open_close  , Open    , open_drawer               , none                 >,
+            Row < Stopped , stop        , Stopped , none                      , none                 >,
+            //  +---------+-------------+---------+---------------------------+----------------------+
+            Row < Open    , open_close  , Empty   , close_drawer              , can_close_drawer     >,
+            //  +---------+-------------+---------+---------------------------+----------------------+
+            Row < Empty   , open_close  , Open    , open_drawer               , none                 >,
+            Row < Empty   , cd_detected , Stopped , store_cd_info             , And_<good_disk_format,
+                                                                                     always_true>    >,
+            //  +---------+-------------+---------+---------------------------+----------------------+
+            Row < Playing , stop        , Stopped , stop_playback             , none                 >,
+            Row < Playing , pause       , Paused  , pause_playback            , none                 >,
+            Row < Playing , open_close  , Open    , stop_and_open             , none                 >,
+            //  +---------+-------------+---------+---------------------------+----------------------+
+            Row < Paused  , end_pause   , Playing , resume_playback           , none                 >,
+            Row < Paused  , stop        , Stopped , stop_playback             , none                 >,
+            Row < Paused  , open_close  , Open    , stop_and_open             , none                 >
+
             //  +---------+-------------+---------+---------------------+----------------------+
-          g_row < Open    , open_close  , Empty   ,                      &p::can_close_drawer  >,
-            //  +---------+-------------+---------+---------------------+----------------------+
-          a_row < Empty   , open_close  , Open    , &p::open_drawer                            >,
-            row < Empty   , cd_detected , Stopped , &p::store_cd_info   ,&p::good_disk_format  >,
-            Row < Empty   , internal_evt, none    , internal_action     ,internal_guard2       >,
-            Row < Empty   , to_ignore   , none    , none                , none                 >,
-            Row < Empty   , cd_detected , none    , none                ,internal_guard        >,
-            //  +---------+-------------+---------+---------------------+----------------------+
-          a_row < Playing , stop        , Stopped , &p::stop_playback                          >,
-          a_row < Playing , pause       , Paused  , &p::pause_playback                         >,
-          a_row < Playing , open_close  , Open    , &p::stop_and_open                          >,
-            //  +---------+-------------+---------+---------------------+----------------------+
-          a_row < Paused  , end_pause   , Playing , &p::resume_playback                        >,
-          a_row < Paused  , stop        , Stopped , &p::stop_playback                          >,
-          a_row < Paused  , open_close  , Open    , &p::stop_and_open                          >
-            //  +---------+-------------+---------+---------------------+----------------------+
-        > {};
+        >/*>::type*/ {};
         // Replaces the default no-transition response.
         template <class FSM,class Event>
         void no_transition(Event const&, FSM&,int)
@@ -242,8 +293,6 @@ namespace
             fsm.template get_state<player_::Open&>().exit_counter=0;
             fsm.template get_state<player_::Empty&>().entry_counter=0;
             fsm.template get_state<player_::Empty&>().exit_counter=0;
-            fsm.template get_state<player_::Empty&>().empty_internal_guard_counter=0;
-            fsm.template get_state<player_::Empty&>().empty_internal_action_counter=0;
             fsm.template get_state<player_::Playing&>().entry_counter=0;
             fsm.template get_state<player_::Playing&>().exit_counter=0;
             fsm.template get_state<player_::Paused&>().entry_counter=0;
@@ -252,24 +301,17 @@ namespace
 
     };
     // Pick a back-end
-    typedef msm::back::state_machine<player_> player;
+    typedef msm::back11::state_machine<player_> player;
 
 //    static char const* const state_names[] = { "Stopped", "Open", "Empty", "Playing", "Paused" };
 
 
-    BOOST_AUTO_TEST_CASE( simple_internal_functors_test )
+    BOOST_AUTO_TEST_CASE( back11_simple_with_functors_test )
     {     
         player p;
 
         p.start(); 
         BOOST_CHECK_MESSAGE(p.get_state<player_::Empty&>().entry_counter == 1,"Empty entry not called correctly");
-        // internal events
-        p.process_event(to_ignore());
-        p.process_event(internal_evt());
-        BOOST_CHECK_MESSAGE(p.internal_action_counter == 1,"Internal action not called correctly");
-        BOOST_CHECK_MESSAGE(p.internal_guard_counter == 1,"Internal guard not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::Empty&>().empty_internal_action_counter == 0,"Empty internal action not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::Empty&>().empty_internal_guard_counter == 1,"Empty internal guard not called correctly");
 
         p.process_event(open_close()); 
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 1,"Open should be active"); //Open
@@ -287,20 +329,16 @@ namespace
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 2,"Empty should be active"); //Empty
         BOOST_CHECK_MESSAGE(p.get_state<player_::Open&>().exit_counter == 1,"Open exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Empty&>().entry_counter == 2,"Empty entry not called correctly");
-        BOOST_CHECK_MESSAGE(p.internal_guard_counter == 2,"Internal guard not called correctly");
 
         p.process_event(
             cd_detected("louie, louie",DISK_CD)); 
-        BOOST_CHECK_MESSAGE(p.current_state()[0] == 0,"Stopped should be active"); //Stopped
+        BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
         BOOST_CHECK_MESSAGE(p.get_state<player_::Empty&>().exit_counter == 2,"Empty exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Stopped&>().entry_counter == 1,"Stopped entry not called correctly");
-        BOOST_CHECK_MESSAGE(p.internal_guard_counter == 3,"Internal guard not called correctly");
-
-        p.process_event(play());
-        BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
         BOOST_CHECK_MESSAGE(p.get_state<player_::Stopped&>().exit_counter == 1,"Stopped exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Playing&>().entry_counter == 1,"Playing entry not called correctly");
         BOOST_CHECK_MESSAGE(p.start_playback_counter == 1,"action not called correctly");
+        BOOST_CHECK_MESSAGE(p.test_fct_counter == 1,"action not called correctly");
 
         p.process_event(pause());
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 4,"Paused should be active"); //Paused
@@ -312,6 +350,7 @@ namespace
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
         BOOST_CHECK_MESSAGE(p.get_state<player_::Paused&>().exit_counter == 1,"Paused exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Playing&>().entry_counter == 2,"Playing entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.get_state<player_::Playing&>().event_counter == 1,"Playing event counter incorrect");
 
         p.process_event(pause()); 
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 4,"Paused should be active"); //Paused
@@ -327,6 +366,7 @@ namespace
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 0,"Stopped should be active"); //Stopped
         BOOST_CHECK_MESSAGE(p.get_state<player_::Stopped&>().exit_counter == 2,"Stopped exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<player_::Stopped&>().entry_counter == 3,"Stopped entry not called correctly");
+
     }
 }
 

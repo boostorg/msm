@@ -10,13 +10,13 @@
 
 #include <iostream>
 // back-end
-#include <boost/msm/back/state_machine.hpp>
+#include <boost/msm/back11/state_machine.hpp>
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
 #include <boost/msm/front/euml/common.hpp>
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE MyTest
+#define BOOST_TEST_MODULE back11_simple_internal_functors_test
 #endif
 #include <boost/test/unit_test.hpp>
 
@@ -97,7 +97,7 @@ namespace
                 }
             };
             // Transition table for Empty
-            struct internal_transition_table : mpl::vector<
+            struct internal_transition_table : boost::fusion::vector<
                 //    Start     Event         Next      Action               Guard
            Internal <           internal_evt          , internal_action_fct ,internal_guard_fct    >
                 //  +---------+-------------+---------+---------------------+----------------------+
@@ -202,7 +202,7 @@ namespace
         typedef player_ p; // makes transition table cleaner
 
         // Transition table for player
-        struct transition_table : mpl::vector<
+        struct transition_table : boost::fusion::vector<
             //    Start     Event         Next      Action               Guard
             //  +---------+-------------+---------+---------------------+----------------------+
           a_row < Stopped , play        , Playing , &p::start_playback                         >,
@@ -252,12 +252,12 @@ namespace
 
     };
     // Pick a back-end
-    typedef msm::back::state_machine<player_> player;
+    typedef msm::back11::state_machine<player_> player;
 
 //    static char const* const state_names[] = { "Stopped", "Open", "Empty", "Playing", "Paused" };
 
 
-    BOOST_AUTO_TEST_CASE( simple_internal_functors_test )
+    BOOST_AUTO_TEST_CASE( back11_simple_internal_functors_test )
     {     
         player p;
 
