@@ -707,7 +707,7 @@ private:
         {
 
             BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<stt,current_state_type>::type::value));
-            boost::ignore_unused(state); // Avoid warnings if BOOST_ASSERT expands to nothing.
+            boost::ignore_unused(state, current_state); // Avoid warnings if BOOST_ASSERT expands to nothing.
             BOOST_ASSERT(state == (current_state));
 
             if (!check_guard(fsm,evt))
@@ -751,7 +751,7 @@ private:
         static ::boost::msm::back::HandledEnum execute(library_sm& fsm, int , int state, transition_event const& evt)
         {
             BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<stt,current_state_type>::type::value));
-            boost::ignore_unused(state); // Avoid warnings if BOOST_ASSERT expands to nothing.
+            boost::ignore_unused(state, current_state); // Avoid warnings if BOOST_ASSERT expands to nothing.
             BOOST_ASSERT(state == (current_state));
 
             if (!check_guard(fsm,evt))
@@ -780,7 +780,7 @@ private:
         static ::boost::msm::back::HandledEnum execute(library_sm& fsm, int , int state, transition_event const& evt)
         {
             BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<stt,current_state_type>::type::value));
-            boost::ignore_unused(state); // Avoid warnings if BOOST_ASSERT expands to nothing.
+            boost::ignore_unused(state, current_state); // Avoid warnings if BOOST_ASSERT expands to nothing.
             BOOST_ASSERT(state == (current_state));
 
             // call the action method
