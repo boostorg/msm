@@ -15,7 +15,9 @@
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
 #include <boost/msm/front/euml/common.hpp>
-
+#ifndef BOOST_MSM_NONSTANDALONE_TEST
+#define BOOST_TEST_MODULE MyTest
+#endif
 #include <boost/test/unit_test.hpp>
 
 using namespace std;
