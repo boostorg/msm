@@ -8,8 +8,8 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef BOOST_MSM_BACK_METAFUNCTIONS_H
-#define BOOST_MSM_BACK_METAFUNCTIONS_H
+#ifndef BOOST_MSM_BACK11_METAFUNCTIONS_H
+#define BOOST_MSM_BACK11_METAFUNCTIONS_H
 
 #include <algorithm>
 
@@ -28,7 +28,6 @@
 #include <boost/mpl/next_prior.hpp>
 #include <boost/mpl/map.hpp>
 #include <boost/mpl/push_back.hpp>
-#include <boost/mpl/vector.hpp>
 #include <boost/mpl/is_sequence.hpp>
 #include <boost/mpl/size.hpp>
 #include <boost/mpl/transform.hpp>
@@ -44,6 +43,22 @@
 #include <boost/mpl/copy_if.hpp>
 #include <boost/mpl/back_inserter.hpp>
 #include <boost/mpl/transform.hpp>
+
+#include <boost/fusion/include/mpl.hpp>
+#include <boost/fusion/container/vector/convert.hpp>
+#include <boost/fusion/include/as_vector.hpp>
+#include <boost/fusion/include/as_set.hpp>
+#include <boost/fusion/container/vector.hpp>
+#include <boost/fusion/include/set.hpp>
+#include <boost/fusion/include/map.hpp>
+#include <boost/fusion/include/pair.hpp>
+#include <boost/fusion/include/at_key.hpp>
+#include <boost/fusion/include/for_each.hpp>
+#include <boost/fusion/include/make_vector.hpp>
+#include <boost/fusion/include/has_key.hpp>
+#include <boost/fusion/include/make_set.hpp>
+#include <boost/fusion/include/value_at_key.hpp>
+#include <boost/fusion/include/front.hpp>
 
 #include <boost/type_traits/is_same.hpp>
 #include <boost/utility/enable_if.hpp>
@@ -69,7 +84,7 @@ BOOST_MPL_HAS_XXX_TRAIT_DEF(activate_deferred_events)
 BOOST_MPL_HAS_XXX_TRAIT_DEF(wrapped_entry)
 BOOST_MPL_HAS_XXX_TRAIT_DEF(active_state_switch_policy)
 
-namespace boost { namespace msm { namespace back
+namespace boost { namespace msm { namespace back11
 {
 template <typename Sequence, typename Range>
 struct set_insert_range
@@ -99,31 +114,32 @@ struct transition_target_type
 template <class Id,class Transition>
 struct make_pair_source_state_id
 {
-    typedef typename ::boost::mpl::pair<typename Transition::current_state_type,Id> type;
+    typedef typename ::boost::fusion::pair<typename Transition::current_state_type,Id> type;
 };
 template <class Id,class Transition>
 struct make_pair_target_state_id
 {
-    typedef typename ::boost::mpl::pair<typename Transition::next_state_type,Id> type;
+    typedef typename ::boost::fusion::pair<typename Transition::next_state_type,Id> type;
 };
-
 // iterates through a transition table and automatically generates ids starting at 0
 // first the source states, transition up to down
 // then the target states, up to down
 template <class stt>
 struct generate_state_ids
 {
-    typedef typename 
+    typedef typename
         ::boost::mpl::fold<
-        stt,::boost::mpl::pair< ::boost::mpl::map< >, ::boost::mpl::int_<0> >,
+        stt,::boost::mpl::pair< ::boost::fusion::map< >, ::boost::mpl::int_<0> >,
         ::boost::mpl::pair<
             ::boost::mpl::if_<
                      ::boost::mpl::has_key< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
                                             transition_source_type< ::boost::mpl::placeholders::_2> >,
                      ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
-                     ::boost::mpl::insert< ::boost::mpl::first<mpl::placeholders::_1>,
+                     boost::fusion::result_of::as_map<boost::fusion::result_of::insert<
+                                ::boost::mpl::first<mpl::placeholders::_1>,
+                                ::boost::fusion::result_of::end<::boost::mpl::first<mpl::placeholders::_1> >,
                                 make_pair_source_state_id< ::boost::mpl::second< ::boost::mpl::placeholders::_1 >,
-                                                           ::boost::mpl::placeholders::_2> >
+                                                           ::boost::mpl::placeholders::_2> > >
                       >,
             ::boost::mpl::if_<
                     ::boost::mpl::has_key< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
@@ -133,31 +149,35 @@ struct generate_state_ids
                     >
         > //pair
         >::type source_state_ids;
+
     typedef typename ::boost::mpl::first<source_state_ids>::type source_state_map;
     typedef typename ::boost::mpl::second<source_state_ids>::type highest_state_id;
 
 
-    typedef typename 
+    typedef typename
         ::boost::mpl::fold<
-        stt,::boost::mpl::pair<source_state_map,highest_state_id >,
+        stt,::boost::mpl::pair< source_state_map, highest_state_id >,
         ::boost::mpl::pair<
             ::boost::mpl::if_<
                      ::boost::mpl::has_key< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
                                             transition_target_type< ::boost::mpl::placeholders::_2> >,
                      ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
-                     ::boost::mpl::insert< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
+                     boost::fusion::result_of::as_map<boost::fusion::result_of::insert<
+                                ::boost::mpl::first<mpl::placeholders::_1>,
+                                ::boost::fusion::result_of::end<::boost::mpl::first<mpl::placeholders::_1> >,
                                 make_pair_target_state_id< ::boost::mpl::second< ::boost::mpl::placeholders::_1 >,
-                                ::boost::mpl::placeholders::_2> >
-                     >,
+                                                           ::boost::mpl::placeholders::_2> > >
+                      >,
             ::boost::mpl::if_<
                     ::boost::mpl::has_key< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
                                            transition_target_type< ::boost::mpl::placeholders::_2> >,
                     ::boost::mpl::second< ::boost::mpl::placeholders::_1 >,
-                    ::boost::mpl::next< ::boost::mpl::second< ::boost::mpl::placeholders::_1 > >
+                    ::boost::mpl::next< ::boost::mpl::second<mpl::placeholders::_1 > >
                     >
         > //pair
         >::type all_state_ids;
     typedef typename ::boost::mpl::first<all_state_ids>::type type;
+
 };
 
 template <class Fsm>
@@ -193,18 +213,18 @@ struct get_active_state_switch_policy
 template <class stt,class State>
 struct get_state_id
 {
-    typedef typename ::boost::mpl::at<typename generate_state_ids<stt>::type,State>::type type;
+    typedef typename ::boost::fusion::result_of::value_at_key<typename generate_state_ids<stt>::type,State>::type type;
     enum {value = type::value};
 };
 
-// returns a mpl::vector containing the init states of a state machine
+// returns a fusion::vector containing the init states of a state machine
 template <class States>
 struct get_initial_states 
 {
     typedef typename ::boost::mpl::if_<
         ::boost::mpl::is_sequence<States>,
         States,
-        typename ::boost::mpl::push_back< ::boost::mpl::vector0<>,States>::type >::type type;
+        typename ::boost::mpl::push_back< ::boost::fusion::vector<>,States>::type >::type type;
 };
 // returns a mpl::int_ containing the size of a region. If the argument is not a sequence, returns 1
 template <class region>
@@ -216,7 +236,7 @@ struct get_number_of_regions
         ::boost::mpl::int_<1> >::type type;
 };
 
-// builds a mpl::vector of initial states
+// builds a fusion::vector of initial states
 //TODO remove duplicate from get_initial_states
 template <class region>
 struct get_regions_as_sequence 
@@ -224,7 +244,7 @@ struct get_regions_as_sequence
     typedef typename ::boost::mpl::if_<
         ::boost::mpl::is_sequence<region>,
         region,
-        typename ::boost::mpl::push_back< ::boost::mpl::vector0<>,region>::type >::type type;
+        typename ::boost::mpl::push_back< ::boost::fusion::vector0<>,region>::type >::type type;
 };
 
 template <class ToCreateSeq>
@@ -233,7 +253,7 @@ struct get_explicit_creation_as_sequence
     typedef typename ::boost::mpl::if_<
         ::boost::mpl::is_sequence<ToCreateSeq>,
         ToCreateSeq,
-        typename ::boost::mpl::push_back< ::boost::mpl::vector0<>,ToCreateSeq>::type >::type type;
+        typename ::boost::mpl::push_back< ::boost::fusion::vector0<>,ToCreateSeq>::type >::type type;
 };
 
 // returns true if 2 transitions have the same source (used to remove duplicates in search of composite states)
@@ -281,37 +301,52 @@ struct keep_target_names
         stt,transition_target_type< ::boost::mpl::placeholders::_1> >::type type;
 };
 
+// fusion sets do not guarantee uniqueness so we need to check this before insertion
+template <class Set, class T>
+struct set_unique_insert
+{
+    typedef typename ::boost::mpl::if_<
+            ::boost::fusion::result_of::has_key<Set, T>,
+            Set,
+            typename ::boost::mpl::push_back<Set, T>::type
+    >::type type;
+};
+
 template <class stt>
 struct generate_state_set
 {
     // keep in the original transition table only the source/target state types
     typedef typename keep_source_names<stt>::type sources;
     typedef typename keep_target_names<stt>::type targets;
-    typedef typename 
+
+    typedef typename
         ::boost::mpl::fold<
-        sources, ::boost::mpl::set<>,
-        ::boost::mpl::insert< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2>
+            sources,
+            boost::fusion::set<>,
+            boost::msm::back11::set_unique_insert< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2>
         >::type source_set;
-    typedef typename 
+
+    typedef typename
         ::boost::mpl::fold<
-        targets,source_set,
-        ::boost::mpl::insert< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2>
+            targets,
+            source_set,
+            boost::msm::back11::set_unique_insert< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2>
         >::type type;
 };
 
-// iterates through the transition table and generate a mpl::set<> containing all the events
+// iterates through the transition table and generate a fusion::set<> containing all the events
 template <class stt>
 struct generate_event_set
 {
     typedef typename 
         ::boost::mpl::fold<
-            stt, ::boost::mpl::set<>,
+            stt, ::boost::fusion::set<>,
             ::boost::mpl::if_<
-                ::boost::mpl::has_key< ::boost::mpl::placeholders::_1, 
+                ::boost::mpl::has_key< ::boost::mpl::placeholders::_1,
                                        transition_event< ::boost::mpl::placeholders::_2> >,
                 ::boost::mpl::placeholders::_1,
-                ::boost::mpl::insert< ::boost::mpl::placeholders::_1,
-                                      transition_event< ::boost::mpl::placeholders::_2> > >
+                ::boost::mpl::push_back< ::boost::mpl::placeholders::_1,
+                                         transition_event< ::boost::mpl::placeholders::_2> > >
         >::type type;
 };
 
@@ -424,7 +459,7 @@ struct create_stt
         ::boost::mpl::if_<
                  ::boost::mpl::has_key<states, ::boost::mpl::placeholders::_2>,
                  ::boost::mpl::placeholders::_1,
-                 ::boost::mpl::insert< ::boost::mpl::placeholders::_1, ::boost::mpl::end< ::boost::mpl::placeholders::_1>,
+                 ::boost::mpl::push_back< ::boost::mpl::placeholders::_1,
                              not_a_row< get_wrapped_state< ::boost::mpl::placeholders::_2> > > 
                   >
         >::type with_init;
@@ -433,7 +468,7 @@ struct create_stt
        typename ::boost::mpl::eval_if<
             typename has_explicit_creation<Derived>::type,
             get_explicit_creation<Derived>,
-            ::boost::mpl::vector0<> >::type
+            boost::fusion::result_of::make_vector<> >::type
         >::type fake_explicit_created;
 
     typedef typename 
@@ -446,7 +481,7 @@ struct create_stt
         ::boost::mpl::if_<
                  ::boost::mpl::has_key<states, ::boost::mpl::placeholders::_2>,
                  ::boost::mpl::placeholders::_1,
-                 ::boost::mpl::insert< ::boost::mpl::placeholders::_1, ::boost::mpl::end<mpl::placeholders::_1>,
+                 ::boost::mpl::push_back< ::boost::mpl::placeholders::_1,
                              not_a_row< get_wrapped_state< ::boost::mpl::placeholders::_2> > > 
                   >
         >::type type;
@@ -465,21 +500,25 @@ template <class StateType,class IsComposite>
 struct recursive_get_internal_transition_table
 {
     // get the composite's internal table
-    typedef typename StateType::internal_transition_table composite_table;
+    typedef typename StateType::internal_transition_table11 composite_table;
     // and for every substate (state of submachine), recursively get the internal transition table
     typedef typename generate_state_set<typename StateType::stt>::type composite_states;
     typedef typename ::boost::mpl::fold<
             composite_states, composite_table,
-            ::boost::mpl::insert_range< ::boost::mpl::placeholders::_1, ::boost::mpl::end< ::boost::mpl::placeholders::_1>,
-             recursive_get_internal_transition_table< ::boost::mpl::placeholders::_2, is_composite_state< ::boost::mpl::placeholders::_2> >
-             >
+            ::boost::fusion::result_of::as_vector<
+                ::boost::fusion::result_of::insert_range<
+                    ::boost::mpl::placeholders::_1,
+                    ::boost::fusion::result_of::end< ::boost::mpl::placeholders::_1>,
+                    recursive_get_internal_transition_table< ::boost::mpl::placeholders::_2, is_composite_state< ::boost::mpl::placeholders::_2> >
+            >
+         >
     >::type type;
 };
 // stop iterating on leafs (simple states)
 template <class StateType>
 struct recursive_get_internal_transition_table<StateType, ::boost::mpl::false_ >
 {
-    typedef typename StateType::internal_transition_table type;
+    typedef typename StateType::internal_transition_table11 type;
 };
 // recursively get a transition table for a given composite state.
 // returns the transition table for this state + the tables of all composite sub states recursively
@@ -489,18 +528,27 @@ struct recursive_get_transition_table
     // get the transition table of the state if it's a state machine
     typedef typename ::boost::mpl::eval_if<typename is_composite_state<Composite>::type,
         get_transition_table<Composite>,
-        ::boost::mpl::vector0<>
+        boost::fusion::result_of::make_vector<>
     >::type org_table;
 
     typedef typename generate_state_set<org_table>::type states;
 
     // and for every substate, recursively get the transition table if it's a state machine
+//    typedef typename ::boost::mpl::fold<
+//        states,org_table,
+//        ::boost::mpl::insert_range< ::boost::mpl::placeholders::_1, ::boost::mpl::end<mpl::placeholders::_1>,
+//        recursive_get_transition_table< ::boost::mpl::placeholders::_2 > >
+//    >::type type;
     typedef typename ::boost::mpl::fold<
         states,org_table,
-        ::boost::mpl::insert_range< ::boost::mpl::placeholders::_1, ::boost::mpl::end<mpl::placeholders::_1>,
-        recursive_get_transition_table< ::boost::mpl::placeholders::_2 > >
+        ::boost::fusion::result_of::as_vector<
+            ::boost::fusion::result_of::insert_range<
+                ::boost::mpl::placeholders::_1,
+                ::boost::fusion::result_of::end<mpl::placeholders::_1>,
+                recursive_get_transition_table< ::boost::mpl::placeholders::_2 >
+            >
+        >
     >::type type;
-
 };
 
 // metafunction used to say if a SM has pseudo exit states
@@ -551,10 +599,10 @@ struct find_completion_events
     typedef typename generate_event_set<Stt>::type event_list;
 
     typedef typename ::boost::mpl::fold<
-        event_list, ::boost::mpl::set<>,
+        event_list, ::boost::fusion::set<>,
         ::boost::mpl::if_<
                  is_completion_event< ::boost::mpl::placeholders::_2>,
-                 ::boost::mpl::insert< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2 >, 
+                 boost::msm::back11::set_unique_insert< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2 >,
                  ::boost::mpl::placeholders::_1 >
     >::type type;
 };
@@ -562,12 +610,19 @@ struct find_completion_events
 template <class Transition>
 struct make_vector 
 {
-    typedef ::boost::mpl::vector<Transition> type;
+    typedef ::boost::fusion::vector<Transition> type;
+};
+template< typename Entry >
+struct get_first_element_pair_second
+{
+    typedef typename ::boost::mpl::front<typename Entry::second>::type type;
 };
 template< typename Entry > 
-struct get_first_element_pair_second
+struct get_first_element_pair_second2
 { 
-    typedef typename ::boost::mpl::front<typename Entry::second>::type type;
+    //typedef typename ::boost::mpl::front<typename Entry::second>::type type;
+    typedef typename ::boost::remove_reference<typename ::boost::fusion::result_of::front<
+                typename ::boost::fusion::result_of::second<Entry>::type >::type>::type type;
 }; 
 
  //returns the owner of an explicit_entry state
@@ -636,17 +691,8 @@ struct has_exit_pseudo_states
 };
 
 // builds flags (add internal_flag_list and flag_list). internal_flag_list is used for terminate/interrupt states
-//template <class StateType>
-//struct get_flag_list
-//{
-//    typedef typename ::boost::mpl::insert_range<
-//        typename StateType::flag_list,
-//        typename ::boost::mpl::end< typename StateType::flag_list >::type,
-//        typename StateType::internal_flag_list
-//    >::type type;
-//};
 template <class StateType>
-struct get_flag_list
+struct get_flag_list 
 {
     typedef typename ::boost::fusion::result_of::as_vector<
         typename ::boost::fusion::result_of::insert_range<
@@ -661,10 +707,10 @@ template <class StateType>
 struct is_state_blocking 
 {
     typedef typename ::boost::mpl::fold<
-        typename get_flag_list<StateType>::type, ::boost::mpl::set<>,
+        typename get_flag_list<StateType>::type, ::boost::fusion::set<>,
         ::boost::mpl::if_<
                  has_event_blocking_flag< ::boost::mpl::placeholders::_2>,
-                 ::boost::mpl::insert< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2 >, 
+                 boost::msm::back11::set_unique_insert< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2 >,
                  ::boost::mpl::placeholders::_1 >
     >::type blocking_flags;
 
@@ -681,10 +727,10 @@ struct has_fsm_blocking_states
     typedef typename generate_state_set<Stt>::type state_list;
 
     typedef typename ::boost::mpl::fold<
-        state_list, ::boost::mpl::set<>,
+        state_list, ::boost::fusion::set<>,
         ::boost::mpl::if_<
                  is_state_blocking< ::boost::mpl::placeholders::_2>,
-                 ::boost::mpl::insert< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2 >, 
+                 ::boost::mpl::push_back< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2 >,
                  ::boost::mpl::placeholders::_1 >
     >::type blocking_states;
 
@@ -750,7 +796,7 @@ struct build_one_orthogonal_region
 {
      template<typename Row>
      struct row_to_incidence :
-         ::boost::mpl::vector<
+         ::boost::fusion::vector<
                 ::boost::mpl::pair<
                     typename Row::next_state_type, 
                     typename Row::transition_event>, 
@@ -766,7 +812,7 @@ struct build_one_orthogonal_region
 
      typedef typename ::boost::mpl::fold<
          TransitionTable,
-         ::boost::mpl::vector<>,
+         ::boost::fusion::vector<>,
          transition_incidence_list_helper< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2>
      >::type transition_incidence_list;
 
@@ -786,7 +832,7 @@ struct build_one_orthogonal_region
          typename ::boost::msm::mpl_graph::depth_first_search<
             transition_graph, 
             preordering_dfs_visitor,
-            ::boost::mpl::set<>,
+            ::boost::fusion::set<>,
             InitState
          >::type
      >::type type;
@@ -798,10 +844,10 @@ struct find_entry_states
     typedef typename ::boost::mpl::copy<
         typename Fsm::substate_list,
         ::boost::mpl::inserter< 
-            ::boost::mpl::set0<>,
+            ::boost::fusion::set<>,
             ::boost::mpl::if_<
                 has_explicit_entry_state< ::boost::mpl::placeholders::_2 >,
-                ::boost::mpl::insert< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2>,
+                boost::msm::back11::set_unique_insert< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2>,
                 ::boost::mpl::placeholders::_1
             >
         >
@@ -844,7 +890,7 @@ struct build_orthogonal_regions
 {
     typedef typename 
         ::boost::mpl::fold<
-            InitStates, ::boost::mpl::vector0<>,
+            InitStates, ::boost::fusion::vector0<>,
             ::boost::mpl::push_back< 
                 ::boost::mpl::placeholders::_1, 
                 build_one_orthogonal_region< typename Fsm::stt, ::boost::mpl::placeholders::_2 > >
@@ -852,7 +898,7 @@ struct build_orthogonal_regions
 
     typedef typename 
         ::boost::mpl::fold<
-        typename find_entry_states<Fsm>::type, ::boost::mpl::vector0<>,
+        typename find_entry_states<Fsm>::type, ::boost::fusion::vector0<>,
             ::boost::mpl::push_back< 
                 ::boost::mpl::placeholders::_1, 
                 build_one_orthogonal_region< typename Fsm::stt, ::boost::mpl::placeholders::_2 > >
@@ -917,7 +963,7 @@ struct check_no_unreachable_state
         typename ::boost::mpl::eval_if<
             typename has_explicit_creation<Fsm>::type,
             get_explicit_creation<Fsm>,
-            ::boost::mpl::vector0<>
+            ::boost::fusion::result_of::make_vector<>
         >::type
     >::type with_explicit_creation;
 
@@ -949,42 +995,8 @@ is_exit_state_active(FSM&)
     return false;
 }
 
-// transformation metafunction to end interrupt flags
-template <class Event>
-struct transform_to_end_interrupt 
-{
-    typedef boost::msm::EndInterruptFlag<Event> type;
-};
-// transform a sequence of events into another one of EndInterruptFlag<Event>
-template <class Events>
-struct apply_end_interrupt_flag 
-{
-    typedef typename 
-        ::boost::mpl::transform<
-        Events,transform_to_end_interrupt< ::boost::mpl::placeholders::_1> >::type type;
-};
-// returns a mpl vector containing all end interrupt events if sequence, otherwise the same event
-template <class Event>
-struct get_interrupt_events 
-{
-    typedef typename ::boost::mpl::eval_if<
-        ::boost::mpl::is_sequence<Event>,
-        boost::msm::back::apply_end_interrupt_flag<Event>,
-        boost::mpl::vector1<boost::msm::EndInterruptFlag<Event> > >::type type;
-};
 
-template <class Events>
-struct build_interrupt_state_flag_list
-{
-    typedef ::boost::mpl::vector<boost::msm::InterruptedFlag> first_part;
-    typedef typename ::boost::mpl::insert_range< 
-        first_part, 
-        typename ::boost::mpl::end< first_part >::type,
-        Events
-    >::type type;
-};
+} } }//boost::msm::back11
 
-} } }//boost::msm::back
-
-#endif // BOOST_MSM_BACK_METAFUNCTIONS_H
+#endif // BOOST_MSM_BACK11_METAFUNCTIONS_H
 

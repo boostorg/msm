@@ -10,16 +10,23 @@
 
 #include <iostream>
 // back-end
-#include <boost/msm/back/state_machine.hpp>
+#include <boost/msm/back11/state_machine.hpp>
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>
-//#ifndef BOOST_MSM_NONSTANDALONE_TEST
-//#define BOOST_TEST_MODULE MyTest
-//#endif
+#include <boost/msm/front/functor_row.hpp>
+#include <boost/msm/front/euml/common.hpp>
+
+#include <boost/msm/back/queue_container_circular.hpp>
+#include <boost/msm/back/history_policies.hpp>
+
+#ifndef BOOST_MSM_NONSTANDALONE_TEST
+#define BOOST_TEST_MODULE back11_composite_machine_test
+#endif
 #include <boost/test/unit_test.hpp>
 
 namespace msm = boost::msm;
 namespace mpl = boost::mpl;
+using namespace msm::front;
 
 namespace
 {
@@ -42,13 +49,10 @@ namespace
     // front-end: define the FSM structure 
     struct player_ : public msm::front::state_machine_def<player_>
     {
-        unsigned int start_playback_counter;
-        unsigned int can_close_drawer_counter;
+        unsigned int start_playback_counter=0;
+        unsigned int can_close_drawer_counter=0;
+        unsigned int test_upper=0;
 
-        player_():
-        start_playback_counter(0),
-        can_close_drawer_counter(0)
-        {}
         // The list of FSM states
         struct Empty : public msm::front::state<> 
         {
@@ -132,12 +136,21 @@ namespace
             // guard conditions
             bool start_prev_song_guard(PreviousSong const&)       {++start_prev_song_guard_counter;return true; }
 
+            struct ActionNextSong
+            {
+                template <class EVT,class FSM,class SourceState,class TargetState>
+                void operator()(EVT const& ,FSM& fsm,SourceState& ,TargetState& )
+                {
+                    ++fsm.get_upper()->test_upper;
+                }
+            };
+
             typedef Playing_ pl; // makes transition table cleaner
             // Transition table for Playing
-            struct transition_table : mpl::vector<
+            struct transition_table : boost::fusion::vector<
                 //      Start     Event         Next      Action               Guard
                 //    +---------+-------------+---------+---------------------+----------------------+
-                 _row < Song1   , NextSong    , Song2                                                >,
+                  Row < Song1   , NextSong    , Song2   , ActionNextSong                             >,
                   row < Song2   , PreviousSong, Song1   , &pl::start_prev_song,&pl::start_prev_song_guard>,
                 a_row < Song2   , NextSong    , Song3   , &pl::start_next_song                       >,
                 g_row < Song3   , PreviousSong, Song2                         ,&pl::start_prev_song_guard>
@@ -151,7 +164,13 @@ namespace
             }
         };
         // back-end
-        typedef msm::back::state_machine<Playing_> Playing;
+        //class player;
+        typedef msm::back11::state_machine<
+            Playing_,
+            msm::back11::state_machine<player_>,
+            msm::back::queue_container_circular,
+            msm::back::AlwaysHistory/*,
+            msm::back11::state_machine<player_>*/ > Playing;
 
         // state not defining any entry or exit
         struct Paused : public msm::front::state<>
@@ -187,7 +206,7 @@ namespace
         typedef player_ p; // makes transition table cleaner
 
         // Transition table for player
-        struct transition_table : mpl::vector<
+        struct transition_table : boost::fusion::vector<
             //    Start     Event         Next      Action               Guard
             //  +---------+-------------+---------+---------------------+----------------------+
           a_row < Stopped , play        , Playing , &p::start_playback                         >,
@@ -238,12 +257,15 @@ namespace
 
     };
     // Pick a back-end
-    typedef msm::back::state_machine<player_> player;
+//    class player : public msm::back11::state_machine<player_>
+//    {};
+    using player = msm::back11::state_machine<player_>;
+    //typedef msm::back11::state_machine<player_> player;
 
 //    static char const* const state_names[] = { "Stopped", "Open", "Empty", "Playing", "Paused" };
 
 
-    BOOST_AUTO_TEST_CASE( composite_machine_test )
+    BOOST_AUTO_TEST_CASE( back11_composite_machine_test )
     {     
         player p;
 
@@ -288,6 +310,7 @@ namespace
         BOOST_CHECK_MESSAGE(
             p.get_state<player_::Playing&>().start_next_song_counter == 0,
             "submachine action not called correctly");
+        BOOST_CHECK_MESSAGE(p.test_upper == 1,"upper not called correctly");
 
         p.process_event(NextSong());
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
