@@ -17,6 +17,7 @@
 #define BOOST_TEST_MODULE MyTest
 #endif
 #include <boost/test/unit_test.hpp>
+#include <boost/config.hpp>
 
 namespace msm = boost::msm;
 namespace mpl = boost::mpl;
@@ -259,11 +260,23 @@ namespace
         BOOST_CHECK_MESSAGE(p2.get_state<player_::Empty&>().data_ == 7,"Wrong Empty value");
         BOOST_CHECK_MESSAGE(p2.get_state<player_::Open&>().data_ == 2,"Wrong Open value");
 
+#if defined(BOOST_MSVC) && BOOST_MSVC >= 1910 && BOOST_MSVC < 1930
+
+// error C2440: '<function-style-cast>': cannot convert from 'const boost::msm::msm_terminal<Expr>' to '`anonymous-namespace'::player_::Playing'
+
+#elif defined(BOOST_CLANG_VERSION) && BOOST_CLANG_VERSION >= 160000 && BOOST_CLANG_VERSION < 170000
+
+// error: ambiguous conversion for functional-style cast from 'const typename boost::proto::detail::enable_binary<deduce_domain, deduce_domain::proto_grammar, boost::mpl::or_<is_extension<const define_states_creation<is_proto_expr> &>, is_extension<Song1>>, boost::proto::tag::shift_left, const define_states_creation<> &, const Song1 &>::type'
+
+#else
+
         ctx.bla = 3;
         player p(msm::back::states_ << player_::Empty(1) 
                                     << player_::Playing(msm::back::states_ << player_::Playing_::Song1(8)),
                  boost::ref(ctx),5);
         BOOST_CHECK_MESSAGE(p.get_state<player_::Playing&>().get_state<player_::Playing_::Song1&>().data_ == 8,"Wrong Open value");
+
+#endif
     }
 }
 
