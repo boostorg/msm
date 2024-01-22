@@ -13,6 +13,8 @@
 
 #include <boost/mpl/bool.hpp>
 #include <boost/mpl/vector.hpp>
+#include <boost/mpl/transform.hpp>
+
 #include <boost/fusion/include/vector.hpp>
 #include <boost/fusion/include/make_vector.hpp>
 

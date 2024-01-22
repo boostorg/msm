@@ -18,9 +18,8 @@
 #include <boost/msm/front/state_machine_def.hpp>
 // functors
 #include <boost/msm/front/functor_row.hpp>
-#include <boost/msm/front/euml/common.hpp>
 // for And_ operator
-#include <boost/msm/front/euml/operator.hpp>
+#include <boost/msm/front/operator.hpp>
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
 #define BOOST_TEST_MODULE back11_simple_with_functors_test
 #endif
@@ -30,8 +29,6 @@ using namespace std;
 namespace msm = boost::msm;
 namespace mpl = boost::mpl;
 using namespace msm::front;
-// for And_ operator
-using namespace msm::front::euml;
 
 namespace
 {
@@ -118,7 +115,6 @@ namespace
             int event_counter=0;
         };
 
-        // state not defining any entry or exit
         struct Paused : public msm::front::state<>
         {
             template <class Event,class FSM>
