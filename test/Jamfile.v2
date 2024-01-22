@@ -69,5 +69,9 @@ test-suite msm-unit-tests
         : [ requires cxx11_variadic_templates ] ]
     [ run Back11TestDeferIn2Regions.cpp  : :
         : [ requires cxx11_variadic_templates ] ]
+    [ run Back11SimpleWithPuml.cpp  : :
+        : [ requires cxx20_hdr_version ] ]
+    [ run puml_syntax.cpp  : :
+        : [ requires cxx20_hdr_version ] ]
     ;
 
