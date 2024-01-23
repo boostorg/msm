@@ -11,7 +11,7 @@
 #ifndef BOOST_MSM_FRONT_PUML_COMMON_H
 #define BOOST_MSM_FRONT_PUML_COMMON_H
 
-#include <stdint.h>
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
