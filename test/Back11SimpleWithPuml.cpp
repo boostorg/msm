@@ -255,8 +255,7 @@ namespace
         unsigned int start_playback_counter=0;
         unsigned int can_close_drawer_counter=0;
         unsigned int test_fct_counter=0;
-
-        static inline constexpr auto stt_ =
+        BOOST_MSM_PUML_DECLARE_TABLE(
             R"( 
             @startuml Player
             skinparam linetype polyline
@@ -277,8 +276,8 @@ namespace
                 Paused      --> Open     : open_close    / stop_and_open
             }
             @enduml
-        )";
-        BOOST_MSM_PUML_DECLARE_TABLE(stt_)
+        )"
+        )
 
         // Replaces the default no-transition response.
         template <class FSM,class Event>

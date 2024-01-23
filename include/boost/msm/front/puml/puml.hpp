@@ -11,6 +11,7 @@
 #ifndef BOOST_MSM_FRONT_PUML_COMMON_H
 #define BOOST_MSM_FRONT_PUML_COMMON_H
 
+#include <stdint.h>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -37,22 +38,22 @@ namespace boost::msm::front::puml
     };
 
 
-    template <uint32_t hash>
+    template <std::uint32_t hash>
     struct State : public msm::front::state<>
     {
         using generated_type = State<hash>;
     };
-    template <uint32_t hash>
+    template <std::uint32_t hash>
     struct Event
     {
 
     };
-    template <uint32_t hash>
+    template <std::uint32_t hash>
     struct Action
     {
 
     };
-    template <uint32_t hash>
+    template <std::uint32_t hash>
     struct Guard
     {
 
@@ -61,7 +62,7 @@ namespace boost::msm::front::puml
 
     namespace detail {
         // CRC32 Table (zlib polynomial)
-        static constexpr uint32_t crc_table[256] =
+        static constexpr std::uint32_t crc_table[256] =
         {
             0x00000000L, 0x77073096L, 0xee0e612cL, 0x990951baL, 0x076dc419L,
             0x706af48fL, 0xe963a535L, 0x9e6495a3L, 0x0edb8832L, 0x79dcb8a4L,
@@ -116,9 +117,9 @@ namespace boost::msm::front::puml
             0x5d681b02L, 0x2a6f2b94L, 0xb40bbe37L, 0xc30c8ea1L, 0x5a05df1bL,
             0x2d02ef8dL
         };
-        constexpr uint32_t crc32(std::string_view str)
+        constexpr std::uint32_t crc32(std::string_view str)
         {
-            uint32_t crc = 0xffffffff;
+            std::uint32_t crc = 0xffffffff;
             for (auto c : str)
                 crc = (crc >> 8) ^ boost::msm::front::puml::detail::crc_table[(crc ^ c) & 0xff];
             return crc ^ 0xffffffff;
@@ -375,7 +376,7 @@ namespace boost::msm::front::puml
         }
     } //namespace detail
 
-    constexpr uint32_t by_name(std::string_view str)
+    constexpr std::uint32_t by_name(std::string_view str)
     {
         return boost::msm::front::puml::detail::crc32(str) ^ 0xFFFFFFFF;
     }
@@ -608,6 +609,13 @@ namespace boost::msm::front::puml
                     stt, typename ::boost::mpl::push_back< T, State<by_name(boost::msm::front::puml::detail::parse_inits<rnum>(stt()))> >::type{});
             }
         }
+        template <class T1, class T2>
+        struct pair_type
+        {
+            using first = T1;
+            using second = T2;
+        };
+
     }//namespace detail
 
     // specializations
@@ -654,17 +662,28 @@ namespace boost::msm::front::puml
             boost::msm::front::puml::detail::count_inits(stt_func()), 0>(stt_func);
     }
 
+    template <class Func>
+    constexpr auto create_fsm_table(Func stt_func)
+    {
+        return boost::msm::front::puml::detail::pair_type <
+           decltype(
+           boost::msm::front::puml::detail::create_transition_table_helper<
+                Func,
+                boost::msm::front::puml::detail::count_transitions(
+                    stt_func()) - boost::msm::front::puml::detail::count_inits(stt_func()), 0>(stt_func)),
+           decltype(
+           boost::msm::front::puml::detail::create_inits_helper<
+                Func,
+                boost::msm::front::puml::detail::count_inits(stt_func()), 0>(stt_func))>{};
+    }
+
 }//boost::msm::front::puml
 
 // helper macro to hide declarations
-#define BOOST_MSM_PUML_DECLARE_TABLE(stt_)                                  \
-static inline auto stt =                                                    \
-boost::msm::front::puml::create_transition_table([&]() {return stt_; });    \
-static inline auto inits =                                                  \
-create_initial_states([&]() {return stt_; });                               \
-using transition_table = decltype(stt);                                     \
-using initial_state = decltype(inits);
-
+#define BOOST_MSM_PUML_DECLARE_TABLE(stt)                       \
+using Stt = decltype(create_fsm_table([]() {return stt;}));     \
+using transition_table = typename Stt::first;                   \
+using initial_state = typename Stt::second;
 
 
 #endif // BOOST_MSM_FRONT_PUML_COMMON_H
