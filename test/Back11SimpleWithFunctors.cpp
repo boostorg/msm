@@ -8,7 +8,6 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#include <iostream>
 #include <boost/fusion/adapted/std_tuple.hpp>
 #include <boost/fusion/include/std_tuple.hpp>
 

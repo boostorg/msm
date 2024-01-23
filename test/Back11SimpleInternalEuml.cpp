@@ -8,7 +8,6 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#include <iostream>
 #include <boost/msm/back11/state_machine.hpp>
 #include <boost/msm/front/euml/euml.hpp>
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
