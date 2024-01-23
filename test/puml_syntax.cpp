@@ -26,7 +26,7 @@ namespace
         constexpr auto stt_ = R"([*]-> StateA
                             StateA -> StateB: evt1/ A2 [G1]
                             StateB -> StateB : evt1/ A1,A2 [G1]
-                            --
+                            
                             StateB -> StateA: evt1)";
         auto stt =
             boost::msm::front::puml::create_transition_table([&]() {return stt_; });
@@ -42,7 +42,7 @@ namespace
         constexpr auto stt2_ = R"([*]->StateA
                              StateA -> StateB: evt1/ A2 [G1&&G2]
                              StateB -> StateB : evt1/ A1, defer [G1]
-                             --
+                             
                              StateB -> StateA: evt1)";
         auto stt2 =
             boost::msm::front::puml::create_transition_table([&]() {return stt2_; });
@@ -212,17 +212,18 @@ namespace
         State< by_name("StateXXX")> s1;
 
         // initial states
-        constexpr auto stt9_ = R"([*] --> StateA
-                              StateA -> StateB: evt1 [G1]
-                              StateB -> StateB : evt1 / A1 [G1]
-                              --
-                              StateB -> StateA: evt1
-                              [*]->StateB)";
+        constexpr auto stt9_ = R"(
+                [*] --> StateA
+                StateA -> StateB: evt1 [G1]
+                StateB -> StateB : evt1 / A1 [G1]
+                --
+                [*]->StateC
+                StateC -> StateD: evt1)";
         auto inits =
             create_initial_states([&]() {return stt9_; });
         static_assert(std::is_same_v<
             decltype(inits),
-            boost::fusion::vector< State <by_name("StateA")>, State <by_name("StateB")>>
+            boost::fusion::vector< State <by_name("StateA")>, State <by_name("StateC")>>
         >);
     }
 }

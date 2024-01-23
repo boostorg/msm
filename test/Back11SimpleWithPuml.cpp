@@ -257,23 +257,27 @@ namespace
         unsigned int test_fct_counter=0;
 
         static inline constexpr auto stt_ =
-            R"( [*]-> Empty
+            R"( 
+            @startuml Player
+            skinparam linetype polyline
+            state Player{
+                [*]-> Empty
                 Stopped     -> Playing  : play          / TestFct,start_playback    [DummyGuard]
-                Stopped     -> Open     : open_close    / open_drawer
-                Stopped     -> Stopped  : stop
-                --
-                Open        -> Empty    : open_close    / close_drawer              [can_close_drawer]
-                --
-                Empty       -> Open     : open_close    / open_drawer
-                Empty       -> Stopped  : cd_detected   / store_cd_info             [good_disk_format && always_true]
-                --
-                Playing     -> Stopped  : stop          / stop_playback
-                Playing     -> Paused   : pause         / pause_playback
-                Playing     -> Open     : open_close    / stop_and_open
-                --
-                Paused      -> Playing  : end_pause     / resume_playback
-                Paused      -> Stopped  : stop          / stop_playback
-                Paused      -> Open  : open_close       / stop_and_open)";
+                Stopped     -> Open      : open_close   / open_drawer
+                Stopped     -> Stopped   : stop
+
+                Open        -> Empty     : open_close    / close_drawer              [can_close_drawer]
+                Empty       --> Open     : open_close    / open_drawer
+                Empty       ---> Stopped : cd_detected   / store_cd_info             [good_disk_format && always_true]
+                Playing     --> Stopped  : stop          / stop_playback
+                Playing     -> Paused    : pause         / pause_playback
+                Playing     --> Open     : open_close    / stop_and_open
+                Paused      -> Playing   : end_pause     / resume_playback
+                Paused      --> Stopped  : stop          / stop_playback
+                Paused      --> Open     : open_close    / stop_and_open
+            }
+            @enduml
+        )";
         BOOST_MSM_PUML_DECLARE_TABLE(stt_)
 
         // Replaces the default no-transition response.
