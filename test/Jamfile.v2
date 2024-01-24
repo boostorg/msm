@@ -71,6 +71,10 @@ test-suite msm-unit-tests
         : [ requires cxx11_variadic_templates ] ]
     [ run Back11SimpleWithPuml.cpp  : :
         : [ requires cxx20_hdr_version cxx20_hdr_barrier cxx20_hdr_bit  cxx20_hdr_compare cxx20_hdr_concepts cxx20_hdr_format cxx20_hdr_ranges cxx20_hdr_numbers  ] ]
+    [ run Back11SimpleInternalWithPuml.cpp  : :
+        : [ requires cxx20_hdr_version cxx20_hdr_barrier cxx20_hdr_bit  cxx20_hdr_compare cxx20_hdr_concepts cxx20_hdr_format cxx20_hdr_ranges cxx20_hdr_numbers  ] ]
+    [ run Back11OrthogonalDeferred3WithPuml.cpp  : :
+        : [ requires cxx20_hdr_version cxx20_hdr_barrier cxx20_hdr_bit  cxx20_hdr_compare cxx20_hdr_concepts cxx20_hdr_format cxx20_hdr_ranges cxx20_hdr_numbers  ] ]
     [ run puml_syntax.cpp  : :
         : [ requires cxx20_hdr_version cxx20_hdr_barrier cxx20_hdr_bit  cxx20_hdr_compare cxx20_hdr_concepts cxx20_hdr_format cxx20_hdr_ranges cxx20_hdr_numbers  ] ]
     ;
