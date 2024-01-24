@@ -296,8 +296,8 @@ namespace boost::msm::front::puml
         constexpr
             auto parse_stt(std::string_view stt)
         {
-            auto prev_pos = 0;
-            auto pos = 0;
+            auto prev_pos = std::string::size_type(0);
+            auto pos = std::string::size_type(0);
             auto trans_cpt = 0;
             do
             {
@@ -326,8 +326,8 @@ namespace boost::msm::front::puml
         constexpr auto parse_action(std::string_view actions)
         {
             //actions = reduce(actions, "");
-            auto prev_pos = 0;
-            auto pos = 0;
+            auto prev_pos = std::string::size_type(0);
+            auto pos = std::string::size_type(0);
             auto action_cpt = 0;
             do
             {
@@ -350,8 +350,8 @@ namespace boost::msm::front::puml
         {
             //stt = reduce(stt, "");
 
-            auto prev_pos = 0;
-            auto pos = 0;
+            auto prev_pos = std::string::size_type(0);
+            auto pos = std::string::size_type(0);
             auto trans_cpt = 0;
             do
             {
