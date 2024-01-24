@@ -16,7 +16,7 @@
 #include <boost/msm/front/puml/puml.hpp>
 
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE back11_simple_with_puml_test
+#define BOOST_TEST_MODULE back11_simple_internal_with_puml
 #endif
 #include <boost/test/unit_test.hpp>
 
@@ -28,16 +28,19 @@ using namespace msm::front::puml;
 namespace boost::msm::front::puml {
     // events
     template<>
-    struct Event<by_name("play")>  { int cpt_ = 0; };
+    struct Event<by_name("play")>  {};
     template<>
-    struct Event<by_name("end_pause")>  { int cpt_ = 0; };
+    struct Event<by_name("end_pause")>  {};
     template<>
     struct Event<by_name("stop")>  {};
     template<>
     struct Event<by_name("pause")>  {};
     template<>
     struct Event<by_name("open_close")>  {};
-
+    template<>
+    struct Event<by_name("internal_evt")> {};
+    template<>
+    struct Event<by_name("to_ignore")> {};
     // A "complicated" event type that carries some data.
     enum DiskTypeEnum
     {
@@ -66,6 +69,8 @@ namespace boost::msm::front::puml {
         void on_exit(Event const&,FSM& ) {++exit_counter;}
         int entry_counter=0;
         int exit_counter=0;
+        unsigned int empty_internal_guard_counter=0;
+        unsigned int empty_internal_action_counter=0;
     }; 
     template<>
     struct State<by_name("Open")> : public msm::front::state<>
@@ -101,16 +106,11 @@ namespace boost::msm::front::puml {
     struct State<by_name("Playing")> : public msm::front::state<>
     {
         template <class Event,class FSM>
-        void on_entry(Event const& e,FSM& )
-        {
-            ++entry_counter;
-            event_counter = e.cpt_;
-        }
+        void on_entry(Event const& e,FSM& ){++entry_counter;}
         template <class Event,class FSM>
         void on_exit(Event const&,FSM& ) {++exit_counter;}
         int entry_counter = 0;
         int exit_counter = 0;
-        int event_counter=0;
     };
 
     //actions
@@ -121,24 +121,6 @@ namespace boost::msm::front::puml {
         void operator()(EVT const&, FSM&, SourceState&, TargetState&)
         {
         }
-    };
-    template<>
-    struct Action<by_name("close_drawer")>
-    {
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(EVT const&, FSM&, SourceState&, TargetState&)
-        {
-        }
-    };
-    template<>
-    struct Action<by_name("TestFct")>
-    {
-        template <class EVT, class FSM, class SourceState, class TargetState>
-            void operator()(EVT& e, FSM& fsm,SourceState& ,TargetState& )
-            {
-                ++e.cpt_;
-                ++fsm.test_fct_counter;
-            }
     };
     template<>
     struct Action<by_name("start_playback")>
@@ -155,7 +137,6 @@ namespace boost::msm::front::puml {
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(EVT const&, FSM& fsm, SourceState&, TargetState&)
         {
-            fsm.process_event(Event<by_name("play")>{});
         }
     };
     template<>
@@ -178,9 +159,8 @@ namespace boost::msm::front::puml {
     struct Action<by_name("resume_playback")>
     {
         template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(EVT& e, FSM&, SourceState&, TargetState&)
+        void operator()(EVT&, FSM&, SourceState&, TargetState&)
         {
-            ++e.cpt_;
         }
     };
     template<>
@@ -199,16 +179,25 @@ namespace boost::msm::front::puml {
         {
         }
     };
-    // guard conditions
     template<>
-    struct Guard<by_name("DummyGuard")>
+    struct Action<by_name("internal_action")>
     {
         template <class EVT, class FSM, class SourceState, class TargetState>
-        bool operator()(EVT const&, FSM&, SourceState&, TargetState&)
+        void operator()(EVT const&, FSM& fsm, SourceState&, TargetState&)
         {
-            return true;
+            ++fsm.internal_action_counter;
         }
     };
+    template<>
+    struct Action<by_name("internal_action_fct")>
+    {
+        template <class EVT, class FSM, class SourceState, class TargetState>
+        void operator()(EVT const&, FSM&, SourceState& src, TargetState&)
+        {
+            ++src.empty_internal_action_counter;
+        }
+    };
+    // guard conditions
     template<>
     struct Guard<by_name("good_disk_format")>
     {
@@ -224,21 +213,42 @@ namespace boost::msm::front::puml {
         }
     };
     template<>
-    struct Guard<by_name("always_true")>
-    {
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        bool operator()(EVT const&, FSM&, SourceState&, TargetState&)
-        {
-            return true;
-        }
-    };
-    template<>
     struct Guard<by_name("can_close_drawer")>
     {
         template <class EVT, class FSM, class SourceState, class TargetState>
         bool operator()(EVT const&, FSM& fsm, SourceState&, TargetState&)
         {
             ++fsm.can_close_drawer_counter;
+            return true;
+        }
+    };
+    template<>
+    struct Guard<by_name("internal_guard")>
+    {
+        template <class EVT, class FSM, class SourceState, class TargetState>
+        bool operator()(EVT const&, FSM& fsm, SourceState&, TargetState&)
+        {
+            ++fsm.internal_guard_counter;
+            return false;
+        }
+    };
+    template<>
+    struct Guard<by_name("internal_guard_fct")>
+    {
+        template <class EVT, class FSM, class SourceState, class TargetState>
+        bool operator()(EVT const&, FSM&, SourceState& src, TargetState&)
+        {
+            ++src.empty_internal_guard_counter;
+            return false;
+        }
+    };
+    template<>
+    struct Guard<by_name("internal_guard2")>
+    {
+        template <class EVT, class FSM, class SourceState, class TargetState>
+        bool operator()(EVT const&, FSM& fsm, SourceState&, TargetState&)
+        {
+            ++fsm.internal_guard_counter;
             return true;
         }
     };
@@ -253,23 +263,32 @@ namespace
     {
         unsigned int start_playback_counter=0;
         unsigned int can_close_drawer_counter=0;
-        unsigned int test_fct_counter=0;
+        unsigned int internal_action_counter=0;
+        unsigned int internal_guard_counter=0;
+
         BOOST_MSM_PUML_DECLARE_TABLE(
             R"( 
             @startuml Player
             skinparam linetype polyline
             state Player{
                 [*]-> Empty
-                Stopped     -> Playing  : play          / TestFct,start_playback    [DummyGuard]
+                Stopped     -> Playing   : play         / start_playback
                 Stopped     -> Open      : open_close   / open_drawer
                 Stopped     -> Stopped   : stop
 
-                Open        -> Empty     : open_close    / close_drawer              [can_close_drawer]
+                Open        -> Empty     : open_close                             [can_close_drawer]
+                
                 Empty       --> Open     : open_close    / open_drawer
-                Empty       ---> Stopped : cd_detected   / store_cd_info             [good_disk_format && always_true]
+                Empty       ---> Stopped : cd_detected   / store_cd_info          [good_disk_format]
+                Empty       -> Empty     : *internal_evt / internal_action        [internal_guard2]              
+                Empty       -> Empty     : *to_ignore
+                Empty       -> Empty     : *cd_detected                           [internal_guard]              
+                Empty       -> Empty     : *internal_evt / internal_action_fct    [internal_guard_fct]              
+
                 Playing     --> Stopped  : stop          / stop_playback
                 Playing     -> Paused    : pause         / pause_playback
                 Playing     --> Open     : open_close    / stop_and_open
+                
                 Paused      -> Playing   : end_pause     / resume_playback
                 Paused      --> Stopped  : stop          / stop_playback
                 Paused      --> Open     : open_close    / stop_and_open
@@ -289,12 +308,19 @@ namespace
     typedef msm::back11::state_machine<player_> player;
 
 
-    BOOST_AUTO_TEST_CASE( back11_simple_with_puml_test )
+    BOOST_AUTO_TEST_CASE( back11_simple_internal_with_puml_test )
     {     
         player p;
 
         p.start(); 
         BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Empty")>&>().entry_counter == 1, "Empty entry not called correctly");
+        // internal events
+        p.process_event(Event<by_name("to_ignore")>{});
+        p.process_event(Event<by_name("internal_evt")>{});
+        BOOST_CHECK_MESSAGE(p.internal_action_counter == 1, "Internal action not called correctly");
+        BOOST_CHECK_MESSAGE(p.internal_guard_counter == 1, "Internal guard not called correctly");
+        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Empty")>&>().empty_internal_action_counter == 0, "Empty internal action not called correctly");
+        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Empty")>&>().empty_internal_guard_counter == 1, "Empty internal guard not called correctly");
 
         p.process_event(Event<by_name("open_close")>{});
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 1,"Open should be active"); //Open
@@ -314,25 +340,27 @@ namespace
         BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Empty")>&>().entry_counter == 2,"Empty entry not called correctly");
 
         p.process_event(Event<by_name("cd_detected")>{"louie, louie", DISK_CD});
-        BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
+        BOOST_CHECK_MESSAGE(p.current_state()[0] == 0, "Stopped should be active"); //Stopped
         BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Empty")>&>().exit_counter == 2,"Empty exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Stopped")>&>().entry_counter == 1,"Stopped entry not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Stopped")>&>().exit_counter == 1,"Stopped exit not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Playing")>&>().entry_counter == 1,"Playing entry not called correctly");
-        BOOST_CHECK_MESSAGE(p.start_playback_counter == 1,"action not called correctly");
-        BOOST_CHECK_MESSAGE(p.test_fct_counter == 1,"action not called correctly");
+        BOOST_CHECK_MESSAGE(p.internal_guard_counter == 3, "Internal guard not called correctly");
+
+        p.process_event(Event<by_name("play")>{});
+        BOOST_CHECK_MESSAGE(p.current_state()[0] == 3, "Playing should be active"); //Playing
+        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Stopped")>&>().exit_counter == 1, "Stopped exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Playing")>&>().entry_counter == 1, "Playing entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.start_playback_counter == 1, "action not called correctly");
 
         p.process_event(Event<by_name("pause")>{});
-        BOOST_CHECK_MESSAGE(p.current_state()[0] == 4,"Paused should be active"); //Paused
-        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Playing")>&>().exit_counter == 1,"Playing exit not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Paused")>&>().entry_counter == 1,"Paused entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.current_state()[0] == 4, "Paused should be active"); //Paused
+        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Stopped")>&>().exit_counter == 1, "Playing exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Paused")>&>().entry_counter == 1, "Paused entry not called correctly");
 
         // go back to Playing
         p.process_event(Event<by_name("end_pause")>{});
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
         BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Paused")>&>().exit_counter == 1,"Paused exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Playing")>&>().entry_counter == 2,"Playing entry not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Playing")>&>().event_counter == 1,"Playing event counter incorrect");
 
         p.process_event(Event<by_name("pause")>{});
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 4,"Paused should be active"); //Paused
