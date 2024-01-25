@@ -15,6 +15,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <boost/any.hpp>
 #include <boost/fusion/mpl.hpp>
 #include <boost/fusion/include/as_vector.hpp>
 #include <boost/fusion/container/vector.hpp>
@@ -174,10 +175,10 @@ namespace boost::msm::front::puml
             auto action_pos = part.find("/");
             auto guard_pos = part.find("[");
             auto evt_pos = part.find(":");
-            auto star_pos = part.find("*");
+            auto internal_pos = part.find("-");
             bool is_internal_transition =
-                star_pos != std::string::npos && star_pos > evt_pos && star_pos <= action_pos && star_pos <= guard_pos;
-            auto start_event_name_pos = (star_pos == std::string::npos) ? evt_pos : star_pos;
+                internal_pos != std::string::npos && internal_pos > evt_pos && internal_pos <= action_pos && internal_pos <= guard_pos;
+            auto start_event_name_pos = (internal_pos == std::string::npos) ? evt_pos : internal_pos;
 
             boost::msm::front::puml::detail::Transition res;
 
@@ -582,9 +583,9 @@ namespace boost::msm::front::puml
                     boost::msm::front::Row <
                     State < by_name(boost::msm::front::puml::detail::parse_stt<tnum>(stt()).source)>,
                     typename boost::msm::front::puml::convert_to_msm_names<
-                    Event< by_name(boost::msm::front::puml::detail::parse_stt<tnum>(stt()).event)>>::type,
+                        Event< by_name(boost::msm::front::puml::detail::parse_stt<tnum>(stt()).event)>>::type,
                     typename boost::msm::front::puml::convert_to_msm_names<
-                    State< by_name(boost::msm::front::puml::detail::parse_stt<tnum>(stt()).target)>>::type,
+                        State< by_name(boost::msm::front::puml::detail::parse_stt<tnum>(stt()).target)>>::type,
                     decltype(make_action_sequence(boost::msm::front::puml::detail::create_action_sequence(action_l))),
                     decltype(boost::msm::front::puml::detail::parse_guard(guard_l))
                     >;
@@ -643,6 +644,11 @@ namespace boost::msm::front::puml
     struct convert_to_msm_names<Action< by_name("defer")>>
     {
         using type = boost::msm::front::Defer;
+    };
+    template<>
+    struct convert_to_msm_names<Event< by_name("*")>>
+    {
+        using type = boost::any;
     };
 
     template <class Func>
