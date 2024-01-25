@@ -364,6 +364,18 @@ namespace boost::msm::front::puml {
             ++fsm.report_end_error_counter;
         }
     };
+    template<>
+    struct Action<by_name("MyDefer")>
+    {
+        // mark as deferring to avoid stack overflows in certain conditions
+        typedef int deferring_action;
+        template <class EVT, class FSM, class SourceState, class TargetState>
+        void operator()(EVT const&, FSM& fsm, SourceState&, TargetState&) const
+        {
+            Event<by_name("play")> e{};
+            fsm.defer_event(e);
+        }
+    };
     // guard conditions
     template<>
     struct Guard<by_name("can_close_drawer")>
@@ -373,6 +385,16 @@ namespace boost::msm::front::puml {
         {
             ++fsm.can_close_drawer_counter;
             return true;
+        }
+    };
+    template<>
+    struct Guard<by_name("is_play_event")>
+    {
+        template <class EVT, class FSM, class SourceState, class TargetState>
+        bool operator()(EVT const& evt, FSM& , SourceState&, TargetState&)
+        {
+            bool is_play = evt.type() == typeid(Event<by_name("play")>);
+            return is_play;
         }
     };
 }
@@ -403,12 +425,12 @@ namespace
                 Stopped     -> Open      : open_close   / open_drawer
                 Stopped     -> Stopped   : stop
 
-                Open        -> Empty     : open_close                                [can_close_drawer]
-                Open        -> Open      : *play         / defer
+                Open        -> Empty     : open_close                             [can_close_drawer]
+                Open        -> Open      : -play         / defer
                 
                 Empty       --> Open     : open_close    / open_drawer
                 Empty       ---> Stopped : cd_detected   / store_cd_info
-                Empty       -> Empty     : *play         / defer
+                Empty       -> Empty     : -play         / MyDefer                  
                 
                 Playing     --> Stopped  : stop          / stop_playback
                 Playing     -> Paused    : pause         / pause_playback

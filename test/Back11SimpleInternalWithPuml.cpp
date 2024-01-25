@@ -280,10 +280,10 @@ namespace
                 
                 Empty       --> Open     : open_close    / open_drawer
                 Empty       ---> Stopped : cd_detected   / store_cd_info          [good_disk_format]
-                Empty       -> Empty     : *internal_evt / internal_action        [internal_guard2]              
-                Empty       -> Empty     : *to_ignore
-                Empty       -> Empty     : *cd_detected                           [internal_guard]              
-                Empty       -> Empty     : *internal_evt / internal_action_fct    [internal_guard_fct]              
+                Empty       -> Empty     : -internal_evt / internal_action        [internal_guard2]              
+                Empty       -> Empty     : -to_ignore
+                Empty       -> Empty     : -cd_detected                           [internal_guard]              
+                Empty       -> Empty     : -internal_evt / internal_action_fct    [internal_guard_fct]              
 
                 Playing     --> Stopped  : stop          / stop_playback
                 Playing     -> Paused    : pause         / pause_playback

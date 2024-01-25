@@ -191,11 +191,31 @@ namespace
 
         // internal detail::Transition
         auto stt17 =
-            boost::msm::front::puml::create_transition_table([]() {return R"(StateA -> StateA: *evt1/ A2 [G1])"; });
+            boost::msm::front::puml::create_transition_table([]() {return R"(StateA -> StateA: -evt1/ A2 [G1])"; });
         static_assert(std::is_same_v<
             decltype(stt17),
             boost::fusion::vector<
             Row<State <by_name("StateA")>, Event <by_name("evt1")>, none, Action <by_name("A2")>, Guard <by_name("G1")>>
+            >
+        >);
+
+        // kleene
+        auto stt18 =
+            boost::msm::front::puml::create_transition_table([]() {return R"(StateA -> StateA: * / A2 [G1])"; });
+        static_assert(std::is_same_v<
+            decltype(stt18),
+            boost::fusion::vector<
+            Row<State <by_name("StateA")>, boost::any, State <by_name("StateA")>, Action <by_name("A2")>, Guard <by_name("G1")>>
+            >
+        >);
+
+        // internal + kleene
+        auto stt19 =
+            boost::msm::front::puml::create_transition_table([]() {return R"(StateA -> StateA: -* / A2 [G1])"; });
+        static_assert(std::is_same_v<
+            decltype(stt19),
+            boost::fusion::vector<
+            Row<State <by_name("StateA")>, boost::any, none, Action <by_name("A2")>, Guard <by_name("G1")>>
             >
         >);
 
@@ -218,7 +238,7 @@ namespace
                 StateB -> StateB : evt1 / A1 [G1]
                 --
                 [*]->StateC
-                StateC -> StateD: evt1)";
+                StateC -> StateD: -*)";
         auto inits =
             create_initial_states([&]() {return stt9_; });
         static_assert(std::is_same_v<
