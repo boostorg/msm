@@ -14,6 +14,7 @@
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/puml/puml.hpp>
+#include <PumlCommon.hpp>
 
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
 #define BOOST_TEST_MODULE back11_simple_with_puml_test
@@ -24,225 +25,6 @@ using namespace std;
 namespace msm = boost::msm;
 using namespace msm::front;
 using namespace msm::front::puml;
-
-namespace boost::msm::front::puml {
-    // events
-    template<>
-    struct Event<by_name("play")>  { int cpt_ = 0; };
-    template<>
-    struct Event<by_name("end_pause")>  { int cpt_ = 0; };
-    template<>
-    struct Event<by_name("stop")>  {};
-    template<>
-    struct Event<by_name("pause")>  {};
-    template<>
-    struct Event<by_name("open_close")>  {};
-
-    // A "complicated" event type that carries some data.
-    enum DiskTypeEnum
-    {
-        DISK_CD = 0,
-        DISK_DVD = 1
-    };
-    template<>
-    struct Event<by_name("cd_detected")>
-    {
-        Event(std::string name, DiskTypeEnum diskType)
-            : name(name),
-            disc_type(diskType)
-        {}
-
-        std::string name;
-        DiskTypeEnum disc_type;
-    };
-
-    // The list of FSM states
-    template<>
-    struct State<by_name("Empty")> : public msm::front::state<>
-    {
-        template <class Event,class FSM>
-        void on_entry(Event const&,FSM& ) {++entry_counter;}
-        template <class Event,class FSM>
-        void on_exit(Event const&,FSM& ) {++exit_counter;}
-        int entry_counter=0;
-        int exit_counter=0;
-    }; 
-    template<>
-    struct State<by_name("Open")> : public msm::front::state<>
-    {
-        template <class Event, class FSM>
-        void on_entry(Event const&, FSM&) { ++entry_counter; }
-        template <class Event, class FSM>
-        void on_exit(Event const&, FSM&) { ++exit_counter; }
-        int entry_counter = 0;
-        int exit_counter = 0;
-    };
-    template<>
-    struct State<by_name("Stopped")> : public msm::front::state<>
-    {
-        template <class Event, class FSM>
-        void on_entry(Event const&, FSM&) { ++entry_counter; }
-        template <class Event, class FSM>
-        void on_exit(Event const&, FSM&) { ++exit_counter; }
-        int entry_counter = 0;
-        int exit_counter = 0;
-    };
-    template<>
-    struct State<by_name("Paused")> : public msm::front::state<>
-    {
-        template <class Event, class FSM>
-        void on_entry(Event const&, FSM&) { ++entry_counter; }
-        template <class Event, class FSM>
-        void on_exit(Event const&, FSM&) { ++exit_counter; }
-        int entry_counter = 0;
-        int exit_counter = 0;
-    };
-    template<>
-    struct State<by_name("Playing")> : public msm::front::state<>
-    {
-        template <class Event,class FSM>
-        void on_entry(Event const& e,FSM& )
-        {
-            ++entry_counter;
-            event_counter = e.cpt_;
-        }
-        template <class Event,class FSM>
-        void on_exit(Event const&,FSM& ) {++exit_counter;}
-        int entry_counter = 0;
-        int exit_counter = 0;
-        int event_counter=0;
-    };
-
-    //actions
-    template<>
-    struct Action<by_name("open_drawer")>
-    {
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(EVT const&, FSM&, SourceState&, TargetState&)
-        {
-        }
-    };
-    template<>
-    struct Action<by_name("close_drawer")>
-    {
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(EVT const&, FSM&, SourceState&, TargetState&)
-        {
-        }
-    };
-    template<>
-    struct Action<by_name("TestFct")>
-    {
-        template <class EVT, class FSM, class SourceState, class TargetState>
-            void operator()(EVT& e, FSM& fsm,SourceState& ,TargetState& )
-            {
-                ++e.cpt_;
-                ++fsm.test_fct_counter;
-            }
-    };
-    template<>
-    struct Action<by_name("start_playback")>
-    {
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(EVT const&, FSM& fsm, SourceState&, TargetState&)
-        {
-            ++fsm.start_playback_counter;
-        }
-    };
-    template<>
-    struct Action<by_name("store_cd_info")>
-    {
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(EVT const&, FSM& fsm, SourceState&, TargetState&)
-        {
-            fsm.process_event(Event<by_name("play")>{});
-        }
-    };
-    template<>
-    struct Action<by_name("stop_playback")>
-    {
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(EVT const&, FSM&, SourceState&, TargetState&)
-        {
-        }
-    };
-    template<>
-    struct Action<by_name("pause_playback")>
-    {
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(EVT const&, FSM&, SourceState&, TargetState&)
-        {
-        }
-    };
-    template<>
-    struct Action<by_name("resume_playback")>
-    {
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(EVT& e, FSM&, SourceState&, TargetState&)
-        {
-            ++e.cpt_;
-        }
-    };
-    template<>
-    struct Action<by_name("stop_and_open")>
-    {
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(EVT const&, FSM&, SourceState&, TargetState&)
-        {
-        }
-    };
-    template<>
-    struct Action<by_name("stopped_again")>
-    {
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(EVT const&, FSM&, SourceState&, TargetState&)
-        {
-        }
-    };
-    // guard conditions
-    template<>
-    struct Guard<by_name("DummyGuard")>
-    {
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        bool operator()(EVT const&, FSM&, SourceState&, TargetState&)
-        {
-            return true;
-        }
-    };
-    template<>
-    struct Guard<by_name("good_disk_format")>
-    {
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        bool operator()(EVT& evt, FSM&, SourceState&, TargetState&)
-        {
-            // to test a guard condition, let's say we understand only CDs, not DVD
-            if (evt.disc_type != DISK_CD)
-            {
-                return false;
-            }
-            return true;
-        }
-    };
-    template<>
-    struct Guard<by_name("always_true")>
-    {
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        bool operator()(EVT const&, FSM&, SourceState&, TargetState&)
-        {
-            return true;
-        }
-    };
-    template<>
-    struct Guard<by_name("can_close_drawer")>
-    {
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        bool operator()(EVT const&, FSM& fsm, SourceState&, TargetState&)
-        {
-            ++fsm.can_close_drawer_counter;
-            return true;
-        }
-    };
-}
 
 namespace
 {
@@ -260,17 +42,17 @@ namespace
             skinparam linetype polyline
             state Player{
                 [*]-> Empty
-                Stopped     -> Playing  : play          / TestFct,start_playback    [DummyGuard]
+                Stopped     -> Playing2  : play          / TestFct,start_playback    [DummyGuard]
                 Stopped     -> Open      : open_close   / open_drawer
                 Stopped     -> Stopped   : stop
 
                 Open        -> Empty     : open_close    / close_drawer              [can_close_drawer]
                 Empty       --> Open     : open_close    / open_drawer
-                Empty       ---> Stopped : cd_detected   / store_cd_info             [good_disk_format && always_true]
-                Playing     --> Stopped  : stop          / stop_playback
-                Playing     -> Paused    : pause         / pause_playback
-                Playing     --> Open     : open_close    / stop_and_open
-                Paused      -> Playing   : end_pause     / resume_playback
+                Empty       ---> Stopped : cd_detected   / store_cd_info2            [good_disk_format && always_true]
+                Playing2     --> Stopped : stop          / stop_playback
+                Playing2     -> Paused   : pause         / pause_playback
+                Playing2     --> Open    : open_close    / stop_and_open
+                Paused      -> Playing2  : end_pause     / resume_playback2
                 Paused      --> Stopped  : stop          / stop_playback
                 Paused      --> Open     : open_close    / stop_and_open
             }
@@ -314,29 +96,29 @@ namespace
         BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Empty")>&>().entry_counter == 2,"Empty entry not called correctly");
 
         p.process_event(Event<by_name("cd_detected")>{"louie, louie", DISK_CD});
-        BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
+        BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing2 should be active"); //Playing2
         BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Empty")>&>().exit_counter == 2,"Empty exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Stopped")>&>().entry_counter == 1,"Stopped entry not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Stopped")>&>().exit_counter == 1,"Stopped exit not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Playing")>&>().entry_counter == 1,"Playing entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Playing2")>&>().entry_counter == 1,"Playing2 entry not called correctly");
         BOOST_CHECK_MESSAGE(p.start_playback_counter == 1,"action not called correctly");
         BOOST_CHECK_MESSAGE(p.test_fct_counter == 1,"action not called correctly");
 
         p.process_event(Event<by_name("pause")>{});
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 4,"Paused should be active"); //Paused
-        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Playing")>&>().exit_counter == 1,"Playing exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Playing2")>&>().exit_counter == 1,"Playing2 exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Paused")>&>().entry_counter == 1,"Paused entry not called correctly");
 
-        // go back to Playing
+        // go back to Playing2
         p.process_event(Event<by_name("end_pause")>{});
-        BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
+        BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing2 should be active"); //Playing2
         BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Paused")>&>().exit_counter == 1,"Paused exit not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Playing")>&>().entry_counter == 2,"Playing entry not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Playing")>&>().event_counter == 1,"Playing event counter incorrect");
+        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Playing2")>&>().entry_counter == 2,"Playing2 entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Playing2")>&>().event_counter == 1,"Playing2 event counter incorrect");
 
         p.process_event(Event<by_name("pause")>{});
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 4,"Paused should be active"); //Paused
-        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Playing")>&>().exit_counter == 2,"Playing exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Playing2")>&>().exit_counter == 2,"Playing2 exit not called correctly");
         BOOST_CHECK_MESSAGE(p.get_state<State<by_name("Paused")>&>().entry_counter == 2,"Paused entry not called correctly");
 
         p.process_event(Event<by_name("stop")>{});
