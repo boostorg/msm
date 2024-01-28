@@ -39,10 +39,12 @@ namespace boost::msm::front::puml
     };
 
 
-    template <std::uint32_t hash>
+    template <std::uint32_t hash, class Flags= boost::fusion::vector<>>
     struct State : public msm::front::state<>
     {
         using generated_type = State<hash>;
+        using flag_list = Flags;
+
     };
     template <std::uint32_t hash>
     struct Event
@@ -59,7 +61,11 @@ namespace boost::msm::front::puml
     {
 
     };
+    template <std::uint32_t hash>
+    struct Flag
+    {
 
+    };
 
     namespace detail {
         // CRC32 Table (zlib polynomial)
@@ -374,7 +380,7 @@ namespace boost::msm::front::puml
             } while (pos != std::string::npos);
             // should not happen
             return std::string_view{};
-        }
+        }        
     } //namespace detail
 
     constexpr std::uint32_t by_name(std::string_view str)
@@ -529,6 +535,66 @@ namespace boost::msm::front::puml
             }
         }
 
+        template <class Func, class T = boost::fusion::vector0<>>
+        constexpr auto parse_flags(Func stt, auto state_name, T vec = T{})
+        {
+            constexpr auto flag_pos = stt().find("flag");
+
+            if constexpr (flag_pos != std::string::npos)
+            {          
+                // we need to handle a flag
+                constexpr auto endl_after_flag_pos = stt().find("\n", flag_pos);
+                constexpr auto col_pos = stt().rfind(":",flag_pos);
+                constexpr auto endl_before_flag_pos = stt().rfind("\n", flag_pos);
+
+                if constexpr (endl_after_flag_pos != std::string::npos)
+                {
+                    // the name start from end of prev line+1 to :
+                    if constexpr (by_name(cleanup_token(stt().substr(endl_before_flag_pos+1,col_pos- (endl_before_flag_pos+1)))) == by_name(state_name()))
+                    {
+                        // flag name is from flag tag until endline
+                        return parse_flags(
+                            [=]() {return stt().substr(endl_after_flag_pos + 1); },
+                            state_name,
+                            typename ::boost::mpl::push_back<
+                            T,
+                            typename boost::msm::front::puml::convert_to_msm_names<
+                            boost::msm::front::puml::Flag< by_name(cleanup_token(stt().substr(flag_pos + 4, endl_after_flag_pos - (flag_pos + 4))))>>::type
+                            >::type{});
+                    }
+                    else
+                    {
+                        // check starting from next line
+                        return parse_flags(
+                            [=]() {return stt().substr(endl_after_flag_pos + 1); },
+                            state_name,
+                            vec);
+                    }
+                }
+                else
+                {
+                    // the flag line is the last line of the string so we will end recursion wether we found a flag or not
+                    if constexpr (by_name(cleanup_token(stt().substr(endl_before_flag_pos + 1, col_pos - (endl_before_flag_pos + 1)))) == by_name(state_name()))
+                    {
+                        return typename ::boost::mpl::push_back<
+                            T,
+                            typename boost::msm::front::puml::convert_to_msm_names<
+                            boost::msm::front::puml::Flag< by_name(cleanup_token(stt().substr(flag_pos + 4, endl_after_flag_pos - (flag_pos + 4))))>>::type
+                            >::type{};
+                    }
+                    else
+                    {
+                        return vec;
+                    }
+                }                
+            }
+            else 
+            {
+                // no flag left, end recursion
+                return vec;
+            }            
+        }
+        
         template <class Func, int actions_count, int anum, class T = boost::fusion::vector<>>
         constexpr auto create_action_sequence_helper(Func action_func, T vec = T{})
         {
@@ -567,6 +633,9 @@ namespace boost::msm::front::puml
             {
                 auto guard_l = [stt]() {return boost::msm::front::puml::detail::parse_stt<tnum>(stt()).guard; };
                 auto action_l = [stt]() {return boost::msm::front::puml::detail::parse_stt<tnum>(stt()).action; };
+                auto source_l = [stt]() {return boost::msm::front::puml::detail::parse_stt<tnum>(stt()).source; };
+                auto target_l = [stt]() {return boost::msm::front::puml::detail::parse_stt<tnum>(stt()).target; };
+                auto stt_l = [stt]() {return std::string_view(stt()); };
 
                 auto make_action_sequence = [](auto actions)
                     {
@@ -581,11 +650,18 @@ namespace boost::msm::front::puml
 
                 using one_row =
                     boost::msm::front::Row <
-                    State < by_name(boost::msm::front::puml::detail::parse_stt<tnum>(stt()).source)>,
+                    State < by_name(boost::msm::front::puml::detail::parse_stt<tnum>(stt()).source),
+                            decltype(boost::msm::front::puml::detail::parse_flags(
+                                stt_l,
+                                source_l))
+                    >,
                     typename boost::msm::front::puml::convert_to_msm_names<
                         Event< by_name(boost::msm::front::puml::detail::parse_stt<tnum>(stt()).event)>>::type,
                     typename boost::msm::front::puml::convert_to_msm_names<
-                        State< by_name(boost::msm::front::puml::detail::parse_stt<tnum>(stt()).target)>>::type,
+                        State< by_name(boost::msm::front::puml::detail::parse_stt<tnum>(stt()).target),
+                                decltype(boost::msm::front::puml::detail::parse_flags(
+                                    stt_l,
+                                    target_l))>>::type,
                     decltype(make_action_sequence(boost::msm::front::puml::detail::create_action_sequence(action_l))),
                     decltype(boost::msm::front::puml::detail::parse_guard(guard_l))
                     >;
