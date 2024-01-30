@@ -235,6 +235,25 @@ namespace boost::msm::front::puml {
             ++fsm.test_fct_counter;
         }
     };
+    template<>
+    struct Action<by_name("increment_entry")>
+    {
+        template <class EVT, class FSM, class SourceState, class TargetState>
+        void operator()(EVT&, FSM& fsm, SourceState&, TargetState&)
+        {
+            ++fsm.entry_counter;
+        }
+    };
+    template<>
+    struct Action<by_name("increment_exit")>
+    {
+        template <class EVT, class FSM, class SourceState, class TargetState>
+        void operator()(EVT&, FSM& fsm, SourceState&, TargetState&)
+        {
+            ++fsm.exit_counter;
+        }
+    };
+
     // guard conditions
     template<>
     struct Guard<by_name("good_disk_format")>

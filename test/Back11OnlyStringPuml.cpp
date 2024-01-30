@@ -36,6 +36,9 @@ namespace
         unsigned int start_playback_counter=0;
         unsigned int can_close_drawer_counter=0;
         unsigned int test_fct_counter=0;
+        unsigned int entry_counter = 0;
+        unsigned int exit_counter = 0;
+
         BOOST_MSM_PUML_DECLARE_TABLE(
             R"( 
             @startuml Player
@@ -56,6 +59,8 @@ namespace
                 Paused_      --> Stopped_  : stop_          / stop_playback
                 Paused_      --> Open_     : open_close_    / stop_and_open
                 Playing_ : flag CDLoaded
+                Playing_ : entry increment_entry [always_true]
+                Playing_ : exit increment_exit [always_true]
                 Paused_  : flag CDLoaded
                 Stopped_ : flag CDLoaded                
             }
@@ -91,22 +96,33 @@ namespace
         p.process_event(Event<by_name("cd_detected")>{"louie, louie", DISK_DVD});
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 2,"Empty should be active"); //Empty
 
+        BOOST_CHECK_MESSAGE(p.entry_counter == 0, "Playing entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.exit_counter == 0, "Playing exit not called correctly");
+
         p.process_event(Event<by_name("cd_detected")>{"louie, louie", DISK_CD});
-        BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing_ should be active"); //Playing_
+        BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
         BOOST_CHECK_MESSAGE(p.start_playback_counter == 1,"action not called correctly");
         BOOST_CHECK_MESSAGE(p.test_fct_counter == 1,"action not called correctly");
         BOOST_CHECK_MESSAGE(p.is_flag_active < Flag<by_name("CDLoaded")>>() == true, "CDLoaded should be active");
+        BOOST_CHECK_MESSAGE(p.entry_counter == 1, "Playing entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.exit_counter == 0, "Playing exit not called correctly");
 
         p.process_event(Event<by_name("pause_")>{});
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 4,"Paused should be active"); //Paused
         BOOST_CHECK_MESSAGE(p.is_flag_active < Flag<by_name("CDLoaded")>>() == true, "CDLoaded should be active");
+        BOOST_CHECK_MESSAGE(p.entry_counter == 1, "Playing entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.exit_counter == 1, "Playing exit not called correctly");
 
-        // go back to Playing2
+        // go back to Playing
         p.process_event(Event<by_name("end_pause")>{});
-        BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing2 should be active"); //Playing2
+        BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
+        BOOST_CHECK_MESSAGE(p.entry_counter == 2, "Playing entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.exit_counter == 1, "Playing exit not called correctly");
 
         p.process_event(Event<by_name("pause_")>{});
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 4,"Paused should be active"); //Paused
+        BOOST_CHECK_MESSAGE(p.entry_counter == 2, "Playing entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.exit_counter == 2, "Playing exit not called correctly");
 
         p.process_event(Event<by_name("stop_")>{});
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 0,"Stopped should be active"); //Stopped
