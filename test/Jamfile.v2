@@ -79,5 +79,7 @@ test-suite msm-unit-tests
         : [ requires cxx20_hdr_version cxx20_hdr_barrier cxx20_hdr_compare cxx20_hdr_format cxx20_hdr_ranges cxx20_hdr_numbers  ] ]
     [ run puml_syntax.cpp  : :
         : [ requires cxx20_hdr_version cxx20_hdr_barrier cxx20_hdr_compare cxx20_hdr_format cxx20_hdr_ranges cxx20_hdr_numbers  ] ]
+    [ run puml_syntax_2.cpp  : :
+        : [ requires cxx20_hdr_version cxx20_hdr_barrier cxx20_hdr_compare cxx20_hdr_format cxx20_hdr_ranges cxx20_hdr_numbers  ] ]
     ;
 

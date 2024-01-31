@@ -21,8 +21,10 @@
 #include <boost/fusion/container/vector.hpp>
 #include <boost/fusion/include/insert_range.hpp>
 #include <boost/fusion/include/at_c.hpp>
-#include <boost/mpl/size.hpp>
+#include <boost/fusion/include/for_each.hpp>
 #include <boost/fusion/include/make_vector.hpp>
+
+#include <boost/mpl/size.hpp>
 
 #include <boost/msm/front/states.hpp>
 // functors
@@ -31,6 +33,14 @@
 
 namespace boost::msm::front::puml
 {
+namespace detail {
+    template <class T1, class T2>
+    struct pair_type
+    {
+        using first = T1;
+        using second = T2;
+    };
+}
 
     template<typename T>
     struct convert_to_msm_names
@@ -39,11 +49,47 @@ namespace boost::msm::front::puml
     };
 
 
-    template <std::uint32_t hash, class Flags= boost::fusion::vector<>>
-    struct State : public msm::front::state<>
+    template <std::uint32_t hash, 
+              class Flags = boost::fusion::vector0<>,
+              class Entries = boost::fusion::vector0<>,
+              class Exits = boost::fusion::vector0<>>
+    struct State 
     {
         using generated_type = State<hash>;
         using flag_list = Flags;
+        using entries = Entries;
+        using exits = Exits;
+
+        template <class Event, class FSM>
+        void on_entry(Event& evt, FSM& fsm) 
+        {
+            boost::fusion::for_each(Entries{}, 
+                [&](auto action_guard_pair) 
+                {
+                    if (typename decltype(action_guard_pair)::second{}(evt, fsm, *this, *this))
+                    {
+                        typename decltype(action_guard_pair)::first{}(evt, fsm, *this, *this);
+                    }
+                });
+        }
+        template <class Event, class FSM>
+        void on_exit(Event& evt, FSM& fsm) 
+        {
+            boost::fusion::for_each(Exits{},
+                [&](auto action_guard_pair)
+                {
+                    if (typename decltype(action_guard_pair)::second{}(evt, fsm, *this, *this))
+                    {
+                        typename decltype(action_guard_pair)::first{}(evt, fsm, *this, *this);
+                    }
+                });
+        }
+        // typedefs added for front::state compatibility
+        typedef ::boost::mpl::vector<>  internal_transition_table;
+        typedef ::boost::fusion::vector<>  internal_transition_table11;
+        typedef ::boost::fusion::vector<>  transition_table;
+        typedef ::boost::fusion::vector0<>       deferred_events;
+        typedef ::boost::fusion::vector0<>       internal_flag_list;
 
     };
     template <std::uint32_t hash>
@@ -594,7 +640,7 @@ namespace boost::msm::front::puml
                 return vec;
             }            
         }
-        
+
         template <class Func, int actions_count, int anum, class T = boost::fusion::vector<>>
         constexpr auto create_action_sequence_helper(Func action_func, T vec = T{})
         {
@@ -620,6 +666,136 @@ namespace boost::msm::front::puml
                 Func, boost::msm::front::puml::detail::count_actions(action_func()), 0>(action_func);
         }
 
+
+        template <class Func, class T = boost::fusion::vector0<>>
+        constexpr auto parse_state_actions(Func stt, auto state_name, auto tag_text, T vec = T{})
+        {
+            constexpr auto entry_pos = stt().find(std::string_view(tag_text()));
+            constexpr auto tag_size = std::string_view(tag_text()).length();
+
+            if constexpr (entry_pos != std::string::npos)
+            {
+                // we need to handle an entry
+                constexpr auto endl_after_entry_pos = stt().find("\n", entry_pos);
+                constexpr auto bracket_beg_after_entry_pos = stt().find("[", entry_pos);
+
+                constexpr auto col_pos = stt().rfind(":", entry_pos);
+                constexpr auto endl_before_entry_pos = stt().rfind("\n", entry_pos);
+                auto make_action_sequence = [](auto actions)
+                    {
+                        if constexpr (boost::mpl::size<decltype(actions)>::value == 1)
+                            return boost::fusion::at_c<0>(actions);
+                        else if constexpr (boost::mpl::size<decltype(actions)>::value == 0)
+                            return boost::msm::front::none{};
+                        else
+                            return boost::msm::front::ActionSequence_<decltype(actions)>{};
+                    };
+
+                if constexpr (endl_after_entry_pos != std::string::npos)
+                {
+                    // the name start from end of prev line+1 to :
+                    if constexpr (by_name(cleanup_token(stt().substr(endl_before_entry_pos + 1, col_pos - (endl_before_entry_pos + 1)))) == by_name(state_name()))
+                    {
+                        if constexpr (bracket_beg_after_entry_pos != std::string::npos && bracket_beg_after_entry_pos < endl_after_entry_pos)
+                        {
+                            constexpr auto bracket_end_after_entry_pos = stt().find("]", entry_pos);
+                            auto guard_l = [=]() {return stt().substr(bracket_beg_after_entry_pos +1, bracket_end_after_entry_pos - (bracket_beg_after_entry_pos +1)) ; };
+                            auto action_l = [=]() {return stt().substr(entry_pos + tag_size, bracket_beg_after_entry_pos - (entry_pos + tag_size)); };
+
+                            // action name is from entry tag until [
+                            return parse_state_actions(
+                                [=]() {return stt().substr(endl_after_entry_pos + 1); },
+                                state_name,
+                                tag_text,
+                                typename ::boost::mpl::push_back<
+                                    T,
+                                    boost::msm::front::puml::detail::pair_type<
+                                        decltype(make_action_sequence(boost::msm::front::puml::detail::create_action_sequence(action_l))),
+                                        decltype(boost::msm::front::puml::detail::parse_guard(guard_l))
+                                    >
+                                >::type{});
+                        }
+                        else
+                        {
+                            // action name is from entry tag until endline
+                            auto action_l = [=]() {return stt().substr(entry_pos + tag_size, endl_after_entry_pos - (entry_pos + tag_size)); };
+
+                            return parse_state_actions(
+                                [=]() {return stt().substr(endl_after_entry_pos + 1); },
+                                state_name,
+                                tag_text,
+                                typename ::boost::mpl::push_back<
+                                    T,
+                                    boost::msm::front::puml::detail::pair_type<
+                                        decltype(make_action_sequence(boost::msm::front::puml::detail::create_action_sequence(action_l))),
+                                        boost::msm::front::puml::Guard<by_name("")>
+                                    >
+                                >::type{});
+                        }
+
+                    }
+                    else
+                    {
+                        // check starting from next line
+                        return parse_state_actions(
+                            [=]() {return stt().substr(endl_after_entry_pos + 1); },
+                            state_name,
+                            tag_text,
+                            vec);
+                    }
+                }
+                // last line of string
+                else
+                {
+                    // the entry line is the last line of the string so we will end recursion wether we found an entry or not
+                    if constexpr (by_name(cleanup_token(stt().substr(endl_before_entry_pos + 1, col_pos - (endl_before_entry_pos + 1)))) == by_name(state_name()))
+                    {
+                        if constexpr (bracket_beg_after_entry_pos != std::string::npos && bracket_beg_after_entry_pos < endl_after_entry_pos)
+                        {
+                            constexpr auto bracket_end_after_entry_pos = stt().find("]", entry_pos);
+                            auto guard_l = [stt]() {return stt().substr(bracket_beg_after_entry_pos +1, bracket_end_after_entry_pos - (bracket_beg_after_entry_pos +1)) ; };
+
+
+                            // action name is from entry tag until [
+                            auto action_l = [stt]() {return stt().substr(entry_pos + tag_size, bracket_beg_after_entry_pos - (entry_pos + tag_size)); };
+
+                            return 
+                                typename ::boost::mpl::push_back<
+                                    T,
+                                    boost::msm::front::puml::detail::pair_type<
+                                        decltype(make_action_sequence(boost::msm::front::puml::detail::create_action_sequence(action_l))),
+                                        decltype(boost::msm::front::puml::detail::parse_guard(guard_l))
+                                    >
+                                >::type{};
+                        }
+                        else
+                        {
+                            auto action_l = [stt]() {return stt().substr(entry_pos + tag_size, endl_after_entry_pos - (entry_pos + tag_size)); };
+
+                            return 
+                            typename ::boost::mpl::push_back<
+                                T,
+                                boost::msm::front::puml::detail::pair_type <
+                                    decltype(make_action_sequence(boost::msm::front::puml::detail::create_action_sequence(action_l))),
+                                    boost::msm::front::puml::Guard<by_name("")>
+                                >
+                            >::type{};
+                        }
+
+                    }
+                    else
+                    {
+                        return vec;
+                    }
+                }
+            }
+            else
+            {
+                // no entry left, end recursion
+                return vec;
+            }
+        }
+
         // recursively fills fusion vector with transition (making a tansition_table)
         template <class Func, int transitions, int tnum, class T = boost::fusion::vector<>>
         constexpr auto create_transition_table_helper(Func stt, T vec = T{})
@@ -636,6 +812,8 @@ namespace boost::msm::front::puml
                 auto source_l = [stt]() {return boost::msm::front::puml::detail::parse_stt<tnum>(stt()).source; };
                 auto target_l = [stt]() {return boost::msm::front::puml::detail::parse_stt<tnum>(stt()).target; };
                 auto stt_l = [stt]() {return std::string_view(stt()); };
+                auto entry_l = []() {return "entry"; };
+                auto exit_l = []() {return "exit"; };
 
                 auto make_action_sequence = [](auto actions)
                     {
@@ -651,17 +829,18 @@ namespace boost::msm::front::puml
                 using one_row =
                     boost::msm::front::Row <
                     State < by_name(boost::msm::front::puml::detail::parse_stt<tnum>(stt()).source),
-                            decltype(boost::msm::front::puml::detail::parse_flags(
-                                stt_l,
-                                source_l))
+                            decltype(boost::msm::front::puml::detail::parse_flags(stt_l,source_l)),
+                            decltype(parse_state_actions(stt_l,source_l, entry_l)),
+                            decltype(parse_state_actions(stt_l,source_l, exit_l))
                     >,
                     typename boost::msm::front::puml::convert_to_msm_names<
                         Event< by_name(boost::msm::front::puml::detail::parse_stt<tnum>(stt()).event)>>::type,
                     typename boost::msm::front::puml::convert_to_msm_names<
                         State< by_name(boost::msm::front::puml::detail::parse_stt<tnum>(stt()).target),
-                                decltype(boost::msm::front::puml::detail::parse_flags(
-                                    stt_l,
-                                    target_l))>>::type,
+                               decltype(boost::msm::front::puml::detail::parse_flags(stt_l,target_l)),
+                               decltype(parse_state_actions(stt_l, target_l, entry_l)),
+                               decltype(parse_state_actions(stt_l, target_l, exit_l))
+                    >>::type,
                     decltype(make_action_sequence(boost::msm::front::puml::detail::create_action_sequence(action_l))),
                     decltype(boost::msm::front::puml::detail::parse_guard(guard_l))
                     >;
@@ -686,12 +865,7 @@ namespace boost::msm::front::puml
                     stt, typename ::boost::mpl::push_back< T, State<by_name(boost::msm::front::puml::detail::parse_inits<rnum>(stt()))> >::type{});
             }
         }
-        template <class T1, class T2>
-        struct pair_type
-        {
-            using first = T1;
-            using second = T2;
-        };
+
 
     }//namespace detail
 
