@@ -8,6 +8,8 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
+#include <boost/core/ignore_unused.hpp>
+
 #include <boost/msm/front/puml/puml.hpp>
 
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
@@ -230,6 +232,7 @@ namespace
 
 
         State< by_name("StateXXX")> s1;
+        boost::ignore_unused(s1);
 
         // initial states
         constexpr auto stt9_ = R"(
