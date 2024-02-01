@@ -56,9 +56,10 @@ namespace detail {
     struct State 
     {
         using generated_type = State<hash>;
-        using flag_list = Flags;
+        using flag_list = boost::fusion::vector0<>;
         using entries = Entries;
         using exits = Exits;
+        using internal_flag_list = Flags;
 
         template <class Event, class FSM>
         void on_entry(Event& evt, FSM& fsm) 
@@ -89,7 +90,6 @@ namespace detail {
         typedef ::boost::fusion::vector<>  internal_transition_table11;
         typedef ::boost::fusion::vector<>  transition_table;
         typedef ::boost::fusion::vector0<>       deferred_events;
-        typedef ::boost::fusion::vector0<>       internal_flag_list;
 
     };
     template <std::uint32_t hash>
@@ -316,15 +316,17 @@ namespace detail {
             }
             return occurrences;
         };
-        constexpr int count_inits(std::string_view s)
+        constexpr int count_inits(std::string_view s, std::size_t occurrences=0)
         {
-            //s = reduce(s, "");
-            int occurrences = 0;
-            std::string::size_type pos = 0;
             auto target = "[*]";
-            while ((pos = s.find(target, pos)) != std::string::npos) {
-                ++occurrences;
-                pos += 3;
+            auto star_pos = s.find(target);
+            auto endl_after_pos = s.find("\n", star_pos);
+            auto arrow_after_pos = s.find("->", star_pos);
+            if (star_pos != std::string::npos && 
+                star_pos < arrow_after_pos && 
+                arrow_after_pos < endl_after_pos)
+            {
+                return count_inits(s.substr(endl_after_pos), occurrences + 1);
             }
             return occurrences;
         };
@@ -581,6 +583,69 @@ namespace detail {
             }
         }
 
+        constexpr int count_terminates(std::string_view s, std::size_t occurrences = 0)
+        {
+            if (s.empty())
+                return occurrences;
+            auto star_pos = s.find("[*]");
+            auto arrow_pos = s.rfind("->", star_pos);
+            auto endl_before_pos = s.rfind("\n", star_pos);
+            if (star_pos != std::string::npos &&
+                arrow_pos != std::string::npos &&
+                arrow_pos > endl_before_pos )
+            {
+                return count_terminates(s.substr(star_pos + 3), occurrences + 1);
+            }
+            else if(star_pos != std::string::npos)
+            {
+                return count_terminates(s.substr(star_pos + 3), occurrences);
+            }
+            return occurrences;
+        };
+
+        template <class Func, class T>
+        constexpr auto parse_terminate(Func stt, auto state_name, T vec = T{})
+        {
+            if constexpr (stt().empty())
+            {
+                return vec;
+            }
+            else
+            {
+                constexpr auto star_pos = stt().find("[*]");
+                constexpr auto arrow_pos = stt().rfind("->", star_pos);
+                constexpr auto endl_before_pos = stt().rfind("\n", star_pos);
+                constexpr auto state_pos = stt().rfind(state_name(), arrow_pos);
+
+                if constexpr (
+                    star_pos != std::string::npos &&
+                    arrow_pos != std::string::npos &&
+                    arrow_pos > endl_before_pos &&
+                    state_pos != std::string::npos &&
+                    state_pos > endl_before_pos &&
+                    cleanup_token(stt().substr(state_pos, arrow_pos - state_pos)) == state_name())
+                {
+                    return
+                        typename ::boost::mpl::push_back<
+                        T,
+                        boost::msm::TerminateFlag
+                        >::type{};
+                }
+                else if constexpr (star_pos != std::string::npos)
+                {
+                    return parse_terminate(
+                        [=]() {return stt().substr(star_pos + 3); },
+                        state_name,
+                        vec);
+                }
+                else
+                {
+                    return vec;
+                }
+            }
+
+        };
+
         template <class Func, class T = boost::fusion::vector0<>>
         constexpr auto parse_flags(Func stt, auto state_name, T vec = T{})
         {
@@ -596,7 +661,7 @@ namespace detail {
                 if constexpr (endl_after_flag_pos != std::string::npos)
                 {
                     // the name start from end of prev line+1 to :
-                    if constexpr (by_name(cleanup_token(stt().substr(endl_before_flag_pos+1,col_pos- (endl_before_flag_pos+1)))) == by_name(state_name()))
+                    if constexpr (cleanup_token(stt().substr(endl_before_flag_pos+1,col_pos- (endl_before_flag_pos+1))) == state_name())
                     {
                         // flag name is from flag tag until endline
                         return parse_flags(
@@ -620,7 +685,7 @@ namespace detail {
                 else
                 {
                     // the flag line is the last line of the string so we will end recursion wether we found a flag or not
-                    if constexpr (by_name(cleanup_token(stt().substr(endl_before_flag_pos + 1, col_pos - (endl_before_flag_pos + 1)))) == by_name(state_name()))
+                    if constexpr (cleanup_token(stt().substr(endl_before_flag_pos + 1, col_pos - (endl_before_flag_pos + 1))) == state_name())
                     {
                         return typename ::boost::mpl::push_back<
                             T,
@@ -829,7 +894,8 @@ namespace detail {
                 using one_row =
                     boost::msm::front::Row <
                     State < by_name(boost::msm::front::puml::detail::parse_stt<tnum>(stt()).source),
-                            decltype(boost::msm::front::puml::detail::parse_flags(stt_l,source_l)),
+                            decltype(boost::msm::front::puml::detail::parse_terminate(
+                                stt_l, source_l, boost::msm::front::puml::detail::parse_flags(stt_l,source_l))),
                             decltype(parse_state_actions(stt_l,source_l, entry_l)),
                             decltype(parse_state_actions(stt_l,source_l, exit_l))
                     >,
@@ -837,7 +903,8 @@ namespace detail {
                         Event< by_name(boost::msm::front::puml::detail::parse_stt<tnum>(stt()).event)>>::type,
                     typename boost::msm::front::puml::convert_to_msm_names<
                         State< by_name(boost::msm::front::puml::detail::parse_stt<tnum>(stt()).target),
-                               decltype(boost::msm::front::puml::detail::parse_flags(stt_l,target_l)),
+                               decltype(boost::msm::front::puml::detail::parse_terminate(
+                                   stt_l, target_l, boost::msm::front::puml::detail::parse_flags(stt_l,target_l))),
                                decltype(parse_state_actions(stt_l, target_l, entry_l)),
                                decltype(parse_state_actions(stt_l, target_l, exit_l))
                     >>::type,
@@ -907,7 +974,10 @@ namespace detail {
         return boost::msm::front::puml::detail::create_transition_table_helper<
             Func,
             boost::msm::front::puml::detail::count_transitions(
-                stt_func()) - boost::msm::front::puml::detail::count_inits(stt_func()), 0>(stt_func);
+                stt_func()) - 
+                boost::msm::front::puml::detail::count_inits(stt_func()) - 
+                boost::msm::front::puml::detail::count_terminates(stt_func())
+            , 0>(stt_func);
     }
 
     template <class Func>
@@ -926,7 +996,10 @@ namespace detail {
            boost::msm::front::puml::detail::create_transition_table_helper<
                 Func,
                 boost::msm::front::puml::detail::count_transitions(
-                    stt_func()) - boost::msm::front::puml::detail::count_inits(stt_func()), 0>(stt_func)),
+                    stt_func()) -
+                    boost::msm::front::puml::detail::count_inits(stt_func()) - 
+                    boost::msm::front::puml::detail::count_terminates(stt_func())
+               , 0>(stt_func)),
            decltype(
            boost::msm::front::puml::detail::create_inits_helper<
                 Func,
