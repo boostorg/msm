@@ -259,9 +259,59 @@ namespace
                     Guard <by_name("G1")> >
                 >
             >);
-        //std::cout << "G1:" << by_name("G1") << std::endl;
-        //std::cout << "A1:" << by_name("A1") << std::endl;
-        //std::cout << "dbg1:" << typeid(stt25).name() << std::endl << std::endl;
+
+        constexpr auto stt28_ = R"([*]-> StateA
+                            StateA -> StateB: evt1/ A2 [G1]                            
+                            StateB -> [*])";
+        auto stt28 =
+            boost::msm::front::puml::create_transition_table([&]() {return stt28_; });
+        static_assert(std::is_same_v<
+            decltype(stt28),
+            boost::fusion::vector<
+            Row<State <by_name("StateA")>,
+                Event <by_name("evt1")>, 
+                State <by_name("StateB"), boost::fusion::vector<boost::msm::TerminateFlag>>,
+                Action <by_name("A2")>, 
+                Guard <by_name("G1")> >
+            >
+        >);
+
+        
+        constexpr auto stt29_ = R"(   
+            @startuml Player
+            skinparam linetype polyline
+            state Player{         
+                [*]-> StateA
+                StateA -> StateB: evt1/ A2 [G1]  
+                --
+                [*]-> StateC
+                StateC -> TerminalState : terminate_event                         
+                TerminalState -> [*]
+            }
+            @enduml
+        )";
+        auto stt29 =
+            boost::msm::front::puml::create_transition_table([&]() {return stt29_; });
+        static_assert(std::is_same_v<
+            decltype(stt29),
+            boost::fusion::vector<
+            Row<State <by_name("StateA")>,
+                Event <by_name("evt1")>, 
+                State <by_name("StateB")>,
+                Action <by_name("A2")>, 
+                Guard <by_name("G1")> >,
+            Row<State <by_name("StateC")>,
+                Event <by_name("terminate_event")>, 
+                State <by_name("TerminalState"), boost::fusion::vector<boost::msm::TerminateFlag>>,
+                none, 
+                none>
+            >
+        >);
+        static_assert(boost::msm::front::puml::detail::count_terminates(stt29_) == 1);
+        static_assert(boost::msm::front::puml::detail::count_inits(stt29_) == 2);
+
+        //std::cout << "dbg1:" << typeid(stt28).name() << std::endl << std::endl;
+        //std::cout << "dbg2:" << typeid(stt29).name() << std::endl << std::endl;
     }
 }
 

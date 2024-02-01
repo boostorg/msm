@@ -326,6 +326,7 @@ namespace
     BOOST_AUTO_TEST_CASE( back11_orthogonal_deferred3_with_pumltest )
     {
         player p;
+        static_assert(msm::back11::get_number_of_regions<typename player::initial_state>::type::value == 2);
         // needed to start the highest-level SM. This will call on_entry and mark the start of the SM
         p.start(); 
         // test deferred event

@@ -82,6 +82,8 @@ namespace
     BOOST_AUTO_TEST_CASE(back11_only_string_puml_test)
     {     
         player p;
+        static_assert(msm::back11::get_number_of_regions<typename player::initial_state>::type::value == 1);
+        static_assert(::boost::mpl::size<typename player::transition_table>::type::value == 12);
 
         p.start(); 
 
