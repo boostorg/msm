@@ -11,6 +11,7 @@
 #ifndef BOOST_MSM_BACK_DISPATCH_TABLE_H
 #define BOOST_MSM_BACK_DISPATCH_TABLE_H
 
+#include <cstdint>
 #include <utility>
 
 #include <boost/mpl/reverse_fold.hpp>
@@ -176,7 +177,9 @@ struct dispatch_table
             typedef typename create_stt<Fsm>::type stt; 
             BOOST_STATIC_CONSTANT(int, state_id = 
                 (get_state_id<stt,typename Transition::current_state_type>::value));
-            self->entries[state_id+1] = reinterpret_cast<cell>(&Transition::execute);
+            // reinterpret_cast to uintptr_t to suppress gcc-11 warning
+            self->entries[state_id + 1] = reinterpret_cast<cell>(
+                reinterpret_cast<std::uintptr_t>(&Transition::execute));
         }
         template <class Transition>
         typename ::boost::enable_if<

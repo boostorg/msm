@@ -191,7 +191,7 @@ namespace
         }
         // init counters
         template <class Event,class FSM>
-        void on_entry(Event const&,FSM& fsm)
+        void on_entry(Event const&,FSM&)
         {
 
         }
