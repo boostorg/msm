@@ -1611,35 +1611,36 @@ private:
          // create states
          fill_states(this);
      }
+
+     // Construct with the default initial states and some default argument(s)
+#if defined (BOOST_NO_CXX11_RVALUE_REFERENCES)                                      \
+    || defined (BOOST_NO_CXX11_VARIADIC_TEMPLATES)                                  \
+    || defined (BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS)
      template <class Expr>
      state_machine
-         (Expr const& expr,typename ::boost::enable_if<typename ::boost::proto::is_expr<Expr>::type >::type* =0)
+     (Expr const& expr, typename ::boost::enable_if<typename ::boost::proto::is_expr<Expr>::type >::type* = 0)
          :Derived()
-         ,m_events_queue()
-         ,m_deferred_events_queue()
-         ,m_history()
-         ,m_event_processing(false)
-         ,m_is_included(false)
-         ,m_visitors()
-         ,m_substate_list()
+         , m_events_queue()
+         , m_deferred_events_queue()
+         , m_history()
+         , m_event_processing(false)
+         , m_is_included(false)
+         , m_visitors()
+         , m_substate_list()
      {
          BOOST_MPL_ASSERT_MSG(
-             ( ::boost::proto::matches<Expr, FoldToList>::value),
+             (::boost::proto::matches<Expr, FoldToList>::value),
              THE_STATES_EXPRESSION_PASSED_DOES_NOT_MATCH_GRAMMAR,
              (FoldToList));
 
          // initialize our list of states with the ones defined in Derived::initial_state
          ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
-                        (init_states(m_states));
+             (init_states(m_states));
          m_history.set_initial_states(m_states);
          // create states
          set_states(expr);
          fill_states(this);
      }
-     // Construct with the default initial states and some default argument(s)
-#if defined (BOOST_NO_CXX11_RVALUE_REFERENCES)                                      \
-    || defined (BOOST_NO_CXX11_VARIADIC_TEMPLATES)                                  \
-    || defined (BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS)
 #define MSM_CONSTRUCTOR_HELPER_EXECUTE_SUB(z, n, unused) ARG ## n t ## n
 #define MSM_CONSTRUCTOR_HELPER_EXECUTE(z, n, unused)                                \
         template <BOOST_PP_ENUM_PARAMS(n, class ARG)>                               \
