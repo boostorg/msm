@@ -11,7 +11,7 @@
 #include <boost/msm/back/state_machine.hpp>
 #include <boost/msm/front/euml/euml.hpp>
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE MyTest
+#define BOOST_TEST_MODULE MySimpleInternalEumlTest
 #endif
 #include <boost/test/unit_test.hpp>
 

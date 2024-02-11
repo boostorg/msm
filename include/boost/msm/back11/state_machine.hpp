@@ -16,6 +16,7 @@
 #include <functional>
 #include <numeric>
 #include <utility>
+#include <algorithm>
 
 #include <boost/core/no_exceptions_support.hpp>
 #include <boost/core/ignore_unused.hpp>
@@ -1951,6 +1952,8 @@ private:
 
             // Iteratively process all of the events within the deferred
             // queue upto (but not including) newly deferred events.
+            // if we did not defer one in the queue, then we need to try again
+            bool not_only_deferred = false;
             while (!m_events_queue.m_deferred_events_queue.empty())
             {
                 typename deferred_events_queue_t::value_type& pair =
@@ -1963,7 +1966,41 @@ private:
 
                 deferred_fct next = pair.first;
                 m_events_queue.m_deferred_events_queue.pop_front();
-                next();
+                boost::msm::back::execute_return res = next();
+                if (res != ::boost::msm::back::HANDLED_FALSE && res != ::boost::msm::back::HANDLED_DEFERRED)
+                {
+                    not_only_deferred = true;
+                }
+                if (not_only_deferred)
+                {
+                    // handled one, stop processing deferred until next block reorders
+                    break;
+                }
+            }
+            if (not_only_deferred)
+            {
+                // attempt to go back to the situation prior to processing, 
+                // in case some deferred events would have been re-queued
+                // in that case those would have a higher sequence number
+                std::stable_sort(
+                    m_events_queue.m_deferred_events_queue.begin(),
+                    m_events_queue.m_deferred_events_queue.end(),
+                    [](typename deferred_events_queue_t::value_type const& d1, typename deferred_events_queue_t::value_type const& d2)
+                    {
+                        return d1.second > d2.second;
+                    }
+                );
+                // reset sequence number for all
+                std::for_each(
+                    m_events_queue.m_deferred_events_queue.begin(),
+                    m_events_queue.m_deferred_events_queue.end(), 
+                    [seq = m_events_queue.m_cur_seq](typename deferred_events_queue_t::value_type& d)
+                    {
+                        d.second = seq+1;
+                    }
+                );
+                // one deferred event was successfully processed, try again
+                do_handle_deferred(true);
             }
         }
 
