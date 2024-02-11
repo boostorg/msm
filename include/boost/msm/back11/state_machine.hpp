@@ -1985,7 +1985,7 @@ private:
                 std::stable_sort(
                     m_events_queue.m_deferred_events_queue.begin(),
                     m_events_queue.m_deferred_events_queue.end(),
-                    [](typename deferred_events_queue_t::value_type const& d1, deferred_events_queue_t::value_type const& d2)
+                    [](typename deferred_events_queue_t::value_type const& d1, typename deferred_events_queue_t::value_type const& d2)
                     {
                         return d1.second > d2.second;
                     }
