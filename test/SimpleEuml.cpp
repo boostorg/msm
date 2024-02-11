@@ -12,7 +12,7 @@
 #include <boost/msm/front/euml/euml.hpp>
 
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE MyTest
+#define BOOST_TEST_MODULE MySimpleEumlTest
 #endif
 #include <boost/test/unit_test.hpp>
 
@@ -111,7 +111,7 @@ namespace
 //    static char const* const state_names[] = { "Stopped", "Paused", "Open", "Empty", "Playing" };
 
 
-    BOOST_AUTO_TEST_CASE( my_test )
+    BOOST_AUTO_TEST_CASE(MySimpleEumlTest)
     {     
         player p;
 
