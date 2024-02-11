@@ -1895,8 +1895,8 @@ private:
         struct sort_greater
         {
             bool operator()(
-                deferred_events_queue_t::value_type const& d1,
-                deferred_events_queue_t::value_type const& d2)
+                typename deferred_events_queue_t::value_type const& d1,
+                typename deferred_events_queue_t::value_type const& d2)
             {
                 return d1.second > d2.second;
             }
@@ -1904,7 +1904,7 @@ private:
         struct set_sequence
         {
             set_sequence(char s) :seq_(s) {}
-            void operator()(deferred_events_queue_t::value_type& d)
+            void operator()(typename deferred_events_queue_t::value_type& d)
             {
                 d.second = seq_;
             }

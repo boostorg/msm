@@ -1985,7 +1985,7 @@ private:
                 std::stable_sort(
                     m_events_queue.m_deferred_events_queue.begin(),
                     m_events_queue.m_deferred_events_queue.end(),
-                    [](deferred_events_queue_t::value_type const& d1, deferred_events_queue_t::value_type const& d2) 
+                    [](typename deferred_events_queue_t::value_type const& d1, deferred_events_queue_t::value_type const& d2)
                     {
                         return d1.second > d2.second;
                     }
@@ -1994,7 +1994,7 @@ private:
                 std::for_each(
                     m_events_queue.m_deferred_events_queue.begin(),
                     m_events_queue.m_deferred_events_queue.end(), 
-                    [seq = m_events_queue.m_cur_seq](deferred_events_queue_t::value_type& d)
+                    [seq = m_events_queue.m_cur_seq](typename deferred_events_queue_t::value_type& d)
                     {
                         d.second = seq+1;
                     }
