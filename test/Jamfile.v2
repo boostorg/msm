@@ -51,6 +51,7 @@ test-suite msm-unit-tests
     [ run TestConstructor.cpp ]
     [ run ManyDeferTransitions.cpp ]
     [ run Back11AnonymousAndGuard.cpp ]
+    [ run Back11Throwing.cpp ]
     [ run Back11Anonymous.cpp  : :
         : [ requires cxx11_variadic_templates ] ]
     [ run Back11BigWithFunctors.cpp  : :

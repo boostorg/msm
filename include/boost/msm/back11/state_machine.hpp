@@ -1916,6 +1916,7 @@ private:
             // give a chance to the concrete state machine to handle
             // Note that the event might have been moved away
             this->exception_caught(evt,*this,e);
+            return ::boost::msm::back::HANDLED_FALSE;
         }
         BOOST_CATCH_END
         return ::boost::msm::back::HANDLED_TRUE;
