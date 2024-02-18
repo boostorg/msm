@@ -101,7 +101,8 @@ namespace
                             StateA -> StateB: evt1/ A2 [G1]
                             StateA : entry A1
                             StateA : entry A2
-                            StateB : entry A1)";
+                            StateB : entry A1
+        )";
         auto stt24 =
             boost::msm::front::puml::create_transition_table([&]() {return stt24_; });
 
@@ -114,11 +115,11 @@ namespace
                         boost::fusion::vector<
                             boost::msm::front::puml::detail::pair_type <
                                 Action<by_name("A1")>,
-                                Guard<by_name("")>
+                                none
                             >,
                             boost::msm::front::puml::detail::pair_type <
                                 Action<by_name("A2")>,
-                                Guard<by_name("")>
+                                none
                             >
                         >
                     >,
@@ -128,7 +129,7 @@ namespace
                             boost::fusion::vector<
                                 boost::msm::front::puml::detail::pair_type <
                                     Action<by_name("A1")>,
-                                    Guard<by_name("")>
+                                    none
                                 >
                             >>,
                     Action <by_name("A2")>, 
@@ -141,7 +142,8 @@ namespace
                             StateA : entry A1 [G1]
                             StateA : entry A2                            
                             StateB : entry A1 [G1]
-                            StateB : entry A2)";
+                            StateB : entry A2
+        )";
         auto stt25 =
             boost::msm::front::puml::create_transition_table([&]() {return stt25_; });
 
@@ -158,7 +160,7 @@ namespace
                             >,
                             boost::msm::front::puml::detail::pair_type <
                                 Action<by_name("A2")>,
-                                Guard<by_name("")>
+                                none
                             >
                         >
                     >,
@@ -172,7 +174,7 @@ namespace
                             >,
                             boost::msm::front::puml::detail::pair_type <
                                 Action<by_name("A2")>,
-                                Guard<by_name("")>
+            none
                             >
                         >
                     >,
@@ -310,7 +312,7 @@ namespace
         static_assert(boost::msm::front::puml::detail::count_terminates(stt29_) == 1);
         static_assert(boost::msm::front::puml::detail::count_inits(stt29_) == 2);
 
-        //std::cout << "dbg1:" << typeid(stt28).name() << std::endl << std::endl;
+        //std::cout << "dbg1:" << typeid(stt25).name() << std::endl << std::endl;
         //std::cout << "dbg2:" << typeid(stt29).name() << std::endl << std::endl;
     }
 }

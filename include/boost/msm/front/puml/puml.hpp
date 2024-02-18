@@ -67,9 +67,17 @@ namespace detail {
             boost::fusion::for_each(Entries{}, 
                 [&](auto action_guard_pair) 
                 {
-                    if (typename decltype(action_guard_pair)::second{}(evt, fsm, *this, *this))
+                    if constexpr (
+                        std::is_same_v<typename decltype(action_guard_pair)::second,boost::msm::front::none>)
                     {
                         typename decltype(action_guard_pair)::first{}(evt, fsm, *this, *this);
+                    }
+                    else
+                    {
+                        if (typename decltype(action_guard_pair)::second{}(evt, fsm, *this, *this))
+                        {
+                            typename decltype(action_guard_pair)::first{}(evt, fsm, *this, *this);
+                        }
                     }
                 });
         }
@@ -79,9 +87,17 @@ namespace detail {
             boost::fusion::for_each(Exits{},
                 [&](auto action_guard_pair)
                 {
-                    if (typename decltype(action_guard_pair)::second{}(evt, fsm, *this, *this))
+                    if constexpr (
+                        std::is_same_v<typename decltype(action_guard_pair)::second, boost::msm::front::none>)
                     {
                         typename decltype(action_guard_pair)::first{}(evt, fsm, *this, *this);
+                    }
+                    else
+                    {
+                        if (typename decltype(action_guard_pair)::second{}(evt, fsm, *this, *this))
+                        {
+                            typename decltype(action_guard_pair)::first{}(evt, fsm, *this, *this);
+                        }
                     }
                 });
         }
@@ -112,6 +128,7 @@ namespace detail {
     {
 
     };
+
 
     namespace detail {
         // CRC32 Table (zlib polynomial)
@@ -435,6 +452,38 @@ namespace detail {
     {
         return boost::msm::front::puml::detail::crc32(str) ^ 0xFFFFFFFF;
     }
+
+    // specializations
+    template<>
+    struct convert_to_msm_names<State<by_name("")>>
+    {
+        using type = boost::msm::front::none;
+    };
+    template<>
+    struct convert_to_msm_names<Event< by_name("")>>
+    {
+        using type = boost::msm::front::none;
+    };
+    template<>
+    struct convert_to_msm_names<Action< by_name("")>>
+    {
+        using type = boost::msm::front::none;
+    };
+    template<>
+    struct convert_to_msm_names<Guard< by_name("")>>
+    {
+        using type = boost::msm::front::none;
+    };
+    template<>
+    struct convert_to_msm_names<Action< by_name("defer")>>
+    {
+        using type = boost::msm::front::Defer;
+    };
+    template<>
+    struct convert_to_msm_names<Event< by_name("*")>>
+    {
+        using type = boost::any;
+    };
 
     namespace detail
     {
@@ -776,7 +825,8 @@ namespace detail {
                                     T,
                                     boost::msm::front::puml::detail::pair_type<
                                         decltype(make_action_sequence(boost::msm::front::puml::detail::create_action_sequence(action_l))),
-                                        decltype(boost::msm::front::puml::detail::parse_guard(guard_l))
+                                        typename boost::msm::front::puml::convert_to_msm_names<
+                                            decltype(boost::msm::front::puml::detail::parse_guard(guard_l))>::type
                                     >
                                 >::type{});
                         }
@@ -793,7 +843,8 @@ namespace detail {
                                     T,
                                     boost::msm::front::puml::detail::pair_type<
                                         decltype(make_action_sequence(boost::msm::front::puml::detail::create_action_sequence(action_l))),
-                                        boost::msm::front::puml::Guard<by_name("")>
+                                        typename boost::msm::front::puml::convert_to_msm_names<
+                                            boost::msm::front::puml::Guard<by_name("")>>::type
                                     >
                                 >::type{});
                         }
@@ -936,37 +987,7 @@ namespace detail {
 
     }//namespace detail
 
-    // specializations
-    template<>
-    struct convert_to_msm_names<State<by_name("")>>
-    {
-        using type = boost::msm::front::none;
-    };
-    template<>
-    struct convert_to_msm_names<Event< by_name("")>>
-    {
-        using type = boost::msm::front::none;
-    };
-    template<>
-    struct convert_to_msm_names<Action< by_name("")>>
-    {
-        using type = boost::msm::front::none;
-    };
-    template<>
-    struct convert_to_msm_names<Guard< by_name("")>>
-    {
-        using type = boost::msm::front::none;
-    };
-    template<>
-    struct convert_to_msm_names<Action< by_name("defer")>>
-    {
-        using type = boost::msm::front::Defer;
-    };
-    template<>
-    struct convert_to_msm_names<Event< by_name("*")>>
-    {
-        using type = boost::any;
-    };
+
 
     template <class Func>
     constexpr auto create_transition_table(Func stt_func)
