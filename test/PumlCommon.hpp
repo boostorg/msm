@@ -93,7 +93,7 @@ namespace boost::msm::front::puml {
     struct State<by_name("Playing")> : public msm::front::state<>
     {
         template <class Event, class FSM>
-        void on_entry(Event const& e, FSM&) { ++entry_counter; }
+        void on_entry(Event const&, FSM&) { ++entry_counter; }
         template <class Event, class FSM>
         void on_exit(Event const&, FSM&) { ++exit_counter; }
         int entry_counter = 0;
@@ -144,7 +144,7 @@ namespace boost::msm::front::puml {
     struct Action<by_name("store_cd_info")>
     {
         template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(EVT const&, FSM& fsm, SourceState&, TargetState&)
+        void operator()(EVT const&, FSM&, SourceState&, TargetState&)
         {
         }
     };
