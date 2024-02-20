@@ -31,8 +31,11 @@
                                 for transitions</p></li><li class="listitem"><p>"--" will make orthogonal regions clearer</p></li><li class="listitem"><p>Supported guard conditions are guard names &amp;&amp;... ||...
                                 !... (), for example !G1 &amp;&amp; (G2 || G3)</p></li></ul></div><p>We also want to add these non-standard PlantUML features:</p><div class="itemizedlist"><ul class="itemizedlist" type="disc"><li class="listitem"><p>Flags. State Name : [keyword] flag flag-name. Add a flag per
                                     line.</p></li><li class="listitem"><p>entry / exit actions. State name: [keyword] entry-or-exit
-                                    comma-separated-actions-sequence [guard conditions]</p></li><li class="listitem"><p>any event is defined using the Kleene syntax "*" as the event
-                                    name.</p></li></ul></div><p>Before PUML one had to convert this syntax in the classical MSM transition
+                                    comma-separated-actions-sequence [guard conditions]</p></li><li class="listitem"><p>An anonymous transition has an empty event name</p></li><li class="listitem"><p>An any event is defined using the Kleene syntax "*" as the
+                                    event name.</p></li><li class="listitem"><p>a defer function is already provided for conditional event
+                                    deferring</p></li><li class="listitem"><p>an internal transition is implemented using an equal source
+                                    and target state and a "-" before the event name </p><pre class="programlisting">Open        -&gt; Open         : -play         / defer</pre></li><li class="listitem"><p>
+                                    An internal Kleen would then be: </p><pre class="programlisting">Empty       -&gt; Empty        : -*            / defer               [is_play_event]</pre></li></ul></div><p>Before PUML one had to convert this syntax in the classical MSM transition
                         table, states with entry/exit/flags, events, etc. which takes long and is
                         error-prone.</p><p>Good news: This is no more necessary. Now we can copy-paste our PlantUML and
                     directly use it in the code, which gives us:</p><pre class="programlisting">    // front-end: define the FSM structure 
@@ -110,7 +113,7 @@
 p.process_event(Event&lt;by_name("open_close")&gt;{});                        
                     </pre><p>
                     Please note that C++-20 is required. <a class="link" href="examples/SimplePuml.cpp" target="_top">A complete implementation</a> of the player
-                        is provided.</p></div><div class="sect2" title="Composite State Machines"><div class="titlepage"><div><div><h3 class="title"><a name="d0e1486"></a>Composite State Machines</h3></div></div></div><p> At the moment, the PUML front-end does not support submachines in a single
+                        is provided.</p></div><div class="sect2" title="Composite State Machines"><div class="titlepage"><div><div><h3 class="title"><a name="d0e1502"></a>Composite State Machines</h3></div></div></div><p> At the moment, the PUML front-end does not support submachines in a single
                 text string, so we need to split. First we define the submachine:</p><pre class="programlisting">
 struct playing_ : public msm::front::state_machine_def&lt;playing_&gt;
 {

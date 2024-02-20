@@ -1907,8 +1907,23 @@ struct Empty : public msm::front::euml::func_state&lt;Empty_tag,Empty_Entry,Empt
                                     comma-separated-actions-sequence [guard conditions]</para>
                             </listitem>
                             <listitem>
-                                <para>any event is defined using the Kleene syntax "*" as the event
-                                    name.</para>
+                                <para>An anonymous transition has an empty event name</para>
+                            </listitem>
+                            <listitem>
+                                <para>An any event is defined using the Kleene syntax "*" as the
+                                    event name.</para>
+                            </listitem>
+                            <listitem>
+                                <para>a defer function is already provided for conditional event
+                                    deferring</para>
+                            </listitem>
+                            <listitem>
+                                <para>an internal transition is implemented using an equal source
+                                    and target state and a "-" before the event name <programlisting>Open        -> Open         : -play         / defer</programlisting></para>
+                            </listitem>
+                            <listitem>
+                                <para>
+                                    An internal Kleen would then be: <programlisting>Empty       -> Empty        : -*            / defer               [is_play_event]</programlisting></para>
                             </listitem>
                     </itemizedlist></para>
                 <para>Before PUML one had to convert this syntax in the classical MSM transition
