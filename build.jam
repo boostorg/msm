@@ -1,0 +1,36 @@
+# Copyright René Ferdinand Rivera Morell 2024
+# Distributed under the Boost Software License, Version 1.0.
+# (See accompanying file LICENSE_1_0.txt or copy at
+# http://www.boost.org/LICENSE_1_0.txt)
+
+import project ;
+
+project /boost/msm
+    : common-requirements
+        <source>/boost/any//boost_any
+        <source>/boost/assert//boost_assert
+        <source>/boost/bind//boost_bind
+        <source>/boost/circular_buffer//boost_circular_buffer
+        <source>/boost/config//boost_config
+        <source>/boost/core//boost_core
+        <source>/boost/function//boost_function
+        <source>/boost/fusion//boost_fusion
+        <source>/boost/mpl//boost_mpl
+        <source>/boost/parameter//boost_parameter
+        <source>/boost/phoenix//boost_phoenix
+        <source>/boost/preprocessor//boost_preprocessor
+        <source>/boost/proto//boost_proto
+        <source>/boost/serialization//boost_serialization
+        <source>/boost/tuple//boost_tuple
+        <source>/boost/type_traits//boost_type_traits
+        <source>/boost/typeof//boost_typeof
+        <include>include
+    ;
+
+explicit
+    [ alias boost_msm ]
+    [ alias all : boost_msm example/mpl_graph test ]
+    ;
+
+call-if : boost-library msm
+    ;
