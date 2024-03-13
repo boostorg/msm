@@ -44,6 +44,7 @@ test-suite msm-unit-tests
     [ run SimpleInternalEuml.cpp ]
     [ run SimpleInternalFunctors.cpp ]
     [ run SimpleMachine.cpp ]
+    [ run KleeneDeferred.cpp ]
     [ run SimpleWithFunctors.cpp ]
     [ run Serialize.cpp ]
     [ run SerializeWithHistory.cpp ]
@@ -52,6 +53,8 @@ test-suite msm-unit-tests
     [ run ManyDeferTransitions.cpp ]
     [ run Back11AnonymousAndGuard.cpp ]
     [ run Back11Throwing.cpp ]
+    [ run Back11KleeneDeferred.cpp  : :
+        : [ requires cxx11_variadic_templates ] ]
     [ run Back11Anonymous.cpp  : :
         : [ requires cxx11_variadic_templates ] ]
     [ run Back11BigWithFunctors.cpp  : :
