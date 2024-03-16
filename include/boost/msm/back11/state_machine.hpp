@@ -20,6 +20,7 @@
 
 #include <boost/core/no_exceptions_support.hpp>
 #include <boost/core/ignore_unused.hpp>
+#include <boost/type_index.hpp>
 
 #include <boost/mpl/contains.hpp>
 #include <boost/mpl/deref.hpp>
@@ -1584,7 +1585,8 @@ private:
 
     // puts the given event into the deferred queue
     template <class Event>
-    void defer_event(Event const& e)
+    typename::boost::disable_if< typename ::boost::msm::is_kleene_event<Event>::type,void>::type
+    defer_event(Event const& e)
     {
         // to call this function, you need either a state with a deferred_events typedef
         // or that the fsm provides the activate_deferred_events typedef
@@ -1602,7 +1604,62 @@ private:
                 static_cast<char>(m_deferred_events_queue.m_cur_seq+1)));
     }
 
- protected:    // interface for the derived class
+ protected:
+    template <class KleeneEvent, class Fsm>
+    struct defer_event_kleene_helper
+    {
+        defer_event_kleene_helper(KleeneEvent const& e, Fsm* fsm, bool& found)
+            : m_event(e), m_fsm(fsm), m_found(found) {}
+
+        // History initializer function object, used with mpl::for_each
+        template <class Event>
+        void operator()(Event const& ev)
+        {
+            if (m_event.type() == boost::typeindex::type_id<decltype(ev)>().type_info())
+            {
+                m_found = true;
+                // to call this function, you need either a state with a deferred_events typedef
+                // or that the fsm provides the activate_deferred_events typedef
+                BOOST_MPL_ASSERT((has_fsm_deferred_events<library_sm>));
+                ::boost::msm::back::execute_return(library_sm:: * pf) (Event const&, ::boost::msm::back::EventSource) =
+                    &library_sm::process_event_internal;
+
+                // Deferred events are added with a correlation sequence that helps to
+                // identify when an event was added - This is typically to distinguish
+                // between events deferred in this processing versus previous.
+                m_fsm->m_deferred_events_queue.m_deferred_events_queue.push_back(
+                    std::make_pair(
+                        ::boost::bind(
+                            pf, m_fsm, boost::any_cast<Event>(m_event), static_cast<::boost::msm::back::EventSource>(::boost::msm::back::EVENT_SOURCE_DIRECT | ::boost::msm::back::EVENT_SOURCE_DEFERRED)),
+                        static_cast<char>(m_fsm->m_deferred_events_queue.m_cur_seq + 1)));
+            }
+        }
+        KleeneEvent const& m_event;
+        Fsm* m_fsm;
+        bool& m_found;
+    };
+
+public:
+    template <class Event>
+    typename::boost::enable_if< typename ::boost::msm::is_kleene_event<Event>::type, void>::type
+    defer_event(Event const& e)
+    {
+        typedef typename generate_event_set<stt>::type event_list;
+        bool found = false;
+        boost::fusion::for_each(
+            event_list(),
+            defer_event_kleene_helper<Event,library_sm>(e,this,found));
+        if (!found)
+        {
+            for (int i = 0; i < nr_regions::value; ++i)
+            {
+                this->no_transition(e, *this, this->m_states[i]);
+            }
+        }
+    }
+ 
+
+protected:    // interface for the derived class
 
      // helper used to fill the initial states
      struct init_states
