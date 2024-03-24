@@ -45,6 +45,9 @@
 #include <boost/mpl/back_inserter.hpp>
 #include <boost/mpl/transform.hpp>
 
+#include <boost/fusion/include/as_vector.hpp>
+#include <boost/fusion/include/insert_range.hpp>
+
 #include <boost/type_traits/is_same.hpp>
 #include <boost/utility/enable_if.hpp>
 
