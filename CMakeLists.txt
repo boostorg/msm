@@ -39,3 +39,6 @@ if(BUILD_TESTING AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/CMakeLists.txt")
 
 endif()
 
+add_subdirectory(bench)
+add_executable(playground playground.cpp)
+target_include_directories(playground PRIVATE include)
