@@ -1219,6 +1219,16 @@ private:
                                 ::boost::mpl::placeholders::_2,
                                 is_composite_state< ::boost::mpl::placeholders::_2> > >
         >::type type;
+
+        // TODO
+        // template<typename L, typename T>
+        // using F = boost::mp11::mp_push_back<L, get_internal_transition_table<T, is_composite_state<T>>>;
+        // typedef typename boost::mp11::mp_fold<
+        //     state_list,
+        //     // typename mpl::copy<state_list, mpl::back_inserter<mp11::mp_list<>>>::type,
+        //     stt_plus_internal,
+        //     F
+        // > type;
     };
     // extend the table with tables from composite states
     typedef typename extend_table<library_sm>::type complete_table;
