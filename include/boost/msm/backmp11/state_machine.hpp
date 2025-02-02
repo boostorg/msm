@@ -1121,20 +1121,13 @@ private:
     template <class BaseType, class stt_simulated = typename BaseType::transition_table>
     struct create_real_stt
     {
-        // //typedef typename BaseType::transition_table stt_simulated;
-        // typedef typename ::boost::mpl::fold<
-        //     stt_simulated,mpl::vector0<>,
-        //     ::boost::mpl::push_back< ::boost::mpl::placeholders::_1,
-        //                              make_row_tag< ::boost::mpl::placeholders::_2 , BaseType > >
-        // >::type type;
-
+        //typedef typename BaseType::transition_table stt_simulated;
         template<typename T>
-        using mp11_make_row_tag = typename make_row_tag<T, BaseType>::type;
-
+        using make_row_tag_base_type = typename make_row_tag<T, BaseType>::type;
         typedef typename boost::mp11::mp_transform<
-            mp11_make_row_tag,
-            stt_simulated
-        >::type type;
+            make_row_tag_base_type,
+            typename mpl::copy<stt_simulated, mpl::back_inserter<mp11::mp_list<>>>::type
+        > type;
     };
 
     template <class Table,class Intermediate,class StateType>
@@ -1157,11 +1150,14 @@ private:
         // the internal ones are searched recursively in sub-sub... states
         // we go recursively because our states can also have internal tables or substates etc.
         typedef typename recursive_get_internal_transition_table<StateType, ::boost::mpl::true_>::type recursive_istt;
-        typedef typename ::boost::mpl::fold<
-                    recursive_istt,::boost::mpl::vector0<>,
-                    ::boost::mpl::push_back< ::boost::mpl::placeholders::_1,
-                                             make_row_tag< ::boost::mpl::placeholders::_2 , StateType> >
-                >::type recursive_istt_with_tag;
+        // TODO:
+        // This snippet is slower than previously.
+        template<typename T>
+        using make_row_tag_state_type = typename make_row_tag<T, StateType>::type;
+        typedef typename boost::mp11::mp_transform<
+            make_row_tag_state_type,
+            typename mpl::copy<recursive_istt, mpl::back_inserter<mp11::mp_list<>>>::type
+        >::type recursive_istt_with_tag;
 
         typedef boost::mp11::mp_append<original_table, recursive_istt_with_tag> table_with_all_events;
 
@@ -1201,15 +1197,16 @@ private:
         // Note: these are added first because they must have a lesser prio
         // than the deeper transitions in the sub regions
         // table made of a stt + internal transitions of composite
-        typedef typename ::boost::mpl::fold<
-            typename Composite::internal_transition_table,::boost::mpl::vector0<>,
-            ::boost::mpl::push_back< ::boost::mpl::placeholders::_1,
-                                     make_row_tag< ::boost::mpl::placeholders::_2 , Composite> >
-        >::type internal_stt;
+        template<typename T>
+        using make_row_tag_composite = typename make_row_tag<T, Composite>::type;
+        typedef typename boost::mp11::mp_transform<
+            make_row_tag_composite,
+            typename mpl::copy<typename Composite::internal_transition_table, mpl::back_inserter<mp11::mp_list<>>>::type
+        > internal_stt;
 
         typedef boost::mp11::mp_append<
             typename mpl::copy<Stt, mpl::back_inserter<mp11::mp_list<>>>::type,
-            typename mpl::copy<internal_stt, mpl::back_inserter<mp11::mp_list<>>>::type
+            internal_stt
         > stt_plus_internal;
 
         // for every state, add its transition table (if any)
