@@ -11,6 +11,11 @@
 #ifndef BOOST_MSM_BACK_STATEMACHINE_H
 #define BOOST_MSM_BACK_STATEMACHINE_H
 
+// TODO
+#include <boost/msm/back/metafunctions.hpp>
+#include <boost/mp11.hpp>
+#include <boost/mp11/mpl.hpp>
+
 #include <exception>
 #include <vector>
 #include <functional>
@@ -57,7 +62,7 @@
 #include <boost/msm/row_tags.hpp>
 #include <boost/msm/msm_grammar.hpp>
 #include <boost/msm/back/fold_to_list.hpp>
-#include <boost/msm/back/metafunctions.hpp>
+#include <boost/msm/backmp11/metafunctions.hpp>
 #include <boost/msm/back/history_policies.hpp>
 #include <boost/msm/back/common_types.hpp>
 #include <boost/msm/back/args.hpp>
@@ -65,11 +70,6 @@
 #include <boost/msm/back/dispatch_table.hpp>
 #include <boost/msm/back/no_fsm_check.hpp>
 #include <boost/msm/back/queue_container_deque.hpp>
-
-// NEW STUFF
-#include <boost/mp11.hpp>
-#include <boost/mp11/mpl.hpp>
-// NEW STUFF
 
 BOOST_MPL_HAS_XXX_TRAIT_DEF(accept_sig)
 BOOST_MPL_HAS_XXX_TRAIT_DEF(no_automatic_create)
@@ -1134,10 +1134,13 @@ private:
     struct add_forwarding_row_helper
     {
         typedef typename generate_event_set<Table>::type all_events;
-        typedef typename ::boost::mpl::fold<
-            all_events, Intermediate,
-            ::boost::mpl::push_back< ::boost::mpl::placeholders::_1,
-            frow<StateType, ::boost::mpl::placeholders::_2> > >::type type;
+        template<typename V, typename T>
+        using F = mp11::mp_push_back<V, frow<StateType, T>>;
+        typedef mp11::mp_fold<
+            typename mpl::copy<all_events, mpl::back_inserter<mp11::mp_list<>>>::type,
+            typename mpl::copy<Intermediate, mpl::back_inserter<mp11::mp_list<>>>::type,
+            F
+            > type;
     };
     // gets the transition table from a composite and make from it a forwarding row
     template <class StateType,class IsComposite>
@@ -1154,10 +1157,10 @@ private:
         // This snippet is slower than previously.
         template<typename T>
         using make_row_tag_state_type = typename make_row_tag<T, StateType>::type;
-        typedef typename boost::mp11::mp_transform<
+        typedef boost::mp11::mp_transform<
             make_row_tag_state_type,
             typename mpl::copy<recursive_istt, mpl::back_inserter<mp11::mp_list<>>>::type
-        >::type recursive_istt_with_tag;
+        > recursive_istt_with_tag;
 
         typedef boost::mp11::mp_append<original_table, recursive_istt_with_tag> table_with_all_events;
 
