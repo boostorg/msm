@@ -293,22 +293,17 @@ struct generate_state_set
     // keep in the original transition table only the source/target state types
     typedef typename keep_source_names<stt>::type sources;
     typedef typename keep_target_names<stt>::type targets;
-    // typedef mp11::mp_unique<sources> source_set;
-    // typedef mp11::mp_apply<
-    //     mpl::set,
-    //     mp11::mp_set_union<mp11::mp_unique<targets>, source_set>
-    //     > type;
-    typedef typename 
-        ::boost::mpl::fold<
-        sources, ::boost::mpl::set<>,
-        ::boost::mpl::insert< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2>
-        >::type source_set;
-    typedef typename 
-        ::boost::mpl::fold<
-        targets,source_set,
-        ::boost::mpl::insert< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2>
-        >::type type;
-};
+    typedef mp11::mp_unique<
+        typename mpl::copy<sources, mpl::back_inserter<mp11::mp_list<>>>::type
+        > source_set;
+    typedef mp11::mp_apply<
+        mpl::set,
+        mp11::mp_set_union<
+            mp11::mp_unique<
+                typename mpl::copy<targets, mpl::back_inserter<mp11::mp_list<>>>::type>,
+                source_set
+                >
+        > type;
 };
 
 // iterates through the transition table and generate a mpl::set<> containing all the events

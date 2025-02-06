@@ -12,7 +12,7 @@
 #define BOOST_MSM_BACK_STATEMACHINE_H
 
 // TODO
-#include <boost/msm/back/metafunctions.hpp>
+#include <boost/msm/backmp11/metafunctions.hpp>
 #include <boost/mp11.hpp>
 #include <boost/mp11/mpl.hpp>
 
@@ -1134,12 +1134,18 @@ private:
     struct add_forwarding_row_helper
     {
         typedef typename generate_event_set<Table>::type all_events;
-        template<typename V, typename T>
-        using F = mp11::mp_push_back<V, frow<StateType, T>>;
-        typedef mp11::mp_fold<
-            typename mpl::copy<all_events, mpl::back_inserter<mp11::mp_list<>>>::type,
+        // template<typename V, typename T>
+        // using F = mp11::mp_push_back<V, frow<StateType, T>>;
+        // typedef mp11::mp_fold<
+        //     typename mpl::copy<all_events, mpl::back_inserter<mp11::mp_list<>>>::type,
+        //     typename mpl::copy<Intermediate, mpl::back_inserter<mp11::mp_list<>>>::type,
+        //     F
+        //     > type;
+        template<typename T>
+        using F = frow<StateType, T>;
+        typedef mp11::mp_append<
             typename mpl::copy<Intermediate, mpl::back_inserter<mp11::mp_list<>>>::type,
-            F
+            mp11::mp_transform<F, typename mpl::copy<all_events, mpl::back_inserter<mp11::mp_list<>>>::type>
             > type;
     };
     // gets the transition table from a composite and make from it a forwarding row
@@ -1214,24 +1220,18 @@ private:
 
         // for every state, add its transition table (if any)
         // transformed as frow
-        typedef typename ::boost::mpl::fold<state_list,stt_plus_internal,
-                ::boost::mpl::insert_range<
-                        ::boost::mpl::placeholders::_1,
-                        ::boost::mpl::end< ::boost::mpl::placeholders::_1>,
-                        get_internal_transition_table<
-                                ::boost::mpl::placeholders::_2,
-                                is_composite_state< ::boost::mpl::placeholders::_2> > >
-        >::type type;
-
-        // TODO
-        // template<typename L, typename T>
-        // using F = boost::mp11::mp_push_back<L, get_internal_transition_table<T, is_composite_state<T>>>;
-        // typedef typename boost::mp11::mp_fold<
-        //     state_list,
-        //     // typename mpl::copy<state_list, mpl::back_inserter<mp11::mp_list<>>>::type,
-        //     stt_plus_internal,
-        //     F
-        // > type;
+        template<typename V, typename T>
+        using F = boost::mp11::mp_append<
+            V,
+            typename get_internal_transition_table<T, typename is_composite_state<T>::type>::type
+            >;
+        typedef boost::mp11::mp_fold<
+            // state_list,
+            typename mpl::copy<state_list, mpl::back_inserter<mp11::mp_list<>>>::type,
+            stt_plus_internal,
+            // typename mpl::copy<stt_plus_internal, mpl::back_inserter<mp11::mp_list<>>>::type,
+            F
+        > type;
     };
     // extend the table with tables from composite states
     typedef typename extend_table<library_sm>::type complete_table;
