@@ -1,4 +1,4 @@
-set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "time -v")
+# set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "time -v")
 
 add_executable(msm_bench
     # Back11LargeMachine10.cpp
@@ -12,3 +12,6 @@ add_executable(msm_bench
 )
 target_include_directories(msm_bench PRIVATE ../include)
 target_compile_options(msm_bench PRIVATE "-ftime-trace")
+set_target_properties(msm_bench PROPERTIES
+    RULE_LAUNCH_COMPILE "time -v"
+)

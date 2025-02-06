@@ -12,9 +12,9 @@
 #define BOOST_MSM_BACK_STATEMACHINE_H
 
 // TODO
-#include <boost/msm/backmp11/metafunctions.hpp>
 #include <boost/mp11.hpp>
 #include <boost/mp11/mpl.hpp>
+#include <boost/msm/backmp11/metafunctions.hpp>
 
 #include <exception>
 #include <vector>
