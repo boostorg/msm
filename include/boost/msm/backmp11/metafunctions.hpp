@@ -113,57 +113,79 @@ struct make_pair_target_state_id
     typedef typename ::boost::mpl::pair<typename Transition::next_state_type,Id> type;
 };
 
+template <class stt>
+struct keep_source_names;
+
+template <class stt>
+struct keep_target_names;
+
 // iterates through a transition table and automatically generates ids starting at 0
 // first the source states, transition up to down
 // then the target states, up to down
 template <class stt>
 struct generate_state_ids
 {
-    typedef typename 
-        ::boost::mpl::fold<
-        stt,::boost::mpl::pair< ::boost::mpl::map< >, ::boost::mpl::int_<0> >,
-        ::boost::mpl::pair<
-            ::boost::mpl::if_<
-                     ::boost::mpl::has_key< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
-                                            transition_source_type< ::boost::mpl::placeholders::_2> >,
-                     ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
-                     ::boost::mpl::insert< ::boost::mpl::first<mpl::placeholders::_1>,
-                                make_pair_source_state_id< ::boost::mpl::second< ::boost::mpl::placeholders::_1 >,
-                                                           ::boost::mpl::placeholders::_2> >
-                      >,
-            ::boost::mpl::if_<
-                    ::boost::mpl::has_key< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
-                                           transition_source_type< ::boost::mpl::placeholders::_2> >,
-                    ::boost::mpl::second< ::boost::mpl::placeholders::_1 >,
-                    ::boost::mpl::next< ::boost::mpl::second<mpl::placeholders::_1 > >
-                    >
-        > //pair
-        >::type source_state_ids;
-    typedef typename ::boost::mpl::first<source_state_ids>::type source_state_map;
-    typedef typename ::boost::mpl::second<source_state_ids>::type highest_state_id;
+    // typedef typename 
+    //     ::boost::mpl::fold<
+    //     stt,::boost::mpl::pair< ::boost::mpl::map< >, ::boost::mpl::int_<0> >,
+    //     ::boost::mpl::pair<
+    //         ::boost::mpl::if_<
+    //                  ::boost::mpl::has_key< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
+    //                                         transition_source_type< ::boost::mpl::placeholders::_2> >,
+    //                  ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
+    //                  ::boost::mpl::insert< ::boost::mpl::first<mpl::placeholders::_1>,
+    //                             make_pair_source_state_id< ::boost::mpl::second< ::boost::mpl::placeholders::_1 >,
+    //                                                        ::boost::mpl::placeholders::_2> >
+    //                   >,
+    //         ::boost::mpl::if_<
+    //                 ::boost::mpl::has_key< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
+    //                                        transition_source_type< ::boost::mpl::placeholders::_2> >,
+    //                 ::boost::mpl::second< ::boost::mpl::placeholders::_1 >,
+    //                 ::boost::mpl::next< ::boost::mpl::second<mpl::placeholders::_1 > >
+    //                 >
+    //     > //pair
+    //     >::type source_state_ids;
+    // typedef typename ::boost::mpl::first<source_state_ids>::type source_state_map;
+    // typedef typename ::boost::mpl::second<source_state_ids>::type highest_state_id;
 
 
-    typedef typename 
-        ::boost::mpl::fold<
-        stt,::boost::mpl::pair<source_state_map,highest_state_id >,
-        ::boost::mpl::pair<
-            ::boost::mpl::if_<
-                     ::boost::mpl::has_key< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
-                                            transition_target_type< ::boost::mpl::placeholders::_2> >,
-                     ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
-                     ::boost::mpl::insert< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
-                                make_pair_target_state_id< ::boost::mpl::second< ::boost::mpl::placeholders::_1 >,
-                                ::boost::mpl::placeholders::_2> >
-                     >,
-            ::boost::mpl::if_<
-                    ::boost::mpl::has_key< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
-                                           transition_target_type< ::boost::mpl::placeholders::_2> >,
-                    ::boost::mpl::second< ::boost::mpl::placeholders::_1 >,
-                    ::boost::mpl::next< ::boost::mpl::second< ::boost::mpl::placeholders::_1 > >
-                    >
-        > //pair
-        >::type all_state_ids;
-    typedef typename ::boost::mpl::first<all_state_ids>::type type;
+    // typedef typename 
+    //     ::boost::mpl::fold<
+    //     stt,::boost::mpl::pair<source_state_map,highest_state_id >,
+    //     ::boost::mpl::pair<
+    //         ::boost::mpl::if_<
+    //                  ::boost::mpl::has_key< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
+    //                                         transition_target_type< ::boost::mpl::placeholders::_2> >,
+    //                  ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
+    //                  ::boost::mpl::insert< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
+    //                             make_pair_target_state_id< ::boost::mpl::second< ::boost::mpl::placeholders::_1 >,
+    //                             ::boost::mpl::placeholders::_2> >
+    //                  >,
+    //         ::boost::mpl::if_<
+    //                 ::boost::mpl::has_key< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
+    //                                        transition_target_type< ::boost::mpl::placeholders::_2> >,
+    //                 ::boost::mpl::second< ::boost::mpl::placeholders::_1 >,
+    //                 ::boost::mpl::next< ::boost::mpl::second< ::boost::mpl::placeholders::_1 > >
+    //                 >
+    //     > //pair
+    //     >::type all_state_ids;
+    // typedef typename ::boost::mpl::first<all_state_ids>::type type;
+
+    typedef mp11::mp_unique<typename keep_source_names<stt>::type> source_state_set;
+    typedef mp11::mp_unique<typename keep_target_names<stt>::type> target_state_set;
+    typedef mp11::mp_set_union<source_state_set, target_state_set> all_state_set;
+    typedef mp11::mp_transform_q<
+        mp11::mp_bind<mpl::pair, mp11::_1, mp11::_2>,
+        all_state_set,
+        mp11::mp_iota_c<mp11::mp_size<all_state_set>::value>
+        > source_state_map_mp11;
+    template<typename V, typename T>
+    using F = typename mpl::insert<V, T>::type;
+    typedef mp11::mp_fold<
+        source_state_map_mp11,
+        typename mpl::map<>::type,
+        F
+        > type;
 };
 
 template <class Fsm>

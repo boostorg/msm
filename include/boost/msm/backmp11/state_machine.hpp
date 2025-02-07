@@ -15,6 +15,7 @@
 #include <boost/mp11.hpp>
 #include <boost/mp11/mpl.hpp>
 #include <boost/msm/backmp11/metafunctions.hpp>
+#include <boost/msm/backmp11/dispatch_table.hpp>
 
 #include <exception>
 #include <vector>
@@ -67,7 +68,7 @@
 #include <boost/msm/back/common_types.hpp>
 #include <boost/msm/back/args.hpp>
 #include <boost/msm/back/default_compile_policy.hpp>
-#include <boost/msm/back/dispatch_table.hpp>
+#include <boost/msm/backmp11/dispatch_table.hpp>
 #include <boost/msm/back/no_fsm_check.hpp>
 #include <boost/msm/back/queue_container_deque.hpp>
 
