@@ -125,52 +125,6 @@ struct keep_target_names;
 template <class stt>
 struct generate_state_ids
 {
-    // typedef typename 
-    //     ::boost::mpl::fold<
-    //     stt,::boost::mpl::pair< ::boost::mpl::map< >, ::boost::mpl::int_<0> >,
-    //     ::boost::mpl::pair<
-    //         ::boost::mpl::if_<
-    //                  ::boost::mpl::has_key< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
-    //                                         transition_source_type< ::boost::mpl::placeholders::_2> >,
-    //                  ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
-    //                  ::boost::mpl::insert< ::boost::mpl::first<mpl::placeholders::_1>,
-    //                             make_pair_source_state_id< ::boost::mpl::second< ::boost::mpl::placeholders::_1 >,
-    //                                                        ::boost::mpl::placeholders::_2> >
-    //                   >,
-    //         ::boost::mpl::if_<
-    //                 ::boost::mpl::has_key< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
-    //                                        transition_source_type< ::boost::mpl::placeholders::_2> >,
-    //                 ::boost::mpl::second< ::boost::mpl::placeholders::_1 >,
-    //                 ::boost::mpl::next< ::boost::mpl::second<mpl::placeholders::_1 > >
-    //                 >
-    //     > //pair
-    //     >::type source_state_ids;
-    // typedef typename ::boost::mpl::first<source_state_ids>::type source_state_map;
-    // typedef typename ::boost::mpl::second<source_state_ids>::type highest_state_id;
-
-
-    // typedef typename 
-    //     ::boost::mpl::fold<
-    //     stt,::boost::mpl::pair<source_state_map,highest_state_id >,
-    //     ::boost::mpl::pair<
-    //         ::boost::mpl::if_<
-    //                  ::boost::mpl::has_key< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
-    //                                         transition_target_type< ::boost::mpl::placeholders::_2> >,
-    //                  ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
-    //                  ::boost::mpl::insert< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
-    //                             make_pair_target_state_id< ::boost::mpl::second< ::boost::mpl::placeholders::_1 >,
-    //                             ::boost::mpl::placeholders::_2> >
-    //                  >,
-    //         ::boost::mpl::if_<
-    //                 ::boost::mpl::has_key< ::boost::mpl::first< ::boost::mpl::placeholders::_1>,
-    //                                        transition_target_type< ::boost::mpl::placeholders::_2> >,
-    //                 ::boost::mpl::second< ::boost::mpl::placeholders::_1 >,
-    //                 ::boost::mpl::next< ::boost::mpl::second< ::boost::mpl::placeholders::_1 > >
-    //                 >
-    //     > //pair
-    //     >::type all_state_ids;
-    // typedef typename ::boost::mpl::first<all_state_ids>::type type;
-
     typedef mp11::mp_unique<typename keep_source_names<stt>::type> source_state_set;
     typedef mp11::mp_unique<typename keep_target_names<stt>::type> target_state_set;
     typedef mp11::mp_set_union<source_state_set, target_state_set> all_state_set;
@@ -315,6 +269,19 @@ struct keep_target_names
         > type;
 };
 
+// transform a transition table in a container of events
+template <class stt>
+struct keep_events
+{
+    // instead of the rows we want only the names of the states (from target)
+    template<typename T>
+    using F = typename T::transition_event;
+    typedef mp11::mp_transform<
+        F,
+        typename mpl::copy<stt, mpl::back_inserter<mp11::mp_list<>>>::type
+        > type;
+};
+
 template <class stt>
 struct generate_state_set
 {
@@ -329,16 +296,9 @@ struct generate_state_set
 template <class stt>
 struct generate_event_set
 {
-    typedef typename 
-        ::boost::mpl::fold<
-            stt, ::boost::mpl::set<>,
-            ::boost::mpl::if_<
-                ::boost::mpl::has_key< ::boost::mpl::placeholders::_1, 
-                                       transition_event< ::boost::mpl::placeholders::_2> >,
-                ::boost::mpl::placeholders::_1,
-                ::boost::mpl::insert< ::boost::mpl::placeholders::_1,
-                                      transition_event< ::boost::mpl::placeholders::_2> > >
-        >::type type;
+    typedef typename keep_events<stt>::type events;
+    typedef mp11::mp_unique<events> event_set_mp11;
+    typedef mp11::mp_apply<mpl::set, event_set_mp11> type;
 };
 
 // returns a mpl::bool_<true> if State has Event as deferred event
