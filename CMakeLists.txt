@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.5...3.16)
 
 project(boost_msm VERSION "${BOOST_SUPERPROJECT_VERSION}" LANGUAGES CXX)
 # Required for testing puml frontend, but slows down compilation?
-# set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 20)
 # Required due to bug in clang19
 add_compile_options("-Wno-missing-template-arg-list-after-template-kw")
 

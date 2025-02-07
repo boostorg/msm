@@ -294,19 +294,25 @@ template <class stt>
 struct keep_source_names
 {
     // instead of the rows we want only the names of the states (from source)
-    typedef typename 
-        ::boost::mpl::transform<
-        stt,transition_source_type< ::boost::mpl::placeholders::_1> >::type type;
+    template<typename T>
+    using F = typename T::current_state_type;
+    typedef mp11::mp_transform<
+        F,
+        typename mpl::copy<stt, mpl::back_inserter<mp11::mp_list<>>>::type
+        > type;
 };
 
 // transform a transition table in a container of target states
 template <class stt>
 struct keep_target_names
 {
-    // instead of the rows we want only the names of the states (from source)
-    typedef typename 
-        ::boost::mpl::transform<
-        stt,transition_target_type< ::boost::mpl::placeholders::_1> >::type type;
+    // instead of the rows we want only the names of the states (from target)
+    template<typename T>
+    using F = typename T::next_state_type;
+    typedef mp11::mp_transform<
+        F,
+        typename mpl::copy<stt, mpl::back_inserter<mp11::mp_list<>>>::type
+        > type;
 };
 
 template <class stt>
@@ -315,17 +321,8 @@ struct generate_state_set
     // keep in the original transition table only the source/target state types
     typedef typename keep_source_names<stt>::type sources;
     typedef typename keep_target_names<stt>::type targets;
-    typedef mp11::mp_unique<
-        typename mpl::copy<sources, mpl::back_inserter<mp11::mp_list<>>>::type
-        > source_set;
-    typedef mp11::mp_apply<
-        mpl::set,
-        mp11::mp_set_union<
-            mp11::mp_unique<
-                typename mpl::copy<targets, mpl::back_inserter<mp11::mp_list<>>>::type>,
-                source_set
-                >
-        > type;
+    typedef mp11::mp_unique<mp11::mp_append<sources, targets>> state_set_mp11;
+    typedef mp11::mp_apply<mpl::set, state_set_mp11> type;
 };
 
 // iterates through the transition table and generate a mpl::set<> containing all the events
