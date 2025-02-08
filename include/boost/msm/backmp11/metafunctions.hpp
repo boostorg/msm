@@ -125,21 +125,18 @@ struct keep_target_names;
 template <class stt>
 struct generate_state_ids
 {
-    typedef mp11::mp_unique<typename keep_source_names<stt>::type> source_state_set;
-    typedef mp11::mp_unique<typename keep_target_names<stt>::type> target_state_set;
-    typedef mp11::mp_set_union<source_state_set, target_state_set> all_state_set;
+    typedef mp11::mp_unique<
+        mp11::mp_append<
+            typename keep_source_names<stt>::type,
+            typename keep_target_names<stt>::type
+            >
+        > all_state_set;
     typedef mp11::mp_transform_q<
         mp11::mp_bind<mpl::pair, mp11::_1, mp11::_2>,
         all_state_set,
         mp11::mp_iota_c<mp11::mp_size<all_state_set>::value>
-        > source_state_map_mp11;
-    template<typename V, typename T>
-    using F = typename mpl::insert<V, T>::type;
-    typedef mp11::mp_fold<
-        source_state_map_mp11,
-        typename mpl::map<>::type,
-        F
-        > type;
+        > state_map_mp11;
+    typedef mp11::mp_apply<mpl::map, state_map_mp11> type;
 };
 
 template <class Fsm>

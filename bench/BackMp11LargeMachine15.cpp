@@ -5,10 +5,11 @@
 //Official repository: https://github.com/fgoujeon/fsm-benchmark
 
 // #include "common.hpp"
-#define PROBLEM_SIZE 20
-#define PROBLEM_SIZE_X_2 40
+#define PROBLEM_SIZE 15
+#define PROBLEM_SIZE_X_2 30
 
 #define BOOST_MPL_CFG_NO_PREPROCESSED_HEADERS
+#define BOOST_MPL_LIMIT_SET_SIZE PROBLEM_SIZE_X_2
 #define BOOST_MPL_LIMIT_VECTOR_SIZE PROBLEM_SIZE_X_2
 #define BOOST_MPL_LIMIT_MAP_SIZE PROBLEM_SIZE_X_2
 
@@ -28,11 +29,11 @@
     X(12) \
     X(13) \
     X(14) \
-    X(15) \
-    X(16) \
-    X(17) \
-    X(18) \
-    X(19) \
+    // X(15) \
+    // X(16) \
+    // X(17) \
+    // X(18) \
+    // X(19) \
     // X(20) \
     // X(21) \
     // X(22) \
@@ -95,7 +96,7 @@ static int test();
 
 
 
-#include <boost/msm/back/state_machine.hpp>
+#include <boost/msm/backmp11/state_machine.hpp>
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
 
