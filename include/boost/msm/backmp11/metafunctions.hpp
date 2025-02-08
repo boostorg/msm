@@ -113,6 +113,9 @@ struct make_pair_target_state_id
     typedef typename ::boost::mpl::pair<typename Transition::next_state_type,Id> type;
 };
 
+template<typename T>
+using to_mp_list = typename mpl::copy<T, mpl::back_inserter<mp11::mp_list<>>>::type;
+
 template <class stt>
 struct keep_source_names;
 
@@ -249,7 +252,7 @@ struct keep_source_names
     using F = typename T::current_state_type;
     typedef mp11::mp_transform<
         F,
-        typename mpl::copy<stt, mpl::back_inserter<mp11::mp_list<>>>::type
+        to_mp_list<stt>
         > type;
 };
 
@@ -262,7 +265,7 @@ struct keep_target_names
     using F = typename T::next_state_type;
     typedef mp11::mp_transform<
         F,
-        typename mpl::copy<stt, mpl::back_inserter<mp11::mp_list<>>>::type
+        to_mp_list<stt>
         > type;
 };
 
@@ -275,7 +278,7 @@ struct keep_events
     using F = typename T::transition_event;
     typedef mp11::mp_transform<
         F,
-        typename mpl::copy<stt, mpl::back_inserter<mp11::mp_list<>>>::type
+        to_mp_list<stt>
         > type;
 };
 
