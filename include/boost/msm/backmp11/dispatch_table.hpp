@@ -11,6 +11,8 @@
 #ifndef BOOST_MSM_BACK_DISPATCH_TABLE_H
 #define BOOST_MSM_BACK_DISPATCH_TABLE_H
 
+#include <boost/mp11.hpp>
+
 #include <cstdint>
 #include <utility>
 
@@ -25,7 +27,7 @@
 #include <boost/type_traits/is_same.hpp>
 
 #include <boost/msm/event_traits.hpp>
-#include <boost/msm/back/metafunctions.hpp>
+#include <boost/msm/backmp11/metafunctions.hpp>
 #include <boost/msm/back/common_types.hpp>
 
 BOOST_MPL_HAS_XXX_TRAIT_DEF(is_frow)
@@ -362,25 +364,59 @@ struct dispatch_table
         cell* tofill_entries;
     };
 
+    template <typename T>
+    using event_filter_predicate = mp11::mp_or<
+        is_base_of<typename T::transition_event, Event>,
+        typename is_kleene_event<typename T::transition_event>::type
+        >;
+
+    template<typename T, typename U>
+    using item_pusher = typename mpl::push_back<U, T>::type;
+    template<typename T, typename V>
+    using map_updater = mp11::mp_map_update<
+        V,
+        mpl::pair<
+            typename T::current_state_type,
+            typename mpl::vector<typename change_frow_event<T>::type>::type
+            >,
+        item_pusher
+        >;
+    template<typename V, typename T>
+    using mpl_map_inserter = typename mpl::insert<V, T>::type;
+
+
  public:
     // initialize the dispatch table for a given Event and Fsm
     dispatch_table()
     {
         // Initialize cells for no transition
-        ::boost::mpl::for_each<typename generate_state_set<Stt>::type, 
-                               boost::msm::wrap< ::boost::mpl::placeholders::_1> >
-                        (default_init_cell<Event>(this,entries));
+        mp11::mp_for_each<typename generate_state_set<Stt>::state_set_mp11>([&](auto state) {
+            using WrappedState = boost::msm::wrap<decltype(state)>; // Wrap the type
+            default_init_cell<Event>(this, entries)(WrappedState{}); // Apply function
+        });
 
         // build chaining rows for rows coming from the same state and the current event
         // first we build a map of sequence for every source
         // in reverse order so that the frow's are handled first (UML priority)
+
+        // Insert a new element for all items
+        // typedef mp11::mp_reverse_fold<
+        //     filtered_stt,
+        //     mp11::mp_list<>,
+        //     map_updater
+        //     > map_of_row_seq_mp11;
+
+        // typedef mp11::mp_fold<
+        //     map_of_row_seq_mp11,
+        //     typename mpl::map<>::type,
+        //     mpl_map_inserter
+        //     > map_of_row_seq;
+
         typedef typename ::boost::mpl::reverse_fold<
                         // filter on event
-                        ::boost::mpl::filter_view
-                            <Stt, boost::mpl::or_<
-                                    ::boost::is_base_of<transition_event< ::boost::mpl::placeholders::_>, Event>,
-                                    ::boost::msm::is_kleene_event<transition_event< ::boost::mpl::placeholders::_> >
-                                    >
+                        mp11::mp_filter<
+                            event_filter_predicate,
+                            to_mp_list<Stt>
                             >,
                         // build a map
                         ::boost::mpl::map<>,
@@ -419,7 +455,7 @@ struct dispatch_table
                                               get_first_element_pair_second< ::boost::mpl::placeholders::_2> > 
              > >::type chained_rows; 
         // Go back and fill in cells for matching transitions.
-        ::boost::mpl::for_each<chained_rows>(init_cell(this));
+        mp11::mp_for_each<to_mp_list<chained_rows>>(init_cell(this));
     }
 
     // The singleton instance.
