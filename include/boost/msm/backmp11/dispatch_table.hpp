@@ -366,13 +366,12 @@ struct dispatch_table
         cell* tofill_entries;
     };
 
+    // Helpers for first fold
     template <typename T>
     using event_filter_predicate = mp11::mp_or<
         is_base_of<typename T::transition_event, Event>,
         typename is_kleene_event<typename T::transition_event>::type
         >;
-
-    // Helpers for first fold
     template <typename M, typename Key, typename Value>
     using item_pusher = mp11::mp_push_front<
         mp11::mp_second<mp11::mp_map_find<M, Key>>,

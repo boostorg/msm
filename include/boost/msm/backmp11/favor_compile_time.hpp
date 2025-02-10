@@ -286,20 +286,24 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         chain_row* tofill_entries;
     };
 
+    template <typename T>
+    using event_filter_predicate = is_base_of<typename T::transition_event, Event>;
+
  public:
     // initialize the dispatch table for a given Event and Fsm
     dispatch_table()
     {
         // Initialize cells for no transition
-        ::boost::mpl::for_each<
-            ::boost::mpl::filter_view<
-                    Stt, ::boost::is_base_of<transition_event< ::boost::mpl::placeholders::_>, Event> > >
-        (init_cell(this));
+        mp11::mp_for_each<mp11::mp_filter<
+            event_filter_predicate,
+            to_mp_list<Stt>
+            >>
+            (init_cell(this));
 
-        ::boost::mpl::for_each<
-            typename generate_state_set<Stt>::type,
-            boost::msm::wrap< ::boost::mpl::placeholders::_1> >
-         (default_init_cell<Event>(this,entries));
+        mp11::mp_for_each<typename generate_state_set<Stt>::state_set_mp11>([&](auto state) {
+            using WrappedState = boost::msm::wrap<decltype(state)>; // Wrap the type
+            default_init_cell<Event>(this, entries)(WrappedState{}); // Apply function
+        });
 
     }
 
