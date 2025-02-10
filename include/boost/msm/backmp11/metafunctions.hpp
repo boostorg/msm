@@ -525,10 +525,9 @@ template <class Derived>
 struct has_fsm_eventless_transition 
 {
     typedef typename create_stt<Derived>::type Stt;
-    typedef typename generate_event_set<Stt>::type event_list;
+    typedef typename generate_event_set<Stt>::event_set_mp11 event_list;
 
-    typedef ::boost::mpl::bool_< ::boost::mpl::count_if<
-        event_list,is_completion_event< ::boost::mpl::placeholders::_1 > >::value != 0> type;
+    typedef mp11::mp_any_of<event_list, has_completion_event> type;
 };
 template <class Derived>
 struct find_completion_events 

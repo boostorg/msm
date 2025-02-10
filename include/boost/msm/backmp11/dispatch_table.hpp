@@ -107,7 +107,7 @@ struct dispatch_table
     { 
         // if we have more than one frow with the same state as source, remove the ones extra
         // note: we know the frow's are located at the beginning so we remove at the beginning (number of frows - 1) elements
-        enum {number_frows = ::boost::mpl::count_if< typename Entry::second,has_is_frow< ::boost::mpl::placeholders::_1> >::value};
+        enum { number_frows = boost::mp11::mp_count_if<typename Entry::second, has_is_frow>::value };
 
         //erases the first NumberToDelete rows
         template<class Sequence, int NumberToDelete>
@@ -372,34 +372,34 @@ struct dispatch_table
         typename is_kleene_event<typename T::transition_event>::type
         >;
 
-    // Helpers for mp11::mp_reverse_fold
-    template<typename Key, typename Old, typename New>
-    using item_pusher = mp11::mp_push_front<Old, New>;
+    // Helpers for first fold
+    template <typename M, typename Key, typename Value>
+    using item_pusher = mp11::mp_push_front<
+        mp11::mp_second<mp11::mp_map_find<M, Key>>,
+        Value>;
     template<typename M, typename T>
-    using map_updater = mp11::mp_map_update_q<
+    using map_updater = mp11::mp_map_replace<
         M,
-        // first row on this source state, make a list with 1 element
         mp11::mp_list<
             typename T::current_state_type,
-            mp11::mp_list<typename change_frow_event<T>::type>
-            >,
-        // list already exists, add the row
-        mp11::mp_bind_back<item_pusher, typename change_frow_event<T>::type>
+            mp11::mp_eval_if_c<
+                !mp11::mp_map_contains<M, typename T::current_state_type>::value,
+                // first row on this source state, make a list with 1 element
+                mp11::mp_list<typename change_frow_event<T>::type>,
+                // list already exists, add the row
+                item_pusher,
+                M,
+                typename T::current_state_type,
+                typename change_frow_event<T>::type
+                >
+            >
         >;
-    // template<typename V, typename T>
-    // using mpl_map_inserter = typename mpl::insert<
-    //     V,
-    //     mpl::pair<
-    //         mp11::mp_first<T>,
-    //         mp11::mp_apply<mpl::vector, mp11::mp_second<T>>
-    //         >
-    //     >::type;
-
-    // Helpers for mp11::mp_fold
+    
+    // Helpers for second fold
     template<typename T>
     using to_mpl_map_entry = mpl::pair<
         mp11::mp_first<T>,
-        mp11::mp_apply<mpl::vector, mp11::mp_second<T>>
+        mp11::mp_second<T>
         >;
     template<typename V, typename T>
     using row_chainer = mp11::mp_if_c<
