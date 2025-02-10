@@ -374,9 +374,7 @@ struct dispatch_table
 
     // Helpers for mp11::mp_reverse_fold
     template<typename Key, typename Old, typename New>
-    // TODO:
-    // Something is wrong here...
-    using item_pusher = mp11::mp_append<Old, New>;
+    using item_pusher = mp11::mp_push_front<Old, New>;
     template<typename M, typename T>
     using map_updater = mp11::mp_map_update_q<
         M,
@@ -388,14 +386,14 @@ struct dispatch_table
         // list already exists, add the row
         mp11::mp_bind_back<item_pusher, typename change_frow_event<T>::type>
         >;
-    template<typename V, typename T>
-    using mpl_map_inserter = typename mpl::insert<
-        V,
-        mpl::pair<
-            mp11::mp_first<T>,
-            mp11::mp_apply<mpl::vector, mp11::mp_second<T>>
-            >
-        >::type;
+    // template<typename V, typename T>
+    // using mpl_map_inserter = typename mpl::insert<
+    //     V,
+    //     mpl::pair<
+    //         mp11::mp_first<T>,
+    //         mp11::mp_apply<mpl::vector, mp11::mp_second<T>>
+    //         >
+    //     >::type;
 
     // Helpers for mp11::mp_fold
     template<typename T>
@@ -403,7 +401,6 @@ struct dispatch_table
         mp11::mp_first<T>,
         mp11::mp_apply<mpl::vector, mp11::mp_second<T>>
         >;
-
     template<typename V, typename T>
     using row_chainer = mp11::mp_if_c<
         (mp11::mp_size<to_mp_list<mp11::mp_second<T>>>::value > 1),
@@ -411,7 +408,6 @@ struct dispatch_table
         mp11::mp_push_back<
             V,
             typename make_chain_row_from_map_entry<to_mpl_map_entry<T>>::type
-            // mp11::mp_front<mp11::mp_second<T>>
             >,
         // just one row, no chaining, we rebuild the row like it was before
         mp11::mp_push_back<
@@ -433,56 +429,6 @@ struct dispatch_table
         // build chaining rows for rows coming from the same state and the current event
         // first we build a map of sequence for every source
         // in reverse order so that the frow's are handled first (UML priority)
-        typedef typename ::boost::mpl::reverse_fold<
-                        // filter on event
-                        mp11::mp_filter<
-                            event_filter_predicate,
-                            to_mp_list<Stt>
-                            >,
-                        // build a map
-                        ::boost::mpl::map<>,
-                        ::boost::mpl::if_<
-                            // if we already have a row on this source state
-                            ::boost::mpl::has_key< ::boost::mpl::placeholders::_1,
-                                                   transition_source_type< ::boost::mpl::placeholders::_2> >,
-                            // insert a new element in the value type
-                            ::boost::mpl::insert< 
-                                ::boost::mpl::placeholders::_1,
-                                ::boost::mpl::pair<transition_source_type< ::boost::mpl::placeholders::_2>,
-                                                   ::boost::mpl::push_back< 
-                                                        ::boost::mpl::at< ::boost::mpl::placeholders::_1,
-                                                        transition_source_type< ::boost::mpl::placeholders::_2> >,
-                                                        change_frow_event< ::boost::mpl::placeholders::_2 > > 
-                                                   > >,
-                            // first row on this source state, make a vector with 1 element
-                            ::boost::mpl::insert< 
-                                        ::boost::mpl::placeholders::_1,
-                                        ::boost::mpl::pair<transition_source_type< ::boost::mpl::placeholders::_2>,
-                                        make_vector< change_frow_event< ::boost::mpl::placeholders::_2> > > >
-                               >
-                       >::type map_of_row_seq;
-        // and then build chaining rows for all source states having more than 1 row
-        typedef typename ::boost::mpl::fold<
-            map_of_row_seq,::boost::mpl::vector0<>,
-            ::boost::mpl::if_<
-                     ::boost::mpl::greater< ::boost::mpl::size< 
-                                                    ::boost::mpl::second< ::boost::mpl::placeholders::_2> >,
-                                            ::boost::mpl::int_<1> >,
-                     // we need row chaining
-                     ::boost::mpl::push_back< ::boost::mpl::placeholders::_1, 
-                                    make_chain_row_from_map_entry< ::boost::mpl::placeholders::_2> >,
-                     // just one row, no chaining, we rebuild the row like it was before
-                     ::boost::mpl::push_back< ::boost::mpl::placeholders::_1, 
-                                              get_first_element_pair_second< ::boost::mpl::placeholders::_2> > 
-             > >::type chained_rows; 
-        // Go back and fill in cells for matching transitions.
-        mp11::mp_for_each<to_mp_list<chained_rows>>(init_cell(this));
-
-        // WIP
-
-        // build chaining rows for rows coming from the same state and the current event
-        // first we build a map of sequence for every source
-        // in reverse order so that the frow's are handled first (UML priority)
         typedef mp11::mp_fold<
             mp11::mp_filter<
                 event_filter_predicate,
@@ -491,28 +437,14 @@ struct dispatch_table
             mp11::mp_list<>,
             map_updater
             > map_of_row_seq_mp11;
-        
-        // TODO remove:
-        // Converting to mpl in the middle is too difficult, concentrate on getting
-        // the final result right.
-        // typedef mp11::mp_reverse<map_of_row_seq_mp11> map_of_row_seq_mp11_reverse;
-        // typedef mp11::mp_apply<mpl::map, map_of_row_seq_mp11> map_of_row_seq;
-        // typedef mp11::mp_fold<
-        //     map_of_row_seq_mp11,
-        //     mpl::map<>,
-        //     mpl_map_inserter> map_of_row_seq;
-
         // and then build chaining rows for all source states having more than 1 row
         typedef mp11::mp_fold<
             map_of_row_seq_mp11,
             mp11::mp_list<>,
             row_chainer
             > chained_rows_mp11;
-        
-        // TODO:
-        // Results don't match!
-        static_assert(std::is_same_v<map_of_row_seq, map_of_row_seq_mp11>);
-        // static_assert(std::is_same_v<chained_rows, chained_rows_mp11>);
+        // Go back and fill in cells for matching transitions.
+        mp11::mp_for_each<chained_rows_mp11>(init_cell(this));
     }
 
     // The singleton instance.
