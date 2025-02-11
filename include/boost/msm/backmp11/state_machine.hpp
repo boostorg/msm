@@ -186,7 +186,7 @@ private:
     typedef boost::msm::back::state_machine<
         A0,A1,A2,A3,A4>                             library_sm;
 
-    typedef ::boost::function<
+    typedef ::std::function<
         execute_return ()>                          transition_fct;
     typedef ::boost::function<
         execute_return () >                         deferred_fct;
@@ -1900,10 +1900,8 @@ public:
         if (m_event_processing)
         {
             // event has to be put into the queue
-            m_events_queue.m_events_queue.push_back(
-                ::boost::bind(
-                    pf, this, evt,
-                    static_cast<EventSource>(EVENT_SOURCE_DIRECT | EVENT_SOURCE_MSG_QUEUE)));
+            EventSource evt_src = static_cast<EventSource>(EVENT_SOURCE_DIRECT | EVENT_SOURCE_MSG_QUEUE);
+            m_events_queue.m_events_queue.push_back([this, evt, evt_src] { return process_event_internal(evt, evt_src);});
 
             return false;
         }
