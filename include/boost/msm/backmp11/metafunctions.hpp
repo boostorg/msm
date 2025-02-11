@@ -117,10 +117,7 @@ template<typename T>
 using to_mp_list = typename mpl::copy<T, mpl::back_inserter<mp11::mp_list<>>>::type;
 
 template <class stt>
-struct keep_source_names;
-
-template <class stt>
-struct keep_target_names;
+struct generate_state_set;
 
 // iterates through a transition table and automatically generates ids starting at 0
 // first the source states, transition up to down
@@ -128,16 +125,11 @@ struct keep_target_names;
 template <class stt>
 struct generate_state_ids
 {
-    typedef mp11::mp_unique<
-        mp11::mp_append<
-            typename keep_source_names<stt>::type,
-            typename keep_target_names<stt>::type
-            >
-        > all_state_set;
+    typedef typename generate_state_set<stt>::state_set_mp11 state_set_mp11;
     typedef mp11::mp_transform_q<
         mp11::mp_bind<mpl::pair, mp11::_1, mp11::_2>,
-        all_state_set,
-        mp11::mp_iota_c<mp11::mp_size<all_state_set>::value>
+        state_set_mp11,
+        mp11::mp_iota_c<mp11::mp_size<state_set_mp11>::value>
         > state_map_mp11;
     typedef mp11::mp_apply<mpl::map, state_map_mp11> type;
 };
@@ -175,7 +167,10 @@ struct get_active_state_switch_policy
 template <class stt,class State>
 struct get_state_id
 {
-    typedef typename ::boost::mpl::at<typename generate_state_ids<stt>::type,State>::type type;
+    typedef typename mp11::mp_second<mp11::mp_map_find<
+        typename generate_state_ids<stt>::state_map_mp11,
+        State
+        >> type;
     enum {value = type::value};
 };
 
