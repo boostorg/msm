@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include <boost/mp11.hpp>
 #include <boost/mp11/algorithm.hpp>
 #include <boost/mp11/mpl.hpp>
@@ -12,6 +14,7 @@
 #include <type_traits>
 #include <boost/mpl/vector.hpp>
 #include <boost/mpl/copy.hpp>
+#include <boost/mpl/for_each.hpp>
 
 /*
 
@@ -30,6 +33,11 @@ using to_mp_list = typename mpl::copy<T, mpl::back_inserter<mp11::mp_list<>>>::t
 using SpecialMapEntry = mpl::pair<int, mp11::mp_list<int, int>>;
 using SpecialMapEntry2 = mpl::pair<char, mp11::mp_list<int, int>>;
 using SpecialMapInMpl = mpl::map<SpecialMapEntry, SpecialMapEntry2>;
+
+using Foo = mpl::insert<SpecialMapInMpl, mpl::pair<char, mp11::mp_list<int, int, int>>>::type;
+using Foo2 = mpl::insert<Foo, mpl::pair<char, mp11::mp_list<int, int, int, int>>>::type;
+
+// static_assert(std::is_void_v<Foo>);
 
 template<typename T, typename U>
 using item_pusher = mp11::mp_push_back<U, T, T, size_t, size_t>;
@@ -52,6 +60,23 @@ using NewMap = mp11::mp_reverse_fold<
     map_updater
     >;
 
+using Mp11Map = mp11::mp_list<
+    mp11::mp_list<int, char>,
+    mp11::mp_list<size_t, unsigned char>
+    >;
+
+using Test = mp11::mp_second<mp11::mp_map_find<Mp11Map, size_t>>;
+
+using Mp11MapChanged = mp11::mp_map_replace<Mp11Map, mp11::mp_list<int, uint16_t>>;
+using Mp11MapChanged2 = mp11::mp_map_insert<Mp11MapChanged, mp11::mp_list<char, uint16_t>>;
+using Mp11MapChanged3 = mp11::mp_map_insert<Mp11MapChanged2, mp11::mp_list<char, uint16_t>>;
+
 int main() {
-  return 0;
+    size_t cnt = 0;
+    mpl::for_each<Foo2>([&](auto state) {
+        std::cout << "Count: " << cnt << std::endl;
+        cnt++;
+    });
+
+    return 0;
 }

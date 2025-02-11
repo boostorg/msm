@@ -99,7 +99,7 @@ static int test();
 #include <boost/msm/backmp11/state_machine.hpp>
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
-#include <boost/msm/back/favor_compile_time.hpp>
+#include <boost/msm/backmp11/favor_compile_time.hpp>
 
 namespace msm = boost::msm;
 namespace mpl = boost::mpl;
@@ -173,7 +173,7 @@ struct fsm_: public msm::front::state_machine_def<fsm_>
 };
 
 using fsm = msm::back::state_machine<fsm_>;
-// using fsm = msm::back::state_machine<fsm_, ::boost::msm::back::favor_compile_time>;
+//using fsm = msm::back::state_machine<fsm_, ::boost::msm::back::favor_compile_time>;
 
 static int test()
 {
