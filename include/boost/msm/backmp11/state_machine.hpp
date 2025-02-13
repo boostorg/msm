@@ -57,6 +57,7 @@
 
 #include <boost/serialization/base_object.hpp>
 
+#define BOOST_PARAMETER_CAN_USE_MP11
 #include <boost/parameter.hpp>
 
 #include <boost/msm/active_state_switching_policies.hpp>

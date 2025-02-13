@@ -160,14 +160,14 @@ struct fsm_: public msm::front::state_machine_def<fsm_>
 {
     using initial_state = state_tpl<0>;
 
-    struct transition_table: mpl::vector
+    using transition_table = boost::mp11::mp_list
     <
 #define X(N) \
         COMMA_IF_NOT_0(N) Row<state_tpl<N>, state_transition_event<N>, state_tpl<(N + 1) % PROBLEM_SIZE>, state_transition_action<N>, guard<N>> \
         , Row<state_tpl<N>, internal_transition_event, none, internal_transition_action<N>>
         COUNTER
 #undef X
-    >{};
+    >;
 
     int counter = 0;
 };
