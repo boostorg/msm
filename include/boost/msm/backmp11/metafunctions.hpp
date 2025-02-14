@@ -634,20 +634,14 @@ template <class StateType>
 struct has_fsm_blocking_states  
 {
     typedef typename create_stt<StateType>::type Stt;
-    typedef typename generate_state_set<Stt>::type state_list;
+    typedef typename generate_state_set<Stt>::state_set_mp11 state_set_mp11;
 
-    typedef typename ::boost::mpl::fold<
-        state_list, ::boost::mpl::set<>,
-        ::boost::mpl::if_<
-                 is_state_blocking< ::boost::mpl::placeholders::_2>,
-                 ::boost::mpl::insert< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2 >, 
-                 ::boost::mpl::placeholders::_1 >
-    >::type blocking_states;
-
-    typedef typename ::boost::mpl::if_<
-        ::boost::mpl::empty<blocking_states>,
-        ::boost::mpl::bool_<false>,
-        ::boost::mpl::bool_<true> >::type type;
+    template<typename T>
+    using is_state_blocking_mp11 = typename is_state_blocking<T>::type;
+    typedef typename mp11::mp_any_of<
+        state_set_mp11,
+        is_state_blocking_mp11
+        > type;
 };
 
 template <class StateType>
