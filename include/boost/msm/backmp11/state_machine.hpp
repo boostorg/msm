@@ -1189,6 +1189,7 @@ private:
     typedef typename create_stt<library_sm>::type stt;
     typedef typename get_initial_states<typename Derived::initial_state>::type initial_states;
     typedef typename generate_state_set<stt>::type state_list;
+    typedef typename generate_state_set<stt>::state_set_mp11 state_set_mp11;
     typedef typename HistoryPolicy::template apply<nr_regions::value>::type concrete_history;
 
     typedef mp11::mp_rename<
@@ -1231,10 +1232,8 @@ private:
             typename get_internal_transition_table<T, typename is_composite_state<T>::type>::type
             >;
         typedef boost::mp11::mp_fold<
-            // state_list,
-            typename mpl::copy<state_list, mpl::back_inserter<mp11::mp_list<>>>::type,
+            state_set_mp11,
             stt_plus_internal,
-            // typename mpl::copy<stt_plus_internal, mpl::back_inserter<mp11::mp_list<>>>::type,
             F
         > type;
     };
