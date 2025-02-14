@@ -233,32 +233,6 @@ struct is_composite_state
     typedef typename has_composite_tag<State>::type type;
 };
 
-// transform a transition table in a container of source states
-template <class stt>
-struct keep_source_names
-{
-    // instead of the rows we want only the names of the states (from source)
-    template<typename T>
-    using F = typename T::current_state_type;
-    typedef mp11::mp_transform<
-        F,
-        typename to_mp_list<stt>::type
-        > type;
-};
-
-// transform a transition table in a container of target states
-template <class stt>
-struct keep_target_names
-{
-    // instead of the rows we want only the names of the states (from target)
-    template<typename T>
-    using F = typename T::next_state_type;
-    typedef mp11::mp_transform<
-        F,
-        typename to_mp_list<stt>::type
-        > type;
-};
-
 // transform a transition table in a container of events
 template <class stt>
 struct keep_events
@@ -275,10 +249,29 @@ struct keep_events
 template <class stt>
 struct generate_state_set
 {
-    // keep in the original transition table only the source/target state types
-    typedef typename keep_source_names<stt>::type sources;
-    typedef typename keep_target_names<stt>::type targets;
-    typedef mp11::mp_unique<mp11::mp_append<sources, targets>> state_set_mp11;
+    typedef typename to_mp_list<stt>::type stt_mp11;
+    // first add the source states
+    template<typename V, typename T>
+    using source_state_set_pusher = mp11::mp_set_push_back<
+        V,
+        typename T::current_state_type
+        >;
+    typedef typename mp11::mp_fold<
+        typename to_mp_list<stt>::type,
+        mp11::mp_list<>,
+        source_state_set_pusher
+        > source_state_set_mp11;
+    // then add the target states
+    template<typename V, typename T>
+    using target_state_set_pusher = mp11::mp_set_push_back<
+        V,
+        typename T::next_state_type
+        >;
+    typedef typename mp11::mp_fold<
+        stt_mp11,
+        source_state_set_mp11,
+        target_state_set_pusher
+        > state_set_mp11;
     typedef mp11::mp_apply<mpl::set, state_set_mp11> type;
 };
 
