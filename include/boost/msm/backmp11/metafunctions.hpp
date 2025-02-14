@@ -592,42 +592,25 @@ struct has_exit_pseudo_states
 };
 
 // builds flags (add internal_flag_list and flag_list). internal_flag_list is used for terminate/interrupt states
-//template <class StateType>
-//struct get_flag_list
-//{
-//    typedef typename ::boost::mpl::insert_range<
-//        typename StateType::flag_list,
-//        typename ::boost::mpl::end< typename StateType::flag_list >::type,
-//        typename StateType::internal_flag_list
-//    >::type type;
-//};
 template <class StateType>
 struct get_flag_list
 {
-    typedef typename ::boost::fusion::result_of::as_vector<
-        typename ::boost::fusion::result_of::insert_range<
-            typename StateType::flag_list,
-            typename ::boost::fusion::result_of::end< typename StateType::flag_list >::type,
-            typename StateType::internal_flag_list
-        >::type
-    >::type type;
+    typedef typename mp11::mp_append<
+        typename to_mp_list<typename StateType::flag_list>::type,
+        typename to_mp_list<typename StateType::internal_flag_list>::type
+        > type;
 };
 
 template <class StateType>
 struct is_state_blocking 
 {
-    typedef typename ::boost::mpl::fold<
-        typename get_flag_list<StateType>::type, ::boost::mpl::set<>,
-        ::boost::mpl::if_<
-                 has_event_blocking_flag< ::boost::mpl::placeholders::_2>,
-                 ::boost::mpl::insert< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2 >, 
-                 ::boost::mpl::placeholders::_1 >
-    >::type blocking_flags;
+    template<typename T>
+    using has_event_blocking_flag_mp11 = typename has_event_blocking_flag<T>::type;
+    typedef typename mp11::mp_any_of<
+        typename get_flag_list<StateType>::type,
+        has_event_blocking_flag_mp11
+        > type;
 
-    typedef typename ::boost::mpl::if_<
-        ::boost::mpl::empty<blocking_flags>,
-        ::boost::mpl::bool_<false>,
-        ::boost::mpl::bool_<true> >::type type;
 };
 // returns a mpl::bool_<true> if fsm has an event blocking flag in one of its substates
 template <class StateType>
