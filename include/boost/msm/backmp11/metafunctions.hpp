@@ -390,20 +390,25 @@ struct create_stt
     //typedef typename Derived::transition_table stt;
     typedef typename Derived::real_transition_table Stt;
     // get the state set
-    typedef typename generate_state_set<Stt>::type states;
+    typedef typename generate_state_set<Stt>::state_set_mp11 states;
     // transform the initial region(s) in a sequence
     typedef typename get_regions_as_sequence<typename Derived::initial_state>::type init_states;
     // iterate through the initial states and add them in the stt if not already there
-    typedef typename 
-        ::boost::mpl::fold<
-        init_states,Stt,
-        ::boost::mpl::if_<
-                 ::boost::mpl::has_key<states, ::boost::mpl::placeholders::_2>,
-                 ::boost::mpl::placeholders::_1,
-                 ::boost::mpl::insert< ::boost::mpl::placeholders::_1, ::boost::mpl::end< ::boost::mpl::placeholders::_1>,
-                             not_a_row< get_wrapped_state< ::boost::mpl::placeholders::_2> > > 
-                  >
-        >::type with_init;
+    template<typename V, typename T>
+    using states_pusher = mp11::mp_if_c<
+        mp11::mp_set_contains<states, T>::value,
+        V,
+        mp11::mp_push_back<
+            V,
+            not_a_row<typename get_wrapped_state<T>::type>
+            >
+        >;
+    typedef typename mp11::mp_fold<
+        typename to_mp_list<init_states>::type,
+        typename to_mp_list<Stt>::type,
+        states_pusher
+        > with_init;
+
     // do the same for states marked as explicitly created
     typedef typename get_explicit_creation_as_sequence<
        typename ::boost::mpl::eval_if<
@@ -416,16 +421,11 @@ struct create_stt
         ::boost::mpl::transform<
         fake_explicit_created,convert_fake_state< ::boost::mpl::placeholders::_1,Derived> >::type explicit_created;
 
-    typedef typename 
-        ::boost::mpl::fold<
-        explicit_created,with_init,
-        ::boost::mpl::if_<
-                 ::boost::mpl::has_key<states, ::boost::mpl::placeholders::_2>,
-                 ::boost::mpl::placeholders::_1,
-                 ::boost::mpl::insert< ::boost::mpl::placeholders::_1, ::boost::mpl::end<mpl::placeholders::_1>,
-                             not_a_row< get_wrapped_state< ::boost::mpl::placeholders::_2> > > 
-                  >
-        >::type type;
+    typedef typename mp11::mp_fold<
+        typename to_mp_list<explicit_created>::type,
+        with_init,
+        states_pusher
+        > type;
 };
 
 // returns the transition table of a Composite state

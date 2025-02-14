@@ -1215,11 +1215,11 @@ private:
         using make_row_tag_composite = typename make_row_tag<T, Composite>::type;
         typedef typename boost::mp11::mp_transform<
             make_row_tag_composite,
-            typename mpl::copy<typename Composite::internal_transition_table, mpl::back_inserter<mp11::mp_list<>>>::type
+            typename to_mp_list<typename Composite::internal_transition_table>::type
         > internal_stt;
 
         typedef boost::mp11::mp_append<
-            typename mpl::copy<Stt, mpl::back_inserter<mp11::mp_list<>>>::type,
+            typename to_mp_list<Stt>::type,
             internal_stt
         > stt_plus_internal;
 
