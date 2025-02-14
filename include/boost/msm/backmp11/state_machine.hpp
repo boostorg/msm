@@ -2398,7 +2398,7 @@ private:
     template <class Flag>
     flag_handler* get_entries_for_flag() const
     {
-        BOOST_STATIC_CONSTANT(int, max_state = (mpl::size<state_list>::value));
+        BOOST_STATIC_CONSTANT(int, max_state = (mp11::mp_size<state_set_mp11>::value));
 
         static flag_handler flags_entries[max_state];
         // build a state list, but only once
@@ -3016,7 +3016,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
         // checks that all states are reachable
         FsmCheckPolicy::template check_unreachable_states<library_sm>();
 
-        BOOST_STATIC_CONSTANT(int, max_state = (mpl::size<state_list>::value));
+        BOOST_STATIC_CONSTANT(int, max_state = (mp11::mp_size<state_set_mp11>::value));
         // allocate the place without reallocation
         m_visitors.fill_visitors(max_state);
         mp11::tuple_for_each(m_substate_list,add_state<ContainingSM>(this,containing_sm));

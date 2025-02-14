@@ -150,8 +150,8 @@ struct dispatch_table
     };
     // Compute the maximum state value in the sm so we know how big
     // to make the table
-    typedef typename generate_state_set<Stt>::type state_list;
-    BOOST_STATIC_CONSTANT(int, max_state = ( ::boost::mpl::size<state_list>::value));
+    typedef typename generate_state_set<Stt>::state_set_mp11 state_set_mp11;
+    BOOST_STATIC_CONSTANT(int, max_state = (mp11::mp_size<state_set_mp11>::value));
 
     template <class Transition>
     struct convert_event_and_forward
