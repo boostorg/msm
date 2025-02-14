@@ -285,10 +285,9 @@ struct has_state_delayed_event
 template <class State>
 struct has_state_delayed_events  
 {
-    typedef typename ::boost::mpl::if_<
-        ::boost::mpl::empty<typename State::deferred_events>,
-        ::boost::mpl::bool_<false>,
-        ::boost::mpl::bool_<true> >::type type;
+    typedef typename mp11::mp_not<mp11::mp_empty<
+        typename to_mp_list<typename State::deferred_events>::type
+        >> type;
 };
 
 // Template used to create dummy entries for initial states not found in the stt.
@@ -464,21 +463,23 @@ template <class Derived>
 struct has_fsm_deferred_events 
 {
     typedef typename create_stt<Derived>::type Stt;
-    typedef typename generate_state_set<Stt>::type state_list;
+    typedef typename generate_state_set<Stt>::state_set_mp11 state_set_mp11;
 
-    typedef typename ::boost::mpl::or_<
+    template<typename T>
+    using has_activate_deferred_events_mp11 = typename has_activate_deferred_events<T>::type;
+    template<typename T>
+    using has_state_delayed_events_mp11 = typename has_state_delayed_events<T>::type;
+    typedef typename mp11::mp_or<
         typename has_activate_deferred_events<Derived>::type,
-        ::boost::mpl::bool_< ::boost::mpl::count_if<
-                typename Derived::configuration,
-                has_activate_deferred_events< ::boost::mpl::placeholders::_1 > >::value != 0> 
-    >::type found_in_fsm;
-
-    typedef typename ::boost::mpl::or_<
-            found_in_fsm,
-            ::boost::mpl::bool_< ::boost::mpl::count_if<
-                state_list,has_state_delayed_events<
-                    ::boost::mpl::placeholders::_1 > >::value != 0>
-            >::type type;
+        mp11::mp_any_of<
+            typename to_mp_list<typename Derived::configuration>::type,
+            has_activate_deferred_events_mp11
+            >,
+        mp11::mp_any_of<
+            state_set_mp11,
+            has_state_delayed_events_mp11
+            >
+        > type;
 };
 
 // returns a mpl::bool_<true> if State has any delayed event
