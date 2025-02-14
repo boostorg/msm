@@ -296,7 +296,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         // Initialize cells for no transition
         mp11::mp_for_each<mp11::mp_filter<
             event_filter_predicate,
-            to_mp_list<Stt>
+            typename to_mp_list<Stt>::type
             >>
             (init_cell(this));
 

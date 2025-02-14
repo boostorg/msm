@@ -402,7 +402,7 @@ struct dispatch_table
         >;
     template<typename V, typename T>
     using row_chainer = mp11::mp_if_c<
-        (mp11::mp_size<to_mp_list<mp11::mp_second<T>>>::value > 1),
+        (mp11::mp_size<typename to_mp_list<mp11::mp_second<T>>::type>::value > 1),
         // we need row chaining
         mp11::mp_push_back<
             V,
@@ -431,7 +431,7 @@ struct dispatch_table
         typedef mp11::mp_fold<
             mp11::mp_filter<
                 event_filter_predicate,
-                to_mp_list<Stt>
+                typename to_mp_list<Stt>::type
                 >,
             mp11::mp_list<>,
             map_updater

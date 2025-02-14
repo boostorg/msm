@@ -114,7 +114,17 @@ struct make_pair_target_state_id
 };
 
 template<typename T>
-using to_mp_list = typename mpl::copy<T, mpl::back_inserter<mp11::mp_list<>>>::type;
+struct to_mp_list
+{
+    typedef typename mpl::copy<T, mpl::back_inserter<mp11::mp_list<>>>::type type;
+};
+
+template<typename ...T>
+struct to_mp_list<mp11::mp_list<T...>>
+{
+    // typedef mp11::mp_identity<mp11::mp_list<T>> type;
+    typedef mp11::mp_list<T...> type;
+};
 
 template <class stt>
 struct generate_state_set;
@@ -232,7 +242,7 @@ struct keep_source_names
     using F = typename T::current_state_type;
     typedef mp11::mp_transform<
         F,
-        to_mp_list<stt>
+        typename to_mp_list<stt>::type
         > type;
 };
 
@@ -245,7 +255,7 @@ struct keep_target_names
     using F = typename T::next_state_type;
     typedef mp11::mp_transform<
         F,
-        to_mp_list<stt>
+        typename to_mp_list<stt>::type
         > type;
 };
 
@@ -258,7 +268,7 @@ struct keep_events
     using F = typename T::transition_event;
     typedef mp11::mp_transform<
         F,
-        to_mp_list<stt>
+        typename to_mp_list<stt>::type
         > type;
 };
 

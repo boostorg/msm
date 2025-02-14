@@ -1128,7 +1128,7 @@ private:
         using make_row_tag_base_type = typename make_row_tag<T, BaseType>::type;
         typedef typename boost::mp11::mp_transform<
             make_row_tag_base_type,
-            typename mpl::copy<stt_simulated, mpl::back_inserter<mp11::mp_list<>>>::type
+            typename to_mp_list<stt_simulated>::type
         > type;
     };
 
