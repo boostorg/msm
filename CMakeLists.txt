@@ -9,7 +9,7 @@ project(boost_msm VERSION "${BOOST_SUPERPROJECT_VERSION}" LANGUAGES CXX)
 # Required for testing puml frontend, but slows down compilation?
 set(CMAKE_CXX_STANDARD 20)
 # Required due to bug in clang19
-add_compile_options("-Wno-missing-template-arg-list-after-template-kw")
+# add_compile_options("-Wno-missing-template-arg-list-after-template-kw")
 
 add_library(boost_msm INTERFACE)
 add_library(Boost::msm ALIAS boost_msm)

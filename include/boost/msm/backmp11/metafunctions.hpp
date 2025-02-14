@@ -276,11 +276,10 @@ struct generate_event_set
 template <class State, class Event>
 struct has_state_delayed_event  
 {
-    typedef typename ::boost::mpl::find<typename State::deferred_events,Event>::type found;
-    typedef typename ::boost::mpl::if_<
-        ::boost::is_same<found,typename ::boost::mpl::end<typename State::deferred_events>::type >,
-        ::boost::mpl::bool_<false>,
-        ::boost::mpl::bool_<true> >::type type;
+    typedef typename mp11::mp_contains<
+        typename to_mp_list<typename State::deferred_events>::type,
+        Event
+        > type;
 };
 // returns a mpl::bool_<true> if State has any deferred event
 template <class State>
