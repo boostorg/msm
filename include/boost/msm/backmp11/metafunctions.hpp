@@ -217,33 +217,12 @@ struct have_same_source
     enum {value = ((int)current_state1 == (int)current_state2) };
 };
 
-
-// A metafunction that returns the Event associated with a transition.
-template <class Transition>
-struct transition_event
-{
-    typedef typename Transition::transition_event type;
-};
-
 // returns true for composite states
 template <class State>
 struct is_composite_state
 {
     enum {value = has_composite_tag<State>::type::value};
     typedef typename has_composite_tag<State>::type type;
-};
-
-// transform a transition table in a container of events
-template <class stt>
-struct keep_events
-{
-    // instead of the rows we want only the names of the states (from target)
-    template<typename T>
-    using F = typename T::transition_event;
-    typedef mp11::mp_transform<
-        F,
-        typename to_mp_list<stt>::type
-        > type;
 };
 
 template <class stt>
@@ -279,8 +258,17 @@ struct generate_state_set
 template <class stt>
 struct generate_event_set
 {
-    typedef typename keep_events<stt>::type events;
-    typedef mp11::mp_unique<events> event_set_mp11;
+    typedef typename to_mp_list<stt>::type stt_mp11;
+    template<typename V, typename T>
+    using event_set_pusher = mp11::mp_set_push_back<
+        V,
+        typename T::transition_event
+        >;
+    typedef typename mp11::mp_fold<
+        typename to_mp_list<stt>::type,
+        mp11::mp_list<>,
+        event_set_pusher
+        > event_set_mp11;
     typedef mp11::mp_apply<mpl::set, event_set_mp11> type;
 };
 
