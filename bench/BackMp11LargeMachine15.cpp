@@ -172,8 +172,8 @@ struct fsm_: public msm::front::state_machine_def<fsm_>
     int counter = 0;
 };
 
-using fsm = msm::back::state_machine<fsm_>;
-//using fsm = msm::back::state_machine<fsm_, ::boost::msm::back::favor_compile_time>;
+// using fsm = msm::back::state_machine<fsm_>;
+using fsm = msm::back::state_machine<fsm_, ::boost::msm::back::favor_compile_time>;
 
 static int test()
 {
