@@ -45,7 +45,7 @@
 
 #include <boost/assert.hpp>
 #include <boost/ref.hpp>
-#include <boost/type_traits.hpp>
+#include <boost/type_traits/remove_pointer.hpp>
 #include <boost/utility/enable_if.hpp>
 #include <boost/type_traits/is_convertible.hpp>
 
