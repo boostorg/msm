@@ -519,15 +519,14 @@ template <class Derived>
 struct find_completion_events 
 {
     typedef typename create_stt<Derived>::type Stt;
-    typedef typename generate_event_set<Stt>::type event_list;
+    typedef typename generate_event_set<Stt>::event_set_mp11 event_list;
 
-    typedef typename ::boost::mpl::fold<
-        event_list, ::boost::mpl::set<>,
-        ::boost::mpl::if_<
-                 is_completion_event< ::boost::mpl::placeholders::_2>,
-                 ::boost::mpl::insert< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2 >, 
-                 ::boost::mpl::placeholders::_1 >
-    >::type type;
+    template<typename T>
+    using has_completion_event_mp11 = typename has_completion_event<T>::type;
+    typedef typename mp11::mp_filter<
+        has_completion_event_mp11,
+        event_list
+        > type;
 };
 
 template <class Transition>
@@ -698,7 +697,7 @@ struct build_one_orthogonal_region
 {
      template<typename Row>
      struct row_to_incidence :
-         ::boost::mpl::vector<
+         mp11::mp_list<
                 ::boost::mpl::pair<
                     typename Row::next_state_type, 
                     typename Row::transition_event>, 
@@ -706,17 +705,10 @@ struct build_one_orthogonal_region
                 typename Row::next_state_type
          > {};
 
-     template <class Seq, class Elt>
-     struct transition_incidence_list_helper 
-     {
-         typedef typename ::boost::mpl::push_back< Seq, row_to_incidence< Elt > >::type type;
-     };
-
-     typedef typename ::boost::mpl::fold<
-         TransitionTable,
-         ::boost::mpl::vector<>,
-         transition_incidence_list_helper< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2>
-     >::type transition_incidence_list;
+     typedef typename mp11::mp_transform<
+        row_to_incidence,
+        typename to_mp_list<TransitionTable>::type
+        > transition_incidence_list;
 
      typedef ::boost::msm::mpl_graph::incidence_list_graph<transition_incidence_list>
          transition_graph;
@@ -759,6 +751,12 @@ struct find_entry_states
 template <class Set1, class Set2>
 struct is_common_element 
 {
+    // TODO:
+    // Not sure if code is correct.
+    // typedef typename mp11::mp_set_contains<
+    //     typename to_mp_list<Set1>::type,
+    //     typename to_mp_list<Set2>::type
+    //     > type;
     typedef typename ::boost::mpl::fold<
         Set1, ::boost::mpl::false_,
         ::boost::mpl::if_<
@@ -838,11 +836,14 @@ template <class Fsm>
 struct check_regions_orthogonality
 {
     typedef typename build_orthogonal_regions< Fsm,typename Fsm::initial_states>::type regions;
-    
-    typedef typename ::boost::mpl::fold<
-        regions, ::boost::mpl::int_<0>,
-        ::boost::mpl::plus< ::boost::mpl::placeholders::_1 , ::boost::mpl::size< ::boost::mpl::placeholders::_2> >
-    >::type number_of_states_in_regions;
+
+    typedef typename mp11::mp_apply<
+        mp11::mp_plus,
+        mp11::mp_transform<
+            mp11::mp_size,
+            typename to_mp_list<regions>::type
+            >
+        > number_of_states_in_regions;
 
     typedef typename ::boost::mpl::fold<
             regions,mpl::set0<>,
