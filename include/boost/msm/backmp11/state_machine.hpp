@@ -65,7 +65,7 @@
 #include <boost/msm/msm_grammar.hpp>
 #include <boost/msm/back/fold_to_list.hpp>
 #include <boost/msm/backmp11/metafunctions.hpp>
-#include <boost/msm/back/history_policies.hpp>
+#include <boost/msm/backmp11/history_policies.hpp>
 #include <boost/msm/back/common_types.hpp>
 #include <boost/msm/back/args.hpp>
 #include <boost/msm/back/default_compile_policy.hpp>
