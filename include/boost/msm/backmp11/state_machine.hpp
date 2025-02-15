@@ -1167,7 +1167,7 @@ private:
         using make_row_tag_state_type = typename make_row_tag<T, StateType>::type;
         typedef boost::mp11::mp_transform<
             make_row_tag_state_type,
-            typename mpl::copy<recursive_istt, mpl::back_inserter<mp11::mp_list<>>>::type
+            typename to_mp_list<recursive_istt>::type
         > recursive_istt_with_tag;
 
         typedef boost::mp11::mp_append<original_table, recursive_istt_with_tag> table_with_all_events;
