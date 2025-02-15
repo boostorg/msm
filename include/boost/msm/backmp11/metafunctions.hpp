@@ -224,6 +224,9 @@ struct is_composite_state
     typedef typename has_composite_tag<State>::type type;
 };
 
+// iterates through a transition table to generate an ordered state set
+// first the source states, transition up to down
+// then the target states, up to down
 template <class stt>
 struct generate_state_set
 {
