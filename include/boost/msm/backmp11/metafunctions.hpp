@@ -231,25 +231,25 @@ struct generate_state_set
     typedef typename to_mp_list<stt>::type stt_mp11;
     // first add the source states
     template<typename V, typename T>
-    using source_state_set_pusher = mp11::mp_set_push_back<
+    using set_push_source_state = mp11::mp_set_push_back<
         V,
         typename T::current_state_type
         >;
     typedef typename mp11::mp_fold<
         typename to_mp_list<stt>::type,
         mp11::mp_list<>,
-        source_state_set_pusher
+        set_push_source_state
         > source_state_set_mp11;
     // then add the target states
     template<typename V, typename T>
-    using target_state_set_pusher = mp11::mp_set_push_back<
+    using set_push_target_state = mp11::mp_set_push_back<
         V,
         typename T::next_state_type
         >;
     typedef typename mp11::mp_fold<
         stt_mp11,
         source_state_set_mp11,
-        target_state_set_pusher
+        set_push_target_state
         > state_set_mp11;
     typedef mp11::mp_apply<mpl::set, state_set_mp11> type;
 };
@@ -422,19 +422,25 @@ struct recursive_get_internal_transition_table
     // get the composite's internal table
     typedef typename StateType::internal_transition_table composite_table;
     // and for every substate (state of submachine), recursively get the internal transition table
-    typedef typename generate_state_set<typename StateType::stt>::type composite_states;
-    typedef typename ::boost::mpl::fold<
-            composite_states, composite_table,
-            ::boost::mpl::insert_range< ::boost::mpl::placeholders::_1, ::boost::mpl::end< ::boost::mpl::placeholders::_1>,
-             recursive_get_internal_transition_table< ::boost::mpl::placeholders::_2, is_composite_state< ::boost::mpl::placeholders::_2> >
-             >
-    >::type type;
+    typedef typename generate_state_set<typename StateType::stt>::state_set_mp11 composite_states;
+    template<typename V, typename T>
+    using append_recursive_internal_transition_table = mp11::mp_append<
+        V,
+        typename recursive_get_internal_transition_table<T, typename has_composite_tag<T>::type>::type
+        >;
+    typedef typename mp11::mp_fold<
+        composite_states,
+        typename to_mp_list<composite_table>::type,
+        append_recursive_internal_transition_table
+        > type;
 };
 // stop iterating on leafs (simple states)
 template <class StateType>
 struct recursive_get_internal_transition_table<StateType, ::boost::mpl::false_ >
 {
-    typedef typename StateType::internal_transition_table type;
+    typedef typename to_mp_list<
+        typename StateType::internal_transition_table
+        >::type type;
 };
 // recursively get a transition table for a given composite state.
 // returns the transition table for this state + the tables of all composite sub states recursively
@@ -442,20 +448,27 @@ template <class Composite>
 struct recursive_get_transition_table
 {
     // get the transition table of the state if it's a state machine
-    typedef typename ::boost::mpl::eval_if<typename is_composite_state<Composite>::type,
-        get_transition_table<Composite>,
-        ::boost::mpl::vector0<>
-    >::type org_table;
+    template<typename T>
+    using get_transition_table_mp11 = typename get_transition_table<T>::type;
+    typedef typename mp11::mp_eval_if_c<
+        !has_composite_tag<Composite>::type::value,
+        mp11::mp_list<>,
+        get_transition_table_mp11,
+        Composite
+        > org_table;
 
-    typedef typename generate_state_set<org_table>::type states;
+    typedef typename generate_state_set<org_table>::state_set_mp11 states;
 
     // and for every substate, recursively get the transition table if it's a state machine
-    typedef typename ::boost::mpl::fold<
-        states,org_table,
-        ::boost::mpl::insert_range< ::boost::mpl::placeholders::_1, ::boost::mpl::end<mpl::placeholders::_1>,
-        recursive_get_transition_table< ::boost::mpl::placeholders::_2 > >
-    >::type type;
-
+    template<typename V, typename T>
+    using append_recursive_transition_table = mp11::mp_append<
+        V,
+        typename recursive_get_transition_table<T>::type
+        >;
+    typedef typename mp11::mp_fold<
+        states,
+        org_table,
+        append_recursive_transition_table> type;
 };
 
 // metafunction used to say if a SM has pseudo exit states

@@ -1135,19 +1135,13 @@ private:
     template <class Table,class Intermediate,class StateType>
     struct add_forwarding_row_helper
     {
-        typedef typename generate_event_set<Table>::type all_events;
-        // template<typename V, typename T>
-        // using F = mp11::mp_push_back<V, frow<StateType, T>>;
-        // typedef mp11::mp_fold<
-        //     typename mpl::copy<all_events, mpl::back_inserter<mp11::mp_list<>>>::type,
-        //     typename mpl::copy<Intermediate, mpl::back_inserter<mp11::mp_list<>>>::type,
-        //     F
-        //     > type;
+        typedef typename generate_event_set<Table>::event_set_mp11 all_events;
+
         template<typename T>
         using F = frow<StateType, T>;
         typedef mp11::mp_append<
-            typename mpl::copy<Intermediate, mpl::back_inserter<mp11::mp_list<>>>::type,
-            mp11::mp_transform<F, typename mpl::copy<all_events, mpl::back_inserter<mp11::mp_list<>>>::type>
+            typename to_mp_list<Intermediate>::type,
+            mp11::mp_transform<F, all_events>
             > type;
     };
     // gets the transition table from a composite and make from it a forwarding row

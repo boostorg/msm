@@ -241,7 +241,11 @@ namespace
 
 //    static char const* const state_names[] = { "Stopped", "Open", "Empty", "Playing", "Paused" };
 
+static void test()
+{
     player p;
+    p.start();
+}
 
     // BOOST_AUTO_TEST_CASE( composite_machine_test )
     // {     
