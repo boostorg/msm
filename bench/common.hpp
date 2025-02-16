@@ -4,13 +4,8 @@
 //https://www.boost.org/LICENSE_1_0.txt)
 //Official repository: https://github.com/fgoujeon/fsm-benchmark
 
-// #include "common.hpp"
 #define PROBLEM_SIZE 10
 #define PROBLEM_SIZE_X_2 20
-
-#define BOOST_MPL_CFG_NO_PREPROCESSED_HEADERS
-#define BOOST_MPL_LIMIT_VECTOR_SIZE PROBLEM_SIZE_X_2
-#define BOOST_MPL_LIMIT_MAP_SIZE PROBLEM_SIZE_X_2
 
 #define COUNTER \
     X(0) \
@@ -22,7 +17,7 @@
     X(6) \
     X(7) \
     X(8) \
-    X(9)
+    X(9) \
     // X(10) \
     // X(11) \
     // X(12) \
@@ -69,35 +64,14 @@
 
 constexpr auto test_loop_size = 1000;
 
-static int test();
+#define BOOST_MPL_CFG_NO_PREPROCESSED_HEADERS
+#define BOOST_MPL_LIMIT_VECTOR_SIZE PROBLEM_SIZE_X_2
+#define BOOST_MPL_LIMIT_MAP_SIZE PROBLEM_SIZE_X_2
+#define BOOST_MPL_LIMIT_SET_SIZE PROBLEM_SIZE_X_2
 
-// int main()
-// {
-//     constexpr auto main_loop_size = 1000;
-
-//     auto counter = 0;
-
-//     for(auto i = 0; i < main_loop_size; ++i)
-//     {
-//         counter += test();
-//     }
-
-//     constexpr auto expected_counter = test_loop_size * main_loop_size * PROBLEM_SIZE;
-
-//     if(counter != expected_counter)
-//     {
-//         return 1;
-//     }
-
-//     return 0;
-// }
-
-
-
-
-#include <boost/msm/back11/state_machine.hpp>
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
+
 
 namespace msm = boost::msm;
 namespace mpl = boost::mpl;
@@ -170,11 +144,11 @@ struct fsm_: public msm::front::state_machine_def<fsm_>
     int counter = 0;
 };
 
-using fsm = msm::back11::state_machine<fsm_>;
 
-static int test()
+template<typename Fsm>
+int run_fsm()
 {
-    auto sm = fsm{};
+    auto sm = Fsm{};
 
     sm.start();
 
@@ -187,4 +161,21 @@ static int test()
     }
 
     return sm.counter;
+}
+
+template<typename Fsm>
+void test_fsm()
+{
+    constexpr auto main_loop_size = 1000;
+
+    auto counter = 0;
+
+    for(auto i = 0; i < main_loop_size; ++i)
+    {
+        counter += run_fsm<Fsm>();
+    }
+
+    constexpr auto expected_counter = test_loop_size * main_loop_size * PROBLEM_SIZE;
+
+    assert(counter == expected_counter);
 }

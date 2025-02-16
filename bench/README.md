@@ -1,0 +1,1 @@
+Benchmarks taken from: https://github.com/fgoujeon/fsm-benchmark
