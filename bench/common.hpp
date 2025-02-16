@@ -4,8 +4,8 @@
 //https://www.boost.org/LICENSE_1_0.txt)
 //Official repository: https://github.com/fgoujeon/fsm-benchmark
 
-#define PROBLEM_SIZE 10
-#define PROBLEM_SIZE_X_2 20
+#define PROBLEM_SIZE 25
+#define PROBLEM_SIZE_X_2 50
 
 #define COUNTER \
     X(0) \
@@ -18,21 +18,21 @@
     X(7) \
     X(8) \
     X(9) \
-    // X(10) \
-    // X(11) \
-    // X(12) \
-    // X(13) \
-    // X(14) \
-    // X(15) \
-    // X(16) \
-    // X(17) \
-    // X(18) \
-    // X(19) \
-    // X(20) \
-    // X(21) \
-    // X(22) \
-    // X(23) \
-    // X(24)
+    X(10) \
+    X(11) \
+    X(12) \
+    X(13) \
+    X(14) \
+    X(15) \
+    X(16) \
+    X(17) \
+    X(18) \
+    X(19) \
+    X(20) \
+    X(21) \
+    X(22) \
+    X(23) \
+    X(24)
 
 #define COMMA_0
 #define COMMA_1  ,
@@ -132,14 +132,14 @@ struct fsm_: public msm::front::state_machine_def<fsm_>
 {
     using initial_state = state_tpl<0>;
 
-    struct transition_table: mpl::vector
+    using transition_table = TRANSITION_TABLE_TYPE
     <
 #define X(N) \
         COMMA_IF_NOT_0(N) Row<state_tpl<N>, state_transition_event<N>, state_tpl<(N + 1) % PROBLEM_SIZE>, state_transition_action<N>, guard<N>> \
         , Row<state_tpl<N>, internal_transition_event, none, internal_transition_action<N>>
         COUNTER
 #undef X
-    >{};
+    >;
 
     int counter = 0;
 };

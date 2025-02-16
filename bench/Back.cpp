@@ -1,3 +1,4 @@
+#define TRANSITION_TABLE_TYPE mpl::vector
 #include "common.hpp"
 #include <boost/msm/back/state_machine.hpp>
 

@@ -44,6 +44,7 @@ if(BUILD_TESTING AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/CMakeLists.txt")
 
 endif()
 
+enable_testing()
 set(CMAKE_CXX_COMPILER_LAUNCHER time -f "%e seconds, %M kB RAM")
 include_directories(include)
 add_subdirectory(bench)

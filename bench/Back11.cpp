@@ -1,3 +1,4 @@
+#define TRANSITION_TABLE_TYPE boost::fusion::vector
 #include "common.hpp"
 #include <boost/msm/back11/state_machine.hpp>
 
