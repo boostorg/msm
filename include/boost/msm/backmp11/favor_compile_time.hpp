@@ -195,7 +195,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         template <int some_dummy> struct helper<true,false,some_dummy>
         {
             template <class State>
-            static void execute(boost::msm::wrap<State> const&,chain_row* tofill)
+            static void execute(State const&,chain_row* tofill)
             {
                 typedef typename create_stt<Fsm>::type stt;
                 BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
@@ -206,7 +206,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         template <int some_dummy> struct helper<true,true,some_dummy>
         {
             template <class State>
-            static void execute(boost::msm::wrap<State> const&,chain_row* tofill)
+            static void execute(State const&,chain_row* tofill)
             {
                 typedef typename create_stt<Fsm>::type stt;
                 BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
@@ -221,7 +221,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
             typename ::boost::enable_if<
                 typename ::boost::is_same<State,Fsm>::type
             ,void>::type
-            execute(boost::msm::wrap<State> const&,chain_row* tofill,boost::msm::back::dummy<0> = 0)
+            execute(State const&,chain_row* tofill,boost::msm::back::dummy<0> = 0)
             {
                 // for internal tables
                 cell call_no_transition_internal = &Fsm::call_no_transition;
@@ -232,7 +232,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
             typename ::boost::disable_if<
                 typename ::boost::is_same<State,Fsm>::type
             ,void>::type
-            execute(boost::msm::wrap<State> const&,chain_row* tofill,boost::msm::back::dummy<1> = 0)
+            execute(State const&,chain_row* tofill,boost::msm::back::dummy<1> = 0)
             {
                 typedef typename create_stt<Fsm>::type stt;
                 BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
@@ -243,7 +243,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         template <int some_dummy> struct helper<false,false,some_dummy>
         {
             template <class State>
-            static void execute(boost::msm::wrap<State> const&,chain_row* tofill)
+            static void execute(State const&,chain_row* tofill)
             {
                 typedef typename create_stt<Fsm>::type stt;
                 BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
@@ -252,7 +252,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
             }
         };
         template <class State>
-        void operator()(boost::msm::wrap<State> const& s)
+        void operator()(State const& s)
         {
             helper<has_state_delayed_event<State,Event>::type::value,
                    is_composite_state<State>::type::value>::execute(s,tofill_entries);
@@ -274,7 +274,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         // this event is a compound one (not a real one, just one for use in event-less transitions)
         // Note this event cannot be used as deferred!
         template <class State>
-        void operator()(boost::msm::wrap<State> const&)
+        void operator()(State const&)
         {
             typedef typename create_stt<Fsm>::type stt;
             BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
@@ -300,11 +300,8 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
             >>
             (init_cell(this));
 
-        mp11::mp_for_each<typename generate_state_set<Stt>::state_set_mp11>([&](auto state) {
-            using WrappedState = boost::msm::wrap<decltype(state)>; // Wrap the type
-            default_init_cell<Event>(this, entries)(WrappedState{}); // Apply function
-        });
-
+        mp11::mp_for_each<typename generate_state_set<Stt>::state_set_mp11>(
+            default_init_cell<Event>{this, entries});
     }
 
     // The singleton instance.

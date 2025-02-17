@@ -290,7 +290,7 @@ struct dispatch_table
         {}
         template <class State>
         typename ::boost::enable_if<typename has_state_delayed_event<State,Event>::type,void>::type
-        operator()(boost::msm::wrap<State> const&,boost::msm::back::dummy<0> = 0)
+        operator()(State const&,boost::msm::back::dummy<0> = 0)
         {
             typedef typename create_stt<Fsm>::type stt; 
             BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
@@ -304,7 +304,7 @@ struct dispatch_table
                 typename ::boost::is_same<State,Fsm>::type
             >::type
         ,void >::type
-        operator()(boost::msm::wrap<State> const&,boost::msm::back::dummy<1> = 0)
+        operator()(State const&,boost::msm::back::dummy<1> = 0)
         {
             typedef typename create_stt<Fsm>::type stt; 
             BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
@@ -319,7 +319,7 @@ struct dispatch_table
                 typename ::boost::is_same<State,Fsm>::type
             >::type
         ,void>::type
-        operator()(boost::msm::wrap<State> const&,boost::msm::back::dummy<2> = 0)
+        operator()(State const&,boost::msm::back::dummy<2> = 0)
         {
             cell call_no_transition = &Fsm::call_no_transition_internal;
             tofill_entries[0] = call_no_transition;
@@ -345,7 +345,7 @@ struct dispatch_table
         typename ::boost::disable_if<
             typename ::boost::is_same<State,Fsm>::type
         ,void>::type
-        operator()(boost::msm::wrap<State> const&,boost::msm::back::dummy<0> = 0)
+        operator()(State const&,boost::msm::back::dummy<0> = 0)
         {
             typedef typename create_stt<Fsm>::type stt; 
             BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
@@ -357,7 +357,7 @@ struct dispatch_table
         typename ::boost::enable_if<
             typename ::boost::is_same<State,Fsm>::type
         ,void>::type
-        operator()(boost::msm::wrap<State> const&,boost::msm::back::dummy<1> = 0)
+        operator()(State const&,boost::msm::back::dummy<1> = 0)
         {
             cell call_no_transition = &Fsm::default_eventless_transition;
             tofill_entries[0] = call_no_transition;
@@ -420,10 +420,8 @@ struct dispatch_table
     dispatch_table()
     {
         // Initialize cells for no transition
-        mp11::mp_for_each<typename generate_state_set<Stt>::state_set_mp11>([&](auto state) {
-            using WrappedState = boost::msm::wrap<decltype(state)>; // Wrap the type
-            default_init_cell<Event>(this, entries)(WrappedState{}); // Apply function
-        });
+        mp11::mp_for_each<typename generate_state_set<Stt>::state_set_mp11>
+            (default_init_cell<Event>{this, entries});
 
         // build chaining rows for rows coming from the same state and the current event
         // first we build a map of sequence for every source

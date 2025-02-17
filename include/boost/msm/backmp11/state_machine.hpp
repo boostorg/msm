@@ -434,8 +434,8 @@ private:
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
-                                 std::get<current_state_type>(fsm.m_substate_list),
-                                 std::get<next_state_type>(fsm.m_substate_list),
+                                 std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
+                                 std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
                                  fsm.m_substate_list ) )
                 return true;
             return false;
@@ -463,19 +463,19 @@ private:
 
             // the guard condition has already been checked
             execute_exit<current_state_type>
-                (std::get<current_state_type>(fsm.m_substate_list),evt,fsm);
+                (std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_exit(current_state,next_state);
 
             // then call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
-                             std::get<current_state_type>(fsm.m_substate_list),
-                             std::get<next_state_type>(fsm.m_substate_list),
+                             std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
+                             std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
                              fsm.m_substate_list);
             fsm.m_states[region_index] = active_state_switching::after_action(current_state,next_state);
 
             // and finally the entry method of the new current state
             convert_event_and_execute_entry<next_state_type,T2>
-                (std::get<next_state_type>(fsm.m_substate_list),evt,fsm);
+                (std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_entry(current_state,next_state);
             return res;
         }
@@ -515,8 +515,8 @@ private:
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
-                                 std::get<current_state_type>(fsm.m_substate_list),
-                                 std::get<next_state_type>(fsm.m_substate_list),
+                                 std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
+                                 std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
                                  fsm.m_substate_list ))
                 return true;
             return false;
@@ -543,13 +543,13 @@ private:
 
             // the guard condition has already been checked
             execute_exit<current_state_type>
-                (std::get<current_state_type>(fsm.m_substate_list),evt,fsm);
+                (std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_exit(current_state,next_state);
             fsm.m_states[region_index] = active_state_switching::after_action(current_state,next_state);
 
             // and finally the entry method of the new current state
             convert_event_and_execute_entry<next_state_type,T2>
-                (std::get<next_state_type>(fsm.m_substate_list),evt,fsm);
+                (std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_entry(current_state,next_state);
             return HANDLED_TRUE;
         }
@@ -604,19 +604,19 @@ private:
             // no need to check the guard condition
             // first call the exit method of the current state
             execute_exit<current_state_type>
-                (std::get<current_state_type>(fsm.m_substate_list),evt,fsm);
+                (std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_exit(current_state,next_state);
 
             // then call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
-                            std::get<current_state_type>(fsm.m_substate_list),
-                            std::get<next_state_type>(fsm.m_substate_list),
+                            std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
+                            std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
                             fsm.m_substate_list);
             fsm.m_states[region_index] = active_state_switching::after_action(current_state,next_state);
 
             // and finally the entry method of the new current state
             convert_event_and_execute_entry<next_state_type,T2>
-                (std::get<next_state_type>(fsm.m_substate_list),evt,fsm);
+                (std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_entry(current_state,next_state);
             return res;
         }
@@ -670,14 +670,14 @@ private:
 
             // first call the exit method of the current state
             execute_exit<current_state_type>
-                (std::get<current_state_type>(fsm.m_substate_list),evt,fsm);
+                (std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_exit(current_state,next_state);
             fsm.m_states[region_index] = active_state_switching::after_action(current_state,next_state);
 
 
             // and finally the entry method of the new current state
             convert_event_and_execute_entry<next_state_type,T2>
-                (std::get<next_state_type>(fsm.m_substate_list),evt,fsm);
+                (std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_entry(current_state,next_state);
             return HANDLED_TRUE;
         }
@@ -698,8 +698,8 @@ private:
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
-                                 std::get<current_state_type>(fsm.m_substate_list),
-                                 std::get<next_state_type>(fsm.m_substate_list),
+                                 std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
+                                 std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
                                  fsm.m_substate_list))
                 return true;
             return false;
@@ -719,8 +719,8 @@ private:
 
             // call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
-                             std::get<current_state_type>(fsm.m_substate_list),
-                             std::get<next_state_type>(fsm.m_substate_list),
+                             std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
+                             std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
                              fsm.m_substate_list);
             return res;
         }
@@ -742,8 +742,8 @@ private:
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
-                                 std::get<current_state_type>(fsm.m_substate_list),
-                                 std::get<next_state_type>(fsm.m_substate_list),
+                                 std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
+                                 std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
                                  fsm.m_substate_list) )
                 return true;
             return false;
@@ -785,8 +785,8 @@ private:
 
             // call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
-                            std::get<current_state_type>(fsm.m_substate_list),
-                            std::get<next_state_type>(fsm.m_substate_list),
+                            std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
+                            std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
                             fsm.m_substate_list);
 
             return res;
@@ -828,8 +828,8 @@ private:
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
-                std::get<StateType>(fsm.m_substate_list),
-                std::get<StateType>(fsm.m_substate_list),
+                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
+                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
                 fsm.m_substate_list) )
                 return true;
             return false;
@@ -845,8 +845,8 @@ private:
 
             // then call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
-                std::get<StateType>(fsm.m_substate_list),
-                std::get<StateType>(fsm.m_substate_list),
+                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
+                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
                 fsm.m_substate_list);
             return res;
         }
@@ -903,8 +903,8 @@ private:
         {
             // then call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
-                std::get<StateType>(fsm.m_substate_list),
-                std::get<StateType>(fsm.m_substate_list),
+                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
+                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
                 fsm.m_substate_list);
             return res;
         }
@@ -943,8 +943,8 @@ private:
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
-                std::get<StateType>(fsm.m_substate_list),
-                std::get<StateType>(fsm.m_substate_list),
+                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
+                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
                 fsm.m_substate_list) )
                 return true;
             return false;
@@ -1035,7 +1035,7 @@ private:
         {
             // false as second parameter because this event is forwarded from outer fsm
             execute_return res =
-                (std::get<current_state_type>(fsm.m_substate_list)).process_event_internal(evt);
+                (std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list)).process_event_internal(evt);
             fsm.m_states[region_index]=get_state_id<stt,T1>::type::value;
             return res;
         }
@@ -1186,10 +1186,7 @@ private:
     typedef typename generate_state_set<stt>::state_set_mp11 state_set_mp11;
     typedef typename HistoryPolicy::template apply<nr_regions::value>::type concrete_history;
 
-    typedef mp11::mp_rename<
-        typename generate_state_set<stt>::state_set_mp11,
-        std::tuple
-        > substate_list;
+    typedef mp11::mp_rename<state_set_mp11, std::tuple> substate_list;
     typedef typename ::boost::msm::back::generate_event_set<
         typename create_real_stt<library_sm, typename library_sm::internal_transition_table >::type
     >::type processable_events_internal_table;
@@ -1443,7 +1440,7 @@ private:
             BOOST_STATIC_CONSTANT(int, id = (get_state_id<stt,StateType>::value));
             if (!*result_state && (id == searched_id))
             {
-                *result_state = &std::get<StateType>(self->m_substate_list);
+                *result_state = &std::get<get_state_id<stt, StateType>::value>(self->m_substate_list);
             }
         }
         const BaseState**  result_state;
@@ -1489,8 +1486,8 @@ private:
     {
         return const_cast<State >
             (&
-                (std::get<
-                    typename ::boost::remove_const<typename ::boost::remove_pointer<State>::type>::type>(m_substate_list)));
+                (std::get<get_state_id<stt,
+                    typename ::boost::remove_const<typename ::boost::remove_pointer<State>::type>::type>::value>(m_substate_list)));
     }
     // as a reference
     template <class State>
@@ -1498,8 +1495,8 @@ private:
     get_state(::boost::msm::back::dummy<1> = 0) const
     {
         return const_cast<State >
-            ( std::get<
-                typename ::boost::remove_const<typename ::boost::remove_reference<State>::type>::type>(m_substate_list) );
+            ( std::get<get_state_id<stt,
+                typename ::boost::remove_const<typename ::boost::remove_reference<State>::type>::type>::value>(m_substate_list) );
     }
     // get a state (non const version)
     // as a pointer
@@ -1508,14 +1505,14 @@ private:
     get_state(::boost::msm::back::dummy<0> = 0)
     {
         return &(static_cast<typename boost::add_reference<typename ::boost::remove_pointer<State>::type>::type >
-        (std::get<typename ::boost::remove_pointer<State>::type>(m_substate_list)));
+        (std::get<get_state_id<stt, typename ::boost::remove_pointer<State>::type>::value>(m_substate_list)));
     }
     // as a reference
     template <class State>
     typename ::boost::enable_if<typename ::boost::is_reference<State>::type,State >::type
     get_state(::boost::msm::back::dummy<1> = 0)
     {
-        return std::get<typename ::boost::remove_reference<State>::type>(m_substate_list);
+        return std::get<get_state_id<stt, typename ::boost::remove_reference<State>::type>::value>(m_substate_list);
     }
     // checks if a flag is active using the BinaryOp as folding function
     template <class Flag,class BinaryOp>
@@ -1655,7 +1652,7 @@ public:
          template<typename StateType>
          void operator()(StateType const& astate) const
          {
-             std::get<StateType>(*to_overwrite)=astate;
+             std::get<get_state_id<stt, StateType>::value>(*to_overwrite)=astate;
          }
          substate_list* to_overwrite;
      };
@@ -1889,9 +1886,6 @@ public:
     template <class StateType,class EventType>
     bool do_pre_msg_queue_helper(EventType const& evt, ::boost::mpl::false_ const &)
     {
-        execute_return (library_sm::*pf) (EventType const&, EventSource) =
-            &library_sm::process_event_internal;
-
         // if we are already processing an event
         if (m_event_processing)
         {
@@ -2295,7 +2289,7 @@ private:
         template <class State>
         void operator()(boost::msm::wrap<State> const&)
         {
-            execute_entry(std::get<State>(self->m_substate_list),evt,*self);
+            execute_entry(std::get<get_state_id<stt, State>::value>(self->m_substate_list),evt,*self);
         }
     private:
         Event const& evt;
@@ -2335,7 +2329,7 @@ private:
         }
         static bool forward(library_sm const& fsm)
         {
-            return std::get<StateType>(fsm.m_substate_list).template is_flag_active<Flag>();
+            return std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list).template is_flag_active<Flag>();
         }
     };
     template <class Flag>
@@ -2419,7 +2413,7 @@ private:
         static void set_sm(library_sm* sm)
         {
             // create and set the fsm
-            std::get<State>(sm->m_substate_list).set_sm_ptr(sm);
+            std::get<get_state_id<stt, State>::value>(sm->m_substate_list).set_sm_ptr(sm);
         }
     };
         // main unspecialized helper class
@@ -2485,7 +2479,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
             typename is_composite_state<StateType>::type,void >::type
         new_state_helper(boost::msm::back::dummy<0> = 0) const
         {
-            std::get<StateType>(self->m_substate_list).set_containing_sm(containing_sm);
+            std::get<get_state_id<stt, StateType>::value>(self->m_substate_list).set_containing_sm(containing_sm);
         }
         // State is a sub fsm without exit pseudo states and does not get a callback to this fsm
         // or state is a normal state and needs nothing except creation
@@ -2509,7 +2503,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
                 &ContainingSM::process_event;
             ::boost::function<execute_return (typename StateType::event const&)> fct =
                 ::boost::bind(pf,containing_sm,::boost::placeholders::_1);
-            std::get<StateType>(self->m_substate_list).set_forward_fct(fct);
+            std::get<get_state_id<stt, StateType>::value>(self->m_substate_list).set_forward_fct(fct);
         }
         // for every defined state in the sm
         template <class State>
@@ -2521,7 +2515,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
             this->new_state_helper<State>(),
             create_state_helper<State>::set_sm(self);
             // create a visitor callback
-            visitor_helper(state_id,std::get<State>(self->m_substate_list),
+            visitor_helper(state_id,std::get<get_state_id<stt, State>::value>(self->m_substate_list),
                            ::boost::mpl::bool_<has_accept_sig<State>::type::value>());
         }
     private:
@@ -2562,7 +2556,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
              visitor_helper(int id) const
          {
              visitor_args<StateType,StateType::accept_sig::args_number>::template helper<StateType>
-                 (m_sm,id,std::get<StateType>(m_sm->m_substate_list));
+                 (m_sm,id,std::get<get_state_id<stt, StateType>::value>(m_sm->m_substate_list));
          }
          template <class StateType>
          typename ::boost::disable_if<typename has_accept_sig<StateType>::type,void >::type
@@ -2622,7 +2616,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
              BOOST_STATIC_CONSTANT(int, id = (get_state_id<stt,State>::value));
              if (id == state_id)
              {
-                 execute_entry<State>(std::get<State>(self->m_substate_list),evt,*self);
+                 execute_entry<State>(std::get<get_state_id<stt, State>::value>(self->m_substate_list),evt,*self);
              }
          }
          // helper for exit actions
@@ -2633,7 +2627,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
              BOOST_STATIC_CONSTANT(int, id = (get_state_id<stt,State>::value));
              if (id == state_id)
              {
-                 execute_exit<State>(std::get<State>(self->m_substate_list),evt,*self);
+                 execute_exit<State>(std::get<get_state_id<stt, State>::value>(self->m_substate_list),evt,*self);
              }
          }
          // iterates through all states to find the one to be activated
