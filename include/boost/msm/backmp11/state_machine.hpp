@@ -189,7 +189,7 @@ private:
 
     typedef ::std::function<
         execute_return ()>                          transition_fct;
-    typedef ::boost::function<
+    typedef ::std::function<
         execute_return () >                         deferred_fct;
     typedef typename QueueContainerPolicy::
         template In<
@@ -1288,13 +1288,8 @@ private:
     template <class EventType>
     void enqueue_event_helper(EventType const& evt, ::boost::mpl::false_ const &)
     {
-        execute_return (library_sm::*pf) (EventType const&, EventSource) =
-            &library_sm::process_event_internal;
-
         m_events_queue.m_events_queue.push_back(
-            ::boost::bind(
-                pf, this, evt,
-                static_cast<EventSource>(EVENT_SOURCE_MSG_QUEUE)));
+            [this, evt] {return process_event_internal(evt, static_cast<EventSource>(EVENT_SOURCE_MSG_QUEUE));});
     }
     template <class EventType>
     void enqueue_event_helper(EventType const& , ::boost::mpl::true_ const &)
@@ -1563,16 +1558,13 @@ private:
         // to call this function, you need either a state with a deferred_events typedef
         // or that the fsm provides the activate_deferred_events typedef
         BOOST_MPL_ASSERT(( has_fsm_deferred_events<library_sm> ));
-        execute_return (library_sm::*pf) (Event const&, EventSource) =
-            &library_sm::process_event_internal;
 
         // Deferred events are added with a correlation sequence that helps to
         // identify when an event was added - This is typically to distinguish
         // between events deferred in this processing versus previous.
         m_deferred_events_queue.m_deferred_events_queue.push_back(
             std::make_pair(
-                ::boost::bind(
-                    pf, this, e, static_cast<EventSource>(EVENT_SOURCE_DIRECT|EVENT_SOURCE_DEFERRED)),
+                [this, e] { return process_event_internal(e, static_cast<EventSource>(EVENT_SOURCE_DIRECT|EVENT_SOURCE_DEFERRED));},
                 static_cast<char>(m_deferred_events_queue.m_cur_seq+1)));
     }
 protected:
@@ -1600,8 +1592,10 @@ protected:
                 // between events deferred in this processing versus previous.
                 m_fsm->m_deferred_events_queue.m_deferred_events_queue.push_back(
                     std::make_pair(
-                        ::boost::bind(
-                            pf, m_fsm, boost::any_cast<Event>(m_event), static_cast<::boost::msm::back::EventSource>(::boost::msm::back::EVENT_SOURCE_DIRECT | ::boost::msm::back::EVENT_SOURCE_DEFERRED)),
+                        [fsm=m_fsm, event=m_event] { return fsm->process_event_internal(
+                            boost::any_cast<Event>(event),
+                            static_cast<::boost::msm::back::EventSource>(::boost::msm::back::EVENT_SOURCE_DIRECT | ::boost::msm::back::EVENT_SOURCE_DEFERRED));
+                        },
                         static_cast<char>(m_fsm->m_deferred_events_queue.m_cur_seq + 1)));
             }
         }
@@ -1890,8 +1884,8 @@ public:
         if (m_event_processing)
         {
             // event has to be put into the queue
-            EventSource evt_src = static_cast<EventSource>(EVENT_SOURCE_DIRECT | EVENT_SOURCE_MSG_QUEUE);
-            m_events_queue.m_events_queue.push_back([this, evt, evt_src] { return process_event_internal(evt, evt_src);});
+            m_events_queue.m_events_queue.push_back(
+                [this, evt] { return process_event_internal(evt, static_cast<EventSource>(EVENT_SOURCE_DIRECT | EVENT_SOURCE_MSG_QUEUE));});
 
             return false;
         }
