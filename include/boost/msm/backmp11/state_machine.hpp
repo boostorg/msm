@@ -210,6 +210,11 @@ private:
     template <class ,class , class, class, class
     > friend class boost::msm::back::state_machine;
 
+    // all default_init_cell functors are friend with each other to allow initialization
+    // of the fsm dispatch tables
+    template<class Fsm, class EventType, class Enable>
+    friend class default_init_cell;
+
     // helper to add, if needed, visitors to all states
     // version without visitors
     template <class StateType,class Enable=void>
