@@ -1876,13 +1876,13 @@ public:
         }
     }
     // the following functions handle pre/post-process handling  of a message queue
-    template <class StateType,class EventType>
+    template <class EventType>
     bool do_pre_msg_queue_helper(EventType const&, ::boost::mpl::true_ const &)
     {
         // no message queue needed
         return true;
     }
-    template <class StateType,class EventType>
+    template <class EventType>
     bool do_pre_msg_queue_helper(EventType const& evt, ::boost::mpl::false_ const &)
     {
         // if we are already processing an event
@@ -2187,7 +2187,7 @@ public:
         }
 
         // if a message queue is needed and processing is on the way
-        if (!do_pre_msg_queue_helper<Event>
+        if (!do_pre_msg_queue_helper
                 (evt,::boost::mpl::bool_<is_no_message_queue<library_sm>::type::value>()))
         {
             // wait for the end of current processing

@@ -166,7 +166,7 @@ struct default_init_cell
             typedef typename create_stt<Fsm>::type stt;
             BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
             cell call_no_transition = &Fsm::defer_transition;
-            tofill[state_id+1].one_state.push_back(call_no_transition);
+            tofill[state_id+1].one_state.push_back(reinterpret_cast<void*>(call_no_transition));
         }
     };
     template <int some_dummy> struct helper<true,true,some_dummy>
@@ -177,7 +177,7 @@ struct default_init_cell
             typedef typename create_stt<Fsm>::type stt;
             BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
             cell call_no_transition = &Fsm::defer_transition;
-            tofill[state_id+1].one_state.push_back(call_no_transition);
+            tofill[state_id+1].one_state.push_back(reinterpret_cast<void*>(call_no_transition));
         }
     };
     template <int some_dummy> struct helper<false,true,some_dummy>
@@ -191,7 +191,7 @@ struct default_init_cell
         {
             // for internal tables
             cell call_no_transition_internal = &Fsm::call_no_transition;
-            tofill[0].one_state.push_front(call_no_transition_internal);
+            tofill[0].one_state.push_front(reinterpret_cast<void*>(call_no_transition_internal));
         }
         template <class State>
         static
@@ -203,7 +203,7 @@ struct default_init_cell
             typedef typename create_stt<Fsm>::type stt;
             BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
             cell call_no_transition = &call_submachine< State >;
-            tofill[state_id+1].one_state.push_front(call_no_transition);
+            tofill[state_id+1].one_state.push_front(reinterpret_cast<void*>(call_no_transition));
         }
     };
     template <int some_dummy> struct helper<false,false,some_dummy>
@@ -253,7 +253,7 @@ struct default_init_cell<Fsm, EventType,
         typedef typename create_stt<Fsm>::type stt;
         BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
         cell call_no_transition = &Fsm::default_eventless_transition;
-        tofill_entries[state_id+1].one_state.push_back(call_no_transition);
+        tofill_entries[state_id+1].one_state.push_back(reinterpret_cast<void*>(call_no_transition));
     }
 
     chain_row* tofill_entries;
