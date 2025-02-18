@@ -71,34 +71,21 @@ struct favor_compile_time
     typedef ::boost::mpl::false_ add_forwarding_rows;
 };
 
-template <class Fsm, class Stt>
-struct rows_for_event
-{
-    // TODO:
-    // - Get event set
-    // - Go through Stt and assign each row to an event
-    // - Think about leftovers handling to make this fully generic?
-    // - Also think about grouping event hierarchies if it's helpful (linked lists?)
-    typedef typename generate_event_set<Stt>::event_set_mp11 event_set;
-    template<typename T>
-    using make_map_item = mp11::mp_list<T, mp11::mp_list<>>;
-    typedef typename mp11::mp_transform<
-        make_map_item,
-        event_set
-        > event_map;
-    template<typename M, typename T>
-    using push_item = mp11::mp_map_replace<
-        M,
-        mp11::mp_list<
-            mp11::mp_first<T>,
-            mp11::mp_push_back<mp11::mp_second<mp11::mp_map_find<M, mp11::mp_first<T>>>>
-            >
-        >;
-    typedef typename mp11::mp_fold<
-        Stt,
-        event_map,
-        push_item
-        > type;
+// Wrapper to suppress redundant template instantiations of std::deque
+// TODO:
+// Add iterator support.
+template<typename T>
+class deque_wrapper : public std::deque<void*> {
+    using base = std::deque<void*>;
+    static_assert(std::is_pointer<T>::value);
+    public:
+    void push_front(const T& value) {
+        base::push_front(reinterpret_cast<void*>(value));
+    }
+
+    void push_back(const T& value) {
+        base::push_back(reinterpret_cast<void*>(value));
+    }
 };
 
 
@@ -123,10 +110,11 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         HandledEnum operator()(Fsm& fsm, int region,int state,Event const& evt) const
         {
             HandledEnum res = HANDLED_FALSE;
-            typename std::deque<cell>::const_iterator it = one_state.begin();
+            typename deque_wrapper<cell>::const_iterator it = one_state.begin();
             while (it != one_state.end() && (res != HANDLED_TRUE && res != HANDLED_DEFERRED ))
             {
-                HandledEnum handled = (*it)(fsm,region,state,evt);
+                auto fnc = reinterpret_cast<cell>(*it);
+                HandledEnum handled = (*fnc)(fsm,region,state,evt);
                 // reject is considered as erasing an error (HANDLED_FALSE)
                 if ((HANDLED_FALSE==handled) && (HANDLED_GUARD_REJECT==res) )
                     res = HANDLED_GUARD_REJECT;
@@ -136,7 +124,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
             }
             return res;
         }
-        std::deque<cell> one_state;
+        deque_wrapper<cell> one_state;
     };
     template <class TransitionState>
     static HandledEnum call_submachine(Fsm& fsm, int , int , Event const& evt)
@@ -155,7 +143,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         typename ::boost::disable_if<
             typename ::boost::is_same<typename Transition::current_state_type,Fsm>::type
         ,void>::type
-        init_event_base_case(Transition const&, ::boost::mpl::true_ const &) const
+        init_event_base_case(Transition const&) const
         {
             typedef typename create_stt<Fsm>::type stt;
             BOOST_STATIC_CONSTANT(int, state_id =
@@ -166,31 +154,11 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         typename ::boost::enable_if<
             typename ::boost::is_same<typename Transition::current_state_type,Fsm>::type
         ,void>::type
-        init_event_base_case(Transition const&, ::boost::mpl::true_ const &) const
+        init_event_base_case(Transition const&) const
         {
             self->entries[0].one_state.push_front(reinterpret_cast<cell>(&Transition::execute));
         }
 
-        // version for transition event base of our event
-        template <class Transition>
-        typename ::boost::disable_if<
-            typename ::boost::is_same<typename Transition::current_state_type,Fsm>::type
-        ,void>::type
-        init_event_base_case(Transition const&, ::boost::mpl::false_ const &) const
-        {
-            typedef typename create_stt<Fsm>::type stt;
-            BOOST_STATIC_CONSTANT(int, state_id =
-                (get_state_id<stt,typename Transition::current_state_type>::value));
-            self->entries[state_id+1].one_state.push_front(&Transition::execute);
-        }
-        template <class Transition>
-        typename ::boost::enable_if<
-            typename ::boost::is_same<typename Transition::current_state_type,Fsm>::type
-        ,void>::type
-        init_event_base_case(Transition const&, ::boost::mpl::false_ const &) const
-        {
-            self->entries[0].one_state.push_front(&Transition::execute);
-        }
         // Cell initializer function object, used with mpl::for_each
         template <class Transition>
         typename ::boost::enable_if<typename has_not_real_row_tag<Transition>::type,void >::type
@@ -202,10 +170,10 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         typename ::boost::disable_if<typename has_not_real_row_tag<Transition>::type,void >::type
         operator()(Transition const& tr,boost::msm::back::dummy<1> = 0) const
         {
-            //only if the transition event is a base of our event is the reinterpret_case safe
-            init_event_base_case(tr,
-                ::boost::mpl::bool_<
-                    ::boost::is_base_of<typename Transition::transition_event,Event>::type::value>() );
+            // only if the transition event is a base of our event is the reinterpret_case safe
+            // -> which is always the case, because this functor is called with filtered rows
+            static_assert(std::is_base_of<typename Transition::transition_event, Event>::value);
+            init_event_base_case(tr);
         }
 
         dispatch_table* self;
