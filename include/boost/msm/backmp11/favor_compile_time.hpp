@@ -71,6 +71,37 @@ struct favor_compile_time
     typedef ::boost::mpl::false_ add_forwarding_rows;
 };
 
+template <class Fsm, class Stt>
+struct rows_for_event
+{
+    // TODO:
+    // - Get event set
+    // - Go through Stt and assign each row to an event
+    // - Think about leftovers handling to make this fully generic?
+    // - Also think about grouping event hierarchies if it's helpful (linked lists?)
+    typedef typename generate_event_set<Stt>::event_set_mp11 event_set;
+    template<typename T>
+    using make_map_item = mp11::mp_list<T, mp11::mp_list<>>;
+    typedef typename mp11::mp_transform<
+        make_map_item,
+        event_set
+        > event_map;
+    template<typename M, typename T>
+    using push_item = mp11::mp_map_replace<
+        M,
+        mp11::mp_list<
+            mp11::mp_first<T>,
+            mp11::mp_push_back<mp11::mp_second<mp11::mp_map_find<M, mp11::mp_first<T>>>>
+            >
+        >;
+    typedef typename mp11::mp_fold<
+        Stt,
+        event_map,
+        push_item
+        > type;
+};
+
+
 // Generates a singleton runtime lookup table that maps current state
 // to a function that makes the SM take its transition on the given
 // Event type.
@@ -294,9 +325,9 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     dispatch_table()
     {
         // Initialize cells for no transition
-        mp11::mp_for_each<mp11::mp_filter<
-            event_filter_predicate,
-            typename to_mp_list<Stt>::type
+        mp11::mp_for_each<mp11::mp_copy_if<
+            typename to_mp_list<Stt>::type,
+            event_filter_predicate
             >>
             (init_cell(this));
 

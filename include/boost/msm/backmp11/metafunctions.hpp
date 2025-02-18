@@ -523,9 +523,9 @@ struct find_completion_events
 
     template<typename T>
     using has_completion_event_mp11 = typename has_completion_event<T>::type;
-    typedef typename mp11::mp_filter<
-        has_completion_event_mp11,
-        event_list
+    typedef typename mp11::mp_copy_if<
+        event_list,
+        has_completion_event_mp11
         > type;
 };
 

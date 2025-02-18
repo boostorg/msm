@@ -427,9 +427,9 @@ struct dispatch_table
         // first we build a map of sequence for every source
         // in reverse order so that the frow's are handled first (UML priority)
         typedef mp11::mp_fold<
-            mp11::mp_filter<
-                event_filter_predicate,
-                typename to_mp_list<Stt>::type
+            mp11::mp_copy_if<
+                typename to_mp_list<Stt>::type,
+                event_filter_predicate
                 >,
             mp11::mp_list<>,
             map_updater
