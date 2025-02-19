@@ -127,14 +127,7 @@ struct init_cell
 
     // Cell initializer function object, used with mpl::for_each
     template <class Transition>
-    typename ::boost::enable_if<typename has_not_real_row_tag<Transition>::type,void >::type
-        operator()(Transition const&,boost::msm::back::dummy<0> = 0) const
-    {
-        // version for not real rows. No problem because irrelevant for process_event
-    }
-    template <class Transition>
-    typename ::boost::disable_if<typename has_not_real_row_tag<Transition>::type,void >::type
-    operator()(Transition const& tr,boost::msm::back::dummy<1> = 0) const
+    void operator()(Transition const& tr) const
     {
         // only if the transition event is a base of our event is the reinterpret_case safe
         // -> which is always the case, because this functor is called with filtered rows
@@ -275,17 +268,21 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     BOOST_STATIC_CONSTANT(int, max_state = (mp11::mp_size<state_set_mp11>::value));
 
     template <typename T>
-    using event_filter_predicate = is_base_of<typename T::transition_event, Event>;
+    using event_filter_predicate = mp11::mp_and<
+        is_base_of<typename T::transition_event, Event>,
+        mp11::mp_not<typename has_not_real_row_tag<T>::type>
+        >;
+    typedef mp11::mp_copy_if<
+        typename to_mp_list<Stt>::type,
+        event_filter_predicate
+        > filtered_rows;
 
  public:
     // initialize the dispatch table for a given Event and Fsm
     dispatch_table()
     {
         // Initialize cells for no transition
-        mp11::mp_for_each<mp11::mp_copy_if<
-            typename to_mp_list<Stt>::type,
-            event_filter_predicate
-            >>(init_cell<Fsm>{entries});
+        mp11::mp_for_each<filtered_rows>(init_cell<Fsm>{entries});
 
         mp11::mp_for_each<typename generate_state_set<Stt>::state_set_mp11>
             (default_init_cell<Fsm, Event>{entries});

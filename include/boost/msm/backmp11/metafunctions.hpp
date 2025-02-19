@@ -19,7 +19,6 @@
 #include <boost/mpl/set.hpp>
 #include <boost/mpl/at.hpp>
 #include <boost/mpl/pair.hpp>
-#include <boost/mpl/map.hpp>
 #include <boost/mpl/int.hpp>
 #include <boost/mpl/has_xxx.hpp>
 #include <boost/mpl/find.hpp>
@@ -29,7 +28,6 @@
 #include <boost/mpl/has_key.hpp>
 #include <boost/mpl/insert.hpp>
 #include <boost/mpl/next_prior.hpp>
-#include <boost/mpl/map.hpp>
 #include <boost/mpl/push_back.hpp>
 #include <boost/mpl/vector.hpp>
 #include <boost/mpl/is_sequence.hpp>

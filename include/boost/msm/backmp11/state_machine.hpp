@@ -22,7 +22,6 @@
 #include <functional>
 #include <numeric>
 #include <utility>
-#include <algorithm>
 
 #include <boost/core/no_exceptions_support.hpp>
 
@@ -1595,9 +1594,11 @@ protected:
                 // Deferred events are added with a correlation sequence that helps to
                 // identify when an event was added - This is typically to distinguish
                 // between events deferred in this processing versus previous.
+                auto fsm = m_fsm;
+                auto event = m_event;
                 m_fsm->m_deferred_events_queue.m_deferred_events_queue.push_back(
                     std::make_pair(
-                        [fsm=m_fsm, event=m_event] { return fsm->process_event_internal(
+                        [fsm, event] { return fsm->process_event_internal(
                             boost::any_cast<Event>(event),
                             static_cast<::boost::msm::back::EventSource>(::boost::msm::back::EVENT_SOURCE_DIRECT | ::boost::msm::back::EVENT_SOURCE_DEFERRED));
                         },
