@@ -161,10 +161,10 @@ struct dispatch_table
     template <class FrowTransition>
     struct change_frow_event
     {
-        typedef typename ::boost::mpl::eval_if<
-            typename has_is_frow<FrowTransition>::type,
+        typedef typename ::boost::mp11::mp_if_c<
+            has_is_frow<FrowTransition>::type::value,
             replace_event<FrowTransition,Event>,
-            boost::mpl::identity<FrowTransition>
+            boost::mp11::mp_identity<FrowTransition>
         >::type type;
     };
     // Compute the maximum state value in the sm so we know how big
@@ -179,12 +179,6 @@ struct dispatch_table
         {
             typename Transition::transition_event forwarded(evt);
             return Transition::execute(fsm,region_index,state,forwarded);
-        }
-
-        template<typename EventType = typename Transition::transition_event>
-        static typename ::boost::disable_if<typename is_kleene_event<EventType>::type,HandledEnum>::type execute(Fsm& fsm, int region_index, int state, Event const& evt)
-        {
-            return Transition::execute(fsm,region_index,state,evt);
         }
     };
 
