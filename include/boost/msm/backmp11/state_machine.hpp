@@ -11,7 +11,7 @@
 #ifndef BOOST_MSM_BACK_STATEMACHINE_H
 #define BOOST_MSM_BACK_STATEMACHINE_H
 
-// TODO
+// TODO: Clean up
 #include <boost/mp11.hpp>
 #include <boost/mp11/mpl.hpp>
 #include <boost/msm/backmp11/metafunctions.hpp>
@@ -92,6 +92,21 @@ BOOST_MPL_HAS_XXX_TRAIT_DEF(event_queue_before_deferred_queue)
 
 namespace boost { namespace msm { namespace back
 {
+
+// TODO: Clean up
+namespace detail_favor_runtime_speed
+{
+    struct init_cell;
+    struct default_init_cell;
+}
+namespace detail_favor_compile_time
+{
+    template <typename Fsm>
+    struct init_cell;
+    template<class Fsm, class EventType, class Enable>
+    struct default_init_cell;
+}
+
 // event used internally for wrapping a direct entry
 template <class StateType,class Event>
 struct direct_entry_event
@@ -211,8 +226,9 @@ private:
 
     // all default_init_cell functors are friend with each other to allow initialization
     // of the fsm dispatch tables
+    // TODO: Clean up
     template<class Fsm, class EventType, class Enable>
-    friend class default_init_cell;
+    friend class detail_favor_compile_time::default_init_cell;
 
     // helper to add, if needed, visitors to all states
     // version without visitors

@@ -96,6 +96,9 @@ struct chain_row
     std::deque<void*> one_state;
 };
 
+namespace detail_favor_compile_time
+{
+
 // A function object for use with mpl::for_each that stuffs
 // transitions into cells.
 template <typename Fsm>
@@ -252,6 +255,8 @@ struct default_init_cell<Fsm, EventType,
     chain_row* tofill_entries;
 };
 
+} // detail_favor_compile_time
+
 // Generates a singleton runtime lookup table that maps current state
 // to a function that makes the SM take its transition on the given
 // Event type.
@@ -281,11 +286,14 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     // initialize the dispatch table for a given Event and Fsm
     dispatch_table()
     {
+        using default_init_cell = detail_favor_compile_time::default_init_cell<Fsm, Event>;
+        using init_cell = detail_favor_compile_time::init_cell<Fsm>;
+
         // Initialize cells for no transition
-        mp11::mp_for_each<filtered_rows>(init_cell<Fsm>{entries});
+        mp11::mp_for_each<filtered_rows>(init_cell{entries});
 
         mp11::mp_for_each<typename generate_state_set<Stt>::state_set_mp11>
-            (default_init_cell<Fsm, Event>{entries});
+            (default_init_cell{entries});
     }
 
     // The singleton instance.

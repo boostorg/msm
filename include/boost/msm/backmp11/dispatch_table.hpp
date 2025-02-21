@@ -37,24 +37,45 @@ BOOST_MPL_HAS_XXX_TRAIT_DEF(is_frow)
 namespace boost { namespace msm { namespace back 
 {
 
-struct init_cell_row {
+namespace detail_favor_runtime_speed
+{
+
+struct init_cell
+{
     // TODO:
-    // Needs to be function pointer array, check standard again.
-    typedef void* generic_cell;
-    init_cell_row(void** entries) : entries(entries) {}
+    // Double-check function pointer casts, especially for args.
+    typedef HandledEnum (*generic_cell)();
+    init_cell(generic_cell* entries) : entries(entries) {}
 
     template<typename PreprocessedRow>
     void operator()(PreprocessedRow const&)
     {
         if (!mp11::mp_first<PreprocessedRow>::value)
         {
-            entries[mp11::mp_second<PreprocessedRow>::value] = reinterpret_cast<void*>(mp11::mp_third<PreprocessedRow>::value);
+            entries[mp11::mp_second<PreprocessedRow>::value] = reinterpret_cast<generic_cell>(mp11::mp_third<PreprocessedRow>::value);
         }
     }
 
     generic_cell* entries;
 };
 
+struct default_init_cell
+{
+    // TODO:
+    // Double-check function pointer casts, especially for args.
+    typedef HandledEnum (*generic_cell)();
+    default_init_cell(generic_cell* entries) : entries(entries) {}
+
+    template<typename PreprocessedState>
+    void operator()(PreprocessedState const&)
+    {
+        entries[mp11::mp_first<PreprocessedState>::value] = reinterpret_cast<generic_cell>(mp11::mp_second<PreprocessedState>::value);
+    }
+
+    generic_cell* entries;
+};
+
+} // detail_favor_runtime_speed
 
 // Generates a singleton runtime lookup table that maps current state
 // to a function that makes the SM take its transition on the given
@@ -182,118 +203,45 @@ struct dispatch_table
         }
     };
 
-    // Cell default-initializer function object, used with mpl::for_each
-    // initializes with call_no_transition, defer_transition or default_eventless_transition
-    // variant for non-anonymous transitions
-    template <class EventType,class Enable=void>
-    struct default_init_cell
-    {
-        default_init_cell(dispatch_table* self_,cell* tofill_entries_)
-            : self(self_),tofill_entries(tofill_entries_)
-        {}
-        template <class State>
-        typename ::boost::enable_if<typename has_state_delayed_event<State,Event>::type,void>::type
-        operator()(State const&,boost::msm::back::dummy<0> = 0)
-        {
-            typedef typename create_stt<Fsm>::type stt; 
-            BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
-            cell call_no_transition = &Fsm::defer_transition;
-            tofill_entries[state_id+1] = call_no_transition;
-        }
-        template <class State>
-        typename ::boost::disable_if<
-            typename ::boost::mpl::or_<
-                typename has_state_delayed_event<State,Event>::type,
-                typename ::boost::is_same<State,Fsm>::type
-            >::type
-        ,void >::type
-        operator()(State const&,boost::msm::back::dummy<1> = 0)
-        {
-            typedef typename create_stt<Fsm>::type stt; 
-            BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
-            cell call_no_transition = &Fsm::call_no_transition;
-            tofill_entries[state_id+1] = call_no_transition;
-        }
-        // case for internal transitions of this fsm
-        template <class State>
-        typename ::boost::enable_if<
-            typename ::boost::mpl::and_<
-                typename ::boost::mpl::not_<typename has_state_delayed_event<State,Event>::type>::type,
-                typename ::boost::is_same<State,Fsm>::type
-            >::type
-        ,void>::type
-        operator()(State const&,boost::msm::back::dummy<2> = 0)
-        {
-            cell call_no_transition = &Fsm::call_no_transition_internal;
-            tofill_entries[0] = call_no_transition;
-        }
-        dispatch_table* self;
-        cell* tofill_entries;
-    };
-
-    // variant for anonymous transitions
-    template <class EventType>
-    struct default_init_cell<EventType,
-                             typename ::boost::enable_if<
-                                typename is_completion_event<EventType>::type>::type>
-    {
-        default_init_cell(dispatch_table* self_,cell* tofill_entries_)
-            : self(self_),tofill_entries(tofill_entries_)
-        {}
-
-        // this event is a compound one (not a real one, just one for use in event-less transitions)
-        // Note this event cannot be used as deferred!
-        // case for internal transitions of this fsm 
-        template <class State>
-        typename ::boost::disable_if<
-            typename ::boost::is_same<State,Fsm>::type
-        ,void>::type
-        operator()(State const&,boost::msm::back::dummy<0> = 0)
-        {
-            typedef typename create_stt<Fsm>::type stt; 
-            BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
-            cell call_no_transition = &Fsm::default_eventless_transition;
-            tofill_entries[state_id+1] = call_no_transition;
-        }
-
-        template <class State>
-        typename ::boost::enable_if<
-            typename ::boost::is_same<State,Fsm>::type
-        ,void>::type
-        operator()(State const&,boost::msm::back::dummy<1> = 0)
-        {
-            cell call_no_transition = &Fsm::default_eventless_transition;
-            tofill_entries[0] = call_no_transition;
-        }
-        dispatch_table* self;
-        cell* tofill_entries;
-    };
-
     // Helpers for default_init_cell
-    // TODO:
-    // Find out if static_cast of function pointers is possible.
-    // If not we need quite some code.
-    // template<typename State>
-    // using preprocess_state = mp11::mp_list<
-    //     // Offset into the entries array
-    //     mp11::mp_if_c<
-    //         is_same<State,Fsm>::value,
-    //         mp11::mp_size_t<0>,
-    //         mp11::mp_size_t<get_state_id<Stt,State>::value + 1>
-    //         >,
-    //     // Address of the function to assign
-    //     mp11::mp_if_c<
-    //         is_kleene_event<typename Transition::transition_event>::type::value,
-    //         std::integral_constant<
-    //             cell,
-    //             &convert_event_and_forward<Transition>::execute
-    //             >,
-    //         std::integral_constant<
-    //             cell,
-    //             &Transition::execute
-    //             >
-    //         >
-    //     >;
+    template<typename fsm = Fsm>
+    using fsm_defer_transition = std::integral_constant<
+        cell,
+        &fsm::defer_transition
+        >;
+    template<typename State>
+    using preprocess_state = mp11::mp_list<
+        // Offset into the entries array
+        mp11::mp_if_c<
+            is_same<State,Fsm>::value,
+            mp11::mp_size_t<0>,
+            mp11::mp_size_t<get_state_id<Stt,State>::value + 1>
+            >,
+        // Address of the function to assign
+        mp11::mp_if_c<
+            is_completion_event<Event>::type::value,
+            std::integral_constant<
+                cell,
+                &Fsm::default_eventless_transition
+                >,
+            mp11::mp_eval_if_c<
+                !has_state_delayed_event<State,Event>::type::value,
+                mp11::mp_if_c<
+                    is_same<State,Fsm>::value,
+                    std::integral_constant<
+                        cell,
+                        &Fsm::call_no_transition_internal
+                        >,
+                    std::integral_constant<
+                        cell,
+                        &Fsm::call_no_transition
+                        >
+                    >,
+                fsm_defer_transition,
+                Fsm
+                >
+            >
+        >;
 
     // Helpers for first operation (fold)
     template <typename T>
@@ -329,6 +277,14 @@ struct dispatch_table
         mp11::mp_first<T>,
         mp11::mp_second<T>
         >;
+    template<typename T>
+    using row_chainer = mp11::mp_if_c<
+        (mp11::mp_size<typename to_mp_list<mp11::mp_second<T>>::type>::value > 1),
+        // we need row chaining
+        typename make_chain_row_from_map_entry<to_mpl_map_entry<T>>::type,
+        // just one row, no chaining, we rebuild the row like it was before
+        mp11::mp_front<mp11::mp_second<T>>
+        >;
     template<typename Transition>
     using preprocess_row_helper = std::integral_constant<
         cell,
@@ -357,37 +313,23 @@ struct dispatch_table
             Transition
             >
         >;
-    template<typename T>
-    using chain_and_preprocess_row_helper = preprocess_row<typename make_chain_row_from_map_entry<to_mpl_map_entry<T>>::type>;
-    template<typename T>
-    using chain_and_preprocess_row = mp11::mp_eval_if_c<
-        (mp11::mp_size<typename to_mp_list<mp11::mp_second<T>>::type>::value == 1),
-        // just one row, no chaining, we rebuild the row like it was before
-        preprocess_row<mp11::mp_front<mp11::mp_second<T>>>,
-        // we need row chaining
-        chain_and_preprocess_row_helper,
-        T
-        >;
-
-    template<typename T>
-    using row_chainer = mp11::mp_if_c<
-        (mp11::mp_size<typename to_mp_list<mp11::mp_second<T>>::type>::value > 1),
-        // we need row chaining
-        typename make_chain_row_from_map_entry<to_mpl_map_entry<T>>::type,
-        // just one row, no chaining, we rebuild the row like it was before
-        mp11::mp_front<mp11::mp_second<T>>
-        >;
 
 
  public:
     // initialize the dispatch table for a given Event and Fsm
     dispatch_table()
     {
-        // Initialize cells for no transition
-        // TODO: Also preprocess for default_init_cell
-        mp11::mp_for_each<typename generate_state_set<Stt>::state_set_mp11>
-            (default_init_cell<Event>{this, entries});
+        using default_init_cell = detail_favor_runtime_speed::default_init_cell;
+        using init_cell = detail_favor_runtime_speed::init_cell;
 
+        // Initialize cells for no transition
+        typedef mp11::mp_transform<
+            preprocess_state,
+            typename generate_state_set<Stt>::state_set_mp11
+            > preprocessed_states;
+        mp11::mp_for_each<preprocessed_states>
+            (default_init_cell{reinterpret_cast<default_init_cell::generic_cell*>(entries)});
+        
         // build chaining rows for rows coming from the same state and the current event
         // first we build a map of sequence for every source
         // in reverse order so that the frow's are handled first (UML priority)
@@ -400,10 +342,6 @@ struct dispatch_table
             map_updater
             > map_of_row_seq;
         // and then build chaining rows for all source states having more than 1 row
-        // typedef mp11::mp_transform<
-        //     chain_and_preprocess_row,
-        //     map_of_row_seq
-        //     > chained_and_preprocessed_rows;
         typedef mp11::mp_transform<
             row_chainer,
             map_of_row_seq
@@ -413,7 +351,8 @@ struct dispatch_table
             chained_rows
             > chained_and_preprocessed_rows;
         // Go back and fill in cells for matching transitions.
-        mp11::mp_for_each<chained_and_preprocessed_rows>(init_cell_row{reinterpret_cast<init_cell_row::generic_cell*>(entries)});
+        mp11::mp_for_each<chained_and_preprocessed_rows>
+            (init_cell{reinterpret_cast<init_cell::generic_cell*>(entries)});
     }
 
     // The singleton instance.
