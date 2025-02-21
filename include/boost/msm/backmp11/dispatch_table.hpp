@@ -37,6 +37,25 @@ BOOST_MPL_HAS_XXX_TRAIT_DEF(is_frow)
 namespace boost { namespace msm { namespace back 
 {
 
+struct init_cell_row {
+    // TODO:
+    // Needs to be function pointer array, check standard again.
+    typedef void* generic_cell;
+    init_cell_row(void** entries) : entries(entries) {}
+
+    template<typename PreprocessedRow>
+    void operator()(PreprocessedRow const&)
+    {
+        if (!mp11::mp_first<PreprocessedRow>::value)
+        {
+            entries[mp11::mp_second<PreprocessedRow>::value] = reinterpret_cast<void*>(mp11::mp_third<PreprocessedRow>::value);
+        }
+    }
+
+    generic_cell* entries;
+};
+
+
 // Generates a singleton runtime lookup table that maps current state
 // to a function that makes the SM take its transition on the given
 // Event type.
@@ -62,7 +81,7 @@ struct dispatch_table
             template <class Sequence>
             static
             HandledEnum
-            execute(Fsm& , int, int, Event& , ::boost::mpl::true_ const & )
+            execute(Fsm& , int, int, Event const& , ::boost::mpl::true_ const & )
             {
                 // if at least one guard rejected, this will be ignored, otherwise will generate an error
                 return HANDLED_FALSE;
@@ -71,7 +90,7 @@ struct dispatch_table
             template <class Sequence>
             static
             HandledEnum
-            execute(Fsm& fsm, int region_index , int state, Event& evt,
+            execute(Fsm& fsm, int region_index , int state, Event const& evt,
                     ::boost::mpl::false_ const & )
             {
                  // try the first guard
@@ -94,7 +113,7 @@ struct dispatch_table
             }
         };
         // Take the transition action and return the next state.
-        static HandledEnum execute(Fsm& fsm, int region_index, int state, Event& evt)
+        static HandledEnum execute(Fsm& fsm, int region_index, int state, Event const& evt)
         {
             // forward to helper
             return execute_helper::template execute<Seq>(fsm,region_index,state,evt,
@@ -161,122 +180,12 @@ struct dispatch_table
             typename Transition::transition_event forwarded(evt);
             return Transition::execute(fsm,region_index,state,forwarded);
         }
-    };
 
-    // A function object for use with mpl::for_each that stuffs
-    // transitions into cells.
-    struct init_cell
-    {
-        init_cell(dispatch_table* self_)
-          : self(self_)
-        {}
-        // version for transition event not base of our event
-        // first for all transitions, then for internal ones of a fsm
-        template <class Transition>
-        typename ::boost::disable_if<
-            typename ::boost::is_same<typename Transition::current_state_type,Fsm>::type
-        ,void>::type
-        init_event_base_case(Transition const&, ::boost::mpl::true_ const &, ::boost::mpl::false_ const &) const
+        template<typename EventType = typename Transition::transition_event>
+        static typename ::boost::disable_if<typename is_kleene_event<EventType>::type,HandledEnum>::type execute(Fsm& fsm, int region_index, int state, Event const& evt)
         {
-            typedef typename create_stt<Fsm>::type stt; 
-            BOOST_STATIC_CONSTANT(int, state_id = 
-                (get_state_id<stt,typename Transition::current_state_type>::value));
-            // reinterpret_cast to uintptr_t to suppress gcc-11 warning
-            self->entries[state_id + 1] = reinterpret_cast<cell>(
-                reinterpret_cast<std::uintptr_t>(&Transition::execute));
+            return Transition::execute(fsm,region_index,state,evt);
         }
-        template <class Transition>
-        typename ::boost::enable_if<
-            typename ::boost::is_same<typename Transition::current_state_type,Fsm>::type
-        ,void>::type
-        init_event_base_case(Transition const&, ::boost::mpl::true_ const &, ::boost::mpl::false_ const &) const
-        {
-            self->entries[0] = reinterpret_cast<cell>(&Transition::execute);
-        }
-
-        // version for transition event is boost::any
-        // first for all transitions, then for internal ones of a fsm
-        template <class Transition>
-        typename ::boost::disable_if<
-            typename ::boost::is_same<typename Transition::current_state_type,Fsm>::type
-        ,void>::type
-        init_event_base_case(Transition const&, ::boost::mpl::false_ const &, ::boost::mpl::true_ const &) const
-        {
-            typedef typename create_stt<Fsm>::type stt; 
-            BOOST_STATIC_CONSTANT(int, state_id = 
-                (get_state_id<stt,typename Transition::current_state_type>::value));
-            self->entries[state_id+1] = &convert_event_and_forward<Transition>::execute;
-        }
-        template <class Transition>
-        typename ::boost::enable_if<
-            typename ::boost::is_same<typename Transition::current_state_type,Fsm>::type
-        ,void>::type
-        init_event_base_case(Transition const&, ::boost::mpl::false_ const &, ::boost::mpl::true_ const &) const
-        {
-            self->entries[0] = &convert_event_and_forward<Transition>::execute;
-        }
-        template <class Transition>
-        typename ::boost::disable_if<
-            typename ::boost::is_same<typename Transition::current_state_type,Fsm>::type
-        ,void>::type
-        init_event_base_case(Transition const&, ::boost::mpl::true_ const &, ::boost::mpl::true_ const &) const
-        {
-            typedef typename create_stt<Fsm>::type stt;
-            BOOST_STATIC_CONSTANT(int, state_id =
-                (get_state_id<stt,typename Transition::current_state_type>::value));
-            self->entries[state_id+1] = &convert_event_and_forward<Transition>::execute;
-        }
-        template <class Transition>
-        typename ::boost::enable_if<
-            typename ::boost::is_same<typename Transition::current_state_type,Fsm>::type
-        ,void>::type
-        init_event_base_case(Transition const&, ::boost::mpl::true_ const &, ::boost::mpl::true_ const &) const
-        {
-            self->entries[0] = &convert_event_and_forward<Transition>::execute;
-        }
-        // end version for kleene
-
-        // version for transition event base of our event
-        // first for all transitions, then for internal ones of a fsm
-        template <class Transition>
-        typename ::boost::disable_if<
-            typename ::boost::is_same<typename Transition::current_state_type,Fsm>::type
-        ,void>::type
-        init_event_base_case(Transition const&, ::boost::mpl::false_ const &, ::boost::mpl::false_ const &) const
-        {
-            typedef typename create_stt<Fsm>::type stt; 
-            BOOST_STATIC_CONSTANT(int, state_id = 
-                (get_state_id<stt,typename Transition::current_state_type>::value));
-            self->entries[state_id+1] = &Transition::execute;
-        }
-        template <class Transition>
-        typename ::boost::enable_if<
-            typename ::boost::is_same<typename Transition::current_state_type,Fsm>::type
-        ,void>::type
-        init_event_base_case(Transition const&, ::boost::mpl::false_ const &, ::boost::mpl::false_ const &) const
-        {
-            self->entries[0] = &Transition::execute;
-        }
-        // Cell initializer function object, used with mpl::for_each
-        template <class Transition>
-        typename ::boost::enable_if<typename has_not_real_row_tag<Transition>::type,void >::type
-            operator()(Transition const&,boost::msm::back::dummy<0> = 0) const
-        {
-            // version for not real rows. No problem because irrelevant for process_event
-        }
-        template <class Transition>
-        typename ::boost::disable_if<typename has_not_real_row_tag<Transition>::type,void >::type
-        operator()(Transition const& tr,boost::msm::back::dummy<1> = 0) const
-        {
-            //only if the transition event is a base of our event is the reinterpret_case safe
-            init_event_base_case(tr,
-                ::boost::mpl::bool_< 
-                    ::boost::is_base_of<typename Transition::transition_event,Event>::type::value>(),
-                ::boost::mpl::bool_< 
-                    ::boost::msm::is_kleene_event<typename Transition::transition_event>::type::value>());
-        }
-    
-        dispatch_table* self;
     };
 
     // Cell default-initializer function object, used with mpl::for_each
@@ -366,14 +275,40 @@ struct dispatch_table
         cell* tofill_entries;
     };
 
-    // Helpers for first fold
+    // Helpers for default_init_cell
+    // TODO:
+    // Find out if static_cast of function pointers is possible.
+    // If not we need quite some code.
+    // template<typename State>
+    // using preprocess_state = mp11::mp_list<
+    //     // Offset into the entries array
+    //     mp11::mp_if_c<
+    //         is_same<State,Fsm>::value,
+    //         mp11::mp_size_t<0>,
+    //         mp11::mp_size_t<get_state_id<Stt,State>::value + 1>
+    //         >,
+    //     // Address of the function to assign
+    //     mp11::mp_if_c<
+    //         is_kleene_event<typename Transition::transition_event>::type::value,
+    //         std::integral_constant<
+    //             cell,
+    //             &convert_event_and_forward<Transition>::execute
+    //             >,
+    //         std::integral_constant<
+    //             cell,
+    //             &Transition::execute
+    //             >
+    //         >
+    //     >;
+
+    // Helpers for first operation (fold)
     template <typename T>
     using event_filter_predicate = mp11::mp_or<
         is_base_of<typename T::transition_event, Event>,
         typename is_kleene_event<typename T::transition_event>::type
         >;
     template <typename M, typename Key, typename Value>
-    using item_pusher = mp11::mp_push_front<
+    using push_map_value = mp11::mp_push_front<
         mp11::mp_second<mp11::mp_map_find<M, Key>>,
         Value>;
     template<typename M, typename T>
@@ -386,7 +321,7 @@ struct dispatch_table
                 // first row on this source state, make a list with 1 element
                 mp11::mp_list<typename change_frow_event<T>::type>,
                 // list already exists, add the row
-                item_pusher,
+                push_map_value,
                 M,
                 typename T::current_state_type,
                 typename change_frow_event<T>::type
@@ -394,32 +329,68 @@ struct dispatch_table
             >
         >;
     
-    // Helpers for second fold
+    // Helpers for second operation (transform)
     template<typename T>
     using to_mpl_map_entry = mpl::pair<
         mp11::mp_first<T>,
         mp11::mp_second<T>
         >;
-    template<typename V, typename T>
+    template<typename Transition>
+    using preprocess_row_helper = std::integral_constant<
+        cell,
+        &Transition::execute
+        >;
+    template<typename Transition>
+    using preprocess_row = mp11::mp_list<
+        // Condition for executing
+        has_not_real_row_tag<Transition>,
+        // Offset into the entries array
+        mp11::mp_if_c<
+            is_same<typename Transition::current_state_type,Fsm>::value,
+            mp11::mp_size_t<0>,
+            mp11::mp_size_t<get_state_id<typename create_stt<Fsm>::type, typename Transition::current_state_type>::value + 1>
+            >,
+        // Address of the execute function
+        mp11::mp_eval_if_c<
+            is_kleene_event<typename Transition::transition_event>::type::value,
+            std::integral_constant<
+                cell,
+                // TODO:
+                // Try out against enable_if in convert_event_and_forward
+                &convert_event_and_forward<Transition>::execute
+                >,
+            preprocess_row_helper,
+            Transition
+            >
+        >;
+    template<typename T>
+    using chain_and_preprocess_row_helper = preprocess_row<typename make_chain_row_from_map_entry<to_mpl_map_entry<T>>::type>;
+    template<typename T>
+    using chain_and_preprocess_row = mp11::mp_eval_if_c<
+        (mp11::mp_size<typename to_mp_list<mp11::mp_second<T>>::type>::value == 1),
+        // just one row, no chaining, we rebuild the row like it was before
+        preprocess_row<mp11::mp_front<mp11::mp_second<T>>>,
+        // we need row chaining
+        chain_and_preprocess_row_helper,
+        T
+        >;
+
+    template<typename T>
     using row_chainer = mp11::mp_if_c<
         (mp11::mp_size<typename to_mp_list<mp11::mp_second<T>>::type>::value > 1),
         // we need row chaining
-        mp11::mp_push_back<
-            V,
-            typename make_chain_row_from_map_entry<to_mpl_map_entry<T>>::type
-            >,
+        typename make_chain_row_from_map_entry<to_mpl_map_entry<T>>::type,
         // just one row, no chaining, we rebuild the row like it was before
-        mp11::mp_push_back<
-            V,
-            mp11::mp_front<mp11::mp_second<T>>
-            >
+        mp11::mp_front<mp11::mp_second<T>>
         >;
+
 
  public:
     // initialize the dispatch table for a given Event and Fsm
     dispatch_table()
     {
         // Initialize cells for no transition
+        // TODO: Also preprocess for default_init_cell
         mp11::mp_for_each<typename generate_state_set<Stt>::state_set_mp11>
             (default_init_cell<Event>{this, entries});
 
@@ -433,15 +404,22 @@ struct dispatch_table
                 >,
             mp11::mp_list<>,
             map_updater
-            > map_of_row_seq_mp11;
+            > map_of_row_seq;
         // and then build chaining rows for all source states having more than 1 row
-        typedef mp11::mp_fold<
-            map_of_row_seq_mp11,
-            mp11::mp_list<>,
-            row_chainer
-            > chained_rows_mp11;
+        // typedef mp11::mp_transform<
+        //     chain_and_preprocess_row,
+        //     map_of_row_seq
+        //     > chained_and_preprocessed_rows;
+        typedef mp11::mp_transform<
+            row_chainer,
+            map_of_row_seq
+            > chained_rows;
+        typedef mp11::mp_transform<
+            preprocess_row,
+            chained_rows
+            > chained_and_preprocessed_rows;
         // Go back and fill in cells for matching transitions.
-        mp11::mp_for_each<chained_rows_mp11>(init_cell(this));
+        mp11::mp_for_each<chained_and_preprocessed_rows>(init_cell_row{reinterpret_cast<init_cell_row::generic_cell*>(entries)});
     }
 
     // The singleton instance.
