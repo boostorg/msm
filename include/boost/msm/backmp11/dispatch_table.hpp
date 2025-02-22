@@ -11,13 +11,11 @@
 #ifndef BOOST_MSM_BACK_DISPATCH_TABLE_H
 #define BOOST_MSM_BACK_DISPATCH_TABLE_H
 
-#include <boost/mp11.hpp>
-#include <boost/mp11/mpl.hpp>
-
 #include <cstdint>
-#include <type_traits>
 #include <utility>
 
+#include <boost/mp11.hpp>
+#include <boost/mp11/mpl.hpp>
 #include <boost/mpl/reverse_fold.hpp>
 #include <boost/mpl/greater.hpp>
 #include <boost/mpl/filter_view.hpp>
@@ -41,6 +39,8 @@ namespace boost { namespace msm { namespace back
 template<typename CompilePolicy>
 struct init_cell;
 
+// A function object for use with mp11::mp_for_each that stuffs
+// transitions into cells.
 template<>
 struct init_cell<favor_runtime_speed>
 {
@@ -62,6 +62,8 @@ struct init_cell<favor_runtime_speed>
 template<typename CompilePolicy>
 struct default_init_cell;
 
+// A function object for use with mp11::mp_for_each that stuffs
+// transitions into cells.
 template<>
 struct default_init_cell<favor_runtime_speed>
 {

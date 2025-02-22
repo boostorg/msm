@@ -11,11 +11,10 @@
 #ifndef BOOST_MSM_BACK_METAFUNCTIONS_H
 #define BOOST_MSM_BACK_METAFUNCTIONS_H
 
-#include <boost/mp11.hpp>
-#include <boost/mp11/mpl.hpp>
-
 #include <algorithm>
 
+#include <boost/mp11.hpp>
+#include <boost/mp11/mpl.hpp>
 #include <boost/mpl/set.hpp>
 #include <boost/mpl/at.hpp>
 #include <boost/mpl/pair.hpp>
@@ -119,7 +118,6 @@ struct to_mp_list
 template<typename ...T>
 struct to_mp_list<mp11::mp_list<T...>>
 {
-    // typedef mp11::mp_identity<mp11::mp_list<T>> type;
     typedef mp11::mp_list<T...> type;
 };
 

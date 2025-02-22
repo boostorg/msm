@@ -97,7 +97,7 @@ struct chain_row
     std::deque<cell> one_state;
 };
 
-// A function object for use with mpl::for_each that stuffs
+// A function object for use with mp11::mp_for_each that stuffs
 // transitions into cells.
 template<>
 struct init_cell<favor_compile_time>
@@ -113,6 +113,8 @@ struct init_cell<favor_compile_time>
     chain_row* entries;
 };
 
+// A function object for use with mp11::mp_for_each that stuffs
+// transitions into cells.
 template<>
 struct default_init_cell<favor_compile_time>
 {
@@ -164,50 +166,6 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         is_base_of<typename T::transition_event, Event>,
         mp11::mp_not<typename has_not_real_row_tag<T>::type>
         >;
-
-
-    // // Does not seem to bring benefits and not sure if it's correct.
-    // template<typename Transition>
-    // using transition_execute = std::integral_constant<
-    //     cell,
-    //     &Transition::execute
-    //     >;
-    // template<typename Transition>
-    // struct get_transition_function
-    // {
-    //     using type = mp11::mp_eval_if_c<
-    //         !event_filter_predicate<Transition>::value,
-    //         // Event is not handled
-    //         mp11::mp_eval_if_c<
-    //             !has_state_delayed_event<typename Transition::current_state_type, Event>::type::value,
-    //             // Not a deferred event
-    //             mp11::mp_eval_if_c<
-    //                 !is_composite_state<typename Transition::current_state_type>::type::value,
-    //                 // State is not a composite
-    //                 std::integral_constant<
-    //                     cell,
-    //                     &Fsm::call_no_transition
-    //                     >,
-    //                 // State is a composite
-    //                 state_call_submachine,
-    //                 typename Transition::current_state_type
-    //                 >,
-    //             // A deferred event
-    //             fsm_defer_transition,
-    //             Fsm
-    //             >,
-    //         // Event is handled
-    //         transition_execute,
-    //         Transition
-    //         >;
-    // };
-    // template<typename Transition>
-    // using preprocess_everything = mp11::mp_list<
-    //     // Offset into the entries array
-    //     get_table_index<Fsm, typename Transition::current_state_type, typename Transition::transition_event>,
-    //     // Address of the function to assign
-    //     typename get_transition_function<Transition>::type
-    //     >;
 
     // Helpers for state processing
     template<typename State>
@@ -272,7 +230,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         using default_init_cell = default_init_cell<favor_compile_time>;
         using init_cell = init_cell<favor_compile_time>;
 
-        // Initialize cells for no transition.
+        // Initialize cells for no transition
         typedef mp11::mp_transform<
             preprocess_state,
             typename generate_state_set<Stt>::state_set_mp11
@@ -289,12 +247,6 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
             filtered_rows
             > preprocessed_rows;
         mp11::mp_for_each<preprocessed_rows>(init_cell{entries});
-
-        // typedef mp11::mp_transform<
-        //     preprocess_everything,
-        //     typename to_mp_list<Stt>::type
-        //     > preprocessed_everything;
-        // mp11::mp_for_each<preprocessed_everything>(init_cell{entries});
     }
 
     // The singleton instance.

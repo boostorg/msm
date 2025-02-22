@@ -12,8 +12,6 @@
 #define BOOST_MSM_BACK_STATEMACHINE_H
 
 // TODO: Clean up
-#include <boost/mp11.hpp>
-#include <boost/mp11/mpl.hpp>
 #include <boost/msm/backmp11/metafunctions.hpp>
 #include <boost/msm/backmp11/dispatch_table.hpp>
 
@@ -26,6 +24,8 @@
 #include <boost/core/no_exceptions_support.hpp>
 
 #include <boost/core/ignore_unused.hpp>
+#include <boost/mp11.hpp>
+#include <boost/mp11/mpl.hpp>
 #include <boost/mpl/contains.hpp>
 #include <boost/mpl/deref.hpp>
 #include <boost/mpl/assert.hpp>
@@ -91,7 +91,6 @@ BOOST_MPL_HAS_XXX_TRAIT_DEF(event_queue_before_deferred_queue)
 
 namespace boost { namespace msm { namespace back
 {
-
 // event used internally for wrapping a direct entry
 template <class StateType,class Event>
 struct direct_entry_event
@@ -208,12 +207,6 @@ private:
     // all state machines are friend with each other to allow embedding any of them in another fsm
     template <class ,class , class, class, class
     > friend class boost::msm::back::state_machine;
-
-    // all cell initialization functors are friends to allow initialization
-    // of the fsm dispatch tables
-    // TODO: Clean up
-    template<class Fsm, class EventType, class Enable>
-    friend class default_init_cell_favor_compile_time;
 
     // helper to add, if needed, visitors to all states
     // version without visitors
@@ -1143,10 +1136,10 @@ private:
         typedef typename generate_event_set<Table>::event_set_mp11 all_events;
 
         template<typename T>
-        using F = frow<StateType, T>;
+        using frow_state_type = frow<StateType, T>;
         typedef mp11::mp_append<
             typename to_mp_list<Intermediate>::type,
-            mp11::mp_transform<F, all_events>
+            mp11::mp_transform<frow_state_type, all_events>
             > type;
     };
     // gets the transition table from a composite and make from it a forwarding row
@@ -1160,8 +1153,6 @@ private:
         // the internal ones are searched recursively in sub-sub... states
         // we go recursively because our states can also have internal tables or substates etc.
         typedef typename recursive_get_internal_transition_table<StateType, ::boost::mpl::true_>::type recursive_istt;
-        // TODO:
-        // This snippet is slower than previously.
         template<typename T>
         using make_row_tag_state_type = typename make_row_tag<T, StateType>::type;
         typedef boost::mp11::mp_transform<
@@ -1589,8 +1580,6 @@ protected:
                 // to call this function, you need either a state with a deferred_events typedef
                 // or that the fsm provides the activate_deferred_events typedef
                 BOOST_MPL_ASSERT((has_fsm_deferred_events<library_sm>));
-                ::boost::msm::back::execute_return(library_sm:: * pf) (Event const&, ::boost::msm::back::EventSource) =
-                    &library_sm::process_event_internal;
 
                 // Deferred events are added with a correlation sequence that helps to
                 // identify when an event was added - This is typically to distinguish
