@@ -44,8 +44,6 @@ struct init_cell;
 template<>
 struct init_cell<favor_runtime_speed>
 {
-    // TODO:
-    // Double-check function pointer casts, especially for args.
     typedef HandledEnum (*cell)();
     init_cell(cell* entries) : entries(entries) {}
 
