@@ -112,119 +112,18 @@ struct init_cell<favor_compile_time>
     chain_row* entries;
 };
 
-// Cell default-initializer function object, used with mpl::for_each
-// initializes with call_no_transition, defer_transition or default_eventless_transition
-// variant for non-anonymous transitions
-template <class Fsm, class EventType, class Enable=void>
-struct default_init_cell_favor_compile_time
+template<>
+struct default_init_cell<favor_compile_time>
 {
-    typedef HandledEnum (*cell)(Fsm&, int,int,EventType const&);
+    default_init_cell(chain_row* entries_) : entries(entries_) {}
 
-    default_init_cell_favor_compile_time(chain_row* tofill_entries_)
-        : tofill_entries(tofill_entries_)
-    {}
-    template <bool deferred,bool composite, int some_dummy=0>
-    struct helper
-    {};
-    template <int some_dummy> struct helper<true,false,some_dummy>
+    template<typename PreprocessedRow>
+    void operator()(PreprocessedRow const&)
     {
-        template <class State>
-        static void execute(State const&,chain_row* tofill)
-        {
-            typedef typename create_stt<Fsm>::type stt;
-            BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
-            cell call_no_transition = &Fsm::defer_transition;
-            tofill[state_id+1].one_state.push_back(reinterpret_cast<void*>(call_no_transition));
-        }
-    };
-    template <int some_dummy> struct helper<true,true,some_dummy>
-    {
-        template <class State>
-        static void execute(State const&,chain_row* tofill)
-        {
-            typedef typename create_stt<Fsm>::type stt;
-            BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
-            cell call_no_transition = &Fsm::defer_transition;
-            tofill[state_id+1].one_state.push_back(reinterpret_cast<void*>(call_no_transition));
-        }
-    };
-    template <int some_dummy> struct helper<false,true,some_dummy>
-    {
-        template <class State>
-        static
-        typename ::boost::enable_if<
-            typename ::boost::is_same<State,Fsm>::type
-        ,void>::type
-        execute(State const&,chain_row* tofill,boost::msm::back::dummy<0> = 0)
-        {
-            // for internal tables
-            cell call_no_transition_internal = &Fsm::call_no_transition;
-            tofill[0].one_state.push_front(reinterpret_cast<void*>(call_no_transition_internal));
-        }
-        template <class State>
-        static
-        typename ::boost::disable_if<
-            typename ::boost::is_same<State,Fsm>::type
-        ,void>::type
-        execute(State const&,chain_row* tofill,boost::msm::back::dummy<1> = 0)
-        {
-            typedef typename create_stt<Fsm>::type stt;
-            BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
-            cell call_no_transition = &call_submachine< State >;
-            tofill[state_id+1].one_state.push_front(reinterpret_cast<void*>(call_no_transition));
-        }
-    };
-    template <int some_dummy> struct helper<false,false,some_dummy>
-    {
-        template <class State>
-        static void execute(State const&,chain_row* tofill)
-        {
-            typedef typename create_stt<Fsm>::type stt;
-            BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
-            cell call_no_transition = &Fsm::call_no_transition;
-            tofill[state_id+1].one_state.push_back(reinterpret_cast<void*>(call_no_transition));
-        }
-    };
-    template <class State>
-    void operator()(State const& s)
-    {
-        helper<has_state_delayed_event<State,EventType>::type::value,
-                is_composite_state<State>::type::value>::execute(s,tofill_entries);
-    }
-    chain_row* tofill_entries;
-
- private:
-    template <class TransitionState>
-    static HandledEnum call_submachine(Fsm& fsm, int , int , EventType const& evt)
-    {
-        return (fsm.template get_state<TransitionState&>()).process_any_event( ::boost::any(evt));
-    }
-};
-
-// variant for anonymous transitions
-template <class Fsm, class EventType>
-struct default_init_cell_favor_compile_time<Fsm, EventType,
-                            typename ::boost::enable_if<
-                            typename is_completion_event<EventType>::type>::type>
-{
-    typedef HandledEnum (*cell)(Fsm&, int,int,EventType const&);
-
-    default_init_cell_favor_compile_time(chain_row* tofill_entries_)
-        : tofill_entries(tofill_entries_)
-    {}
-
-    // this event is a compound one (not a real one, just one for use in event-less transitions)
-    // Note this event cannot be used as deferred!
-    template <class State>
-    void operator()(State const&)
-    {
-        typedef typename create_stt<Fsm>::type stt;
-        BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
-        cell call_no_transition = &Fsm::default_eventless_transition;
-        tofill_entries[state_id+1].one_state.push_back(reinterpret_cast<void*>(call_no_transition));
+        entries[mp11::mp_first<PreprocessedRow>::value].one_state.push_back(reinterpret_cast<void*>(mp11::mp_second<PreprocessedRow>::value));
     }
 
-    chain_row* tofill_entries;
+    chain_row* entries;
 };
 
 
@@ -243,40 +142,69 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     typedef typename generate_state_set<Stt>::state_set_mp11 state_set_mp11;
     BOOST_STATIC_CONSTANT(int, max_state = (mp11::mp_size<state_set_mp11>::value));
 
+    template <class TransitionState>
+    static HandledEnum call_submachine(Fsm& fsm, int , int , Event const& evt)
+    {
+        return (fsm.template get_state<TransitionState&>()).process_any_event( ::boost::any(evt));
+    }
+
     // Helpers for state processing
-    // template<typename State>
-    // using preprocess_state = mp11::mp_list<
-    //     // Offset into the entries array
-    //     mp11::mp_if_c<
-    //         is_same<State,Fsm>::value,
-    //         mp11::mp_size_t<0>,
-    //         mp11::mp_size_t<get_state_id<Stt,State>::value + 1>
-    //         >,
-    //     // Address of the function to assign
-    //     mp11::mp_if_c<
-    //         is_completion_event<Event>::type::value,
-    //         std::integral_constant<
-    //             cell,
-    //             &Fsm::default_eventless_transition
-    //             >,
-    //         mp11::mp_eval_if_c<
-    //             !has_state_delayed_event<State,Event>::type::value,
-    //             mp11::mp_if_c<
-    //                 is_same<State,Fsm>::value,
-    //                 std::integral_constant<
-    //                     cell,
-    //                     &Fsm::call_no_transition_internal
-    //                     >,
-    //                 std::integral_constant<
-    //                     cell,
-    //                     &Fsm::call_no_transition
-    //                     >
-    //                 >,
-    //             fsm_defer_transition,
-    //             Fsm
-    //             >
-    //         >
-    //     >;
+    template<typename fsm = Fsm>
+    using fsm_defer_transition = std::integral_constant<
+        cell,
+        &fsm::defer_transition
+        >;
+    template<typename State>
+    using fsm_call_submachine = std::integral_constant<
+        cell,
+        &call_submachine<State>
+        >;
+    template<typename State>
+    using preprocess_state = mp11::mp_list<
+        // Offset into the entries array
+        get_table_index<Fsm, State, Event>,
+        // Address of the function to assign
+        mp11::mp_if_c<
+            is_completion_event<Event>::type::value,
+            // Completion event
+            std::integral_constant<
+                cell,
+                &Fsm::default_eventless_transition
+                >,
+            // No completion event
+            mp11::mp_eval_if_c<
+                !has_state_delayed_event<State, Event>::type::value,
+                // Not a deferred event
+                mp11::mp_if_c<
+                    is_same<State, Fsm>::value,
+                    // State is this Fsm
+                    std::integral_constant<
+                        cell,
+                        &Fsm::call_no_transition
+                        >,
+                    // State is not this Fsm
+                    mp11::mp_eval_if_c<
+                        !is_composite_state<State>::type::value,
+                        // State is not a composite
+                        std::integral_constant<
+                            cell,
+                            &Fsm::call_no_transition
+                            >,
+                        // State is a composite
+                        fsm_call_submachine,
+                        State
+                        >
+                    >,
+                // A deferred event
+                fsm_defer_transition,
+                Fsm
+                >
+            >
+        >;
+    typedef mp11::mp_transform<
+        preprocess_state,
+        typename generate_state_set<Stt>::state_set_mp11
+        > preprocessed_states;
 
     // Helpers for row processing
     template <typename T>
@@ -307,13 +235,13 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     // initialize the dispatch table for a given Event and Fsm
     dispatch_table()
     {
-        using default_init_cell_favor_compile_time = default_init_cell_favor_compile_time<Fsm, Event>;
+        using default_init_cell = default_init_cell<favor_compile_time>;
         using init_cell = init_cell<favor_compile_time>;
 
-        // Initialize cells for no transition
-        mp11::mp_for_each<typename generate_state_set<Stt>::state_set_mp11>
-            (default_init_cell_favor_compile_time{entries});
+        // Initialize cells for no transition.
+        mp11::mp_for_each<preprocessed_states>(default_init_cell{entries});
 
+        // Fill in cells for matching transitions
         mp11::mp_for_each<preprocessed_rows>(init_cell{entries});
     }
 

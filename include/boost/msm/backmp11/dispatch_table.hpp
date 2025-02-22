@@ -231,7 +231,7 @@ struct dispatch_table
         }
     };
 
-    // Helpers for default_init_cell
+    // Helpers for state processing
     template<typename fsm = Fsm>
     using fsm_defer_transition = std::integral_constant<
         cell,
