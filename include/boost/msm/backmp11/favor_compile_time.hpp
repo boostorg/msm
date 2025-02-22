@@ -73,15 +73,16 @@ struct favor_compile_time
 
 struct chain_row
 {
+    typedef HandledEnum (*cell)();
     template<typename Fsm, typename Event>
     HandledEnum operator()(Fsm& fsm, int region,int state,Event const& evt) const
     {
-        typedef HandledEnum (*cell)(Fsm&, int,int,Event const&);
+        typedef HandledEnum (*real_cell)(Fsm&, int,int,Event const&);
         HandledEnum res = HANDLED_FALSE;
-        typename std::deque<void*>::const_iterator it = one_state.begin();
+        typename std::deque<cell>::const_iterator it = one_state.begin();
         while (it != one_state.end() && (res != HANDLED_TRUE && res != HANDLED_DEFERRED ))
         {
-            auto fnc = reinterpret_cast<cell>(*it);
+            auto fnc = reinterpret_cast<real_cell>(*it);
             HandledEnum handled = (*fnc)(fsm,region,state,evt);
             // reject is considered as erasing an error (HANDLED_FALSE)
             if ((HANDLED_FALSE==handled) && (HANDLED_GUARD_REJECT==res) )
@@ -92,8 +93,8 @@ struct chain_row
         }
         return res;
     }
-    // Use a deque with void* to avoid unnecessary template instantiations.
-    std::deque<void*> one_state;
+    // Use a deque with a generic type to avoid unnecessary template instantiations.
+    std::deque<cell> one_state;
 };
 
 // A function object for use with mpl::for_each that stuffs
@@ -106,7 +107,7 @@ struct init_cell<favor_compile_time>
     template<typename PreprocessedRow>
     void operator()(PreprocessedRow const&)
     {
-        entries[mp11::mp_first<PreprocessedRow>::value].one_state.push_front(reinterpret_cast<void*>(mp11::mp_second<PreprocessedRow>::value));
+        entries[mp11::mp_first<PreprocessedRow>::value].one_state.push_front(reinterpret_cast<chain_row::cell>(mp11::mp_second<PreprocessedRow>::value));
     }
 
     chain_row* entries;
@@ -120,7 +121,7 @@ struct default_init_cell<favor_compile_time>
     template<typename PreprocessedRow>
     void operator()(PreprocessedRow const&)
     {
-        entries[mp11::mp_first<PreprocessedRow>::value].one_state.push_back(reinterpret_cast<void*>(mp11::mp_second<PreprocessedRow>::value));
+        entries[mp11::mp_first<PreprocessedRow>::value].one_state.push_back(reinterpret_cast<chain_row::cell>(mp11::mp_second<PreprocessedRow>::value));
     }
 
     chain_row* entries;
@@ -148,17 +149,67 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         return (fsm.template get_state<TransitionState&>()).process_any_event( ::boost::any(evt));
     }
 
-    // Helpers for state processing
-    template<typename fsm = Fsm>
+    template<typename fsm>
     using fsm_defer_transition = std::integral_constant<
         cell,
         &fsm::defer_transition
         >;
     template<typename State>
-    using fsm_call_submachine = std::integral_constant<
+    using state_call_submachine = std::integral_constant<
         cell,
         &call_submachine<State>
         >;
+    template <typename T>
+    using event_filter_predicate = mp11::mp_and<
+        is_base_of<typename T::transition_event, Event>,
+        mp11::mp_not<typename has_not_real_row_tag<T>::type>
+        >;
+
+
+    // // Does not seem to bring benefits and not sure if it's correct.
+    // template<typename Transition>
+    // using transition_execute = std::integral_constant<
+    //     cell,
+    //     &Transition::execute
+    //     >;
+    // template<typename Transition>
+    // struct get_transition_function
+    // {
+    //     using type = mp11::mp_eval_if_c<
+    //         !event_filter_predicate<Transition>::value,
+    //         // Event is not handled
+    //         mp11::mp_eval_if_c<
+    //             !has_state_delayed_event<typename Transition::current_state_type, Event>::type::value,
+    //             // Not a deferred event
+    //             mp11::mp_eval_if_c<
+    //                 !is_composite_state<typename Transition::current_state_type>::type::value,
+    //                 // State is not a composite
+    //                 std::integral_constant<
+    //                     cell,
+    //                     &Fsm::call_no_transition
+    //                     >,
+    //                 // State is a composite
+    //                 state_call_submachine,
+    //                 typename Transition::current_state_type
+    //                 >,
+    //             // A deferred event
+    //             fsm_defer_transition,
+    //             Fsm
+    //             >,
+    //         // Event is handled
+    //         transition_execute,
+    //         Transition
+    //         >;
+    // };
+    // template<typename Transition>
+    // using preprocess_everything = mp11::mp_list<
+    //     // Offset into the entries array
+    //     get_table_index<Fsm, typename Transition::current_state_type, typename Transition::transition_event>,
+    //     // Address of the function to assign
+    //     typename get_transition_function<Transition>::type
+    //     >;
+
+    // Helpers for state processing
     template<typename State>
     using preprocess_state = mp11::mp_list<
         // Offset into the entries array
@@ -191,7 +242,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
                             &Fsm::call_no_transition
                             >,
                         // State is a composite
-                        fsm_call_submachine,
+                        state_call_submachine,
                         State
                         >
                     >,
@@ -201,21 +252,8 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
                 >
             >
         >;
-    typedef mp11::mp_transform<
-        preprocess_state,
-        typename generate_state_set<Stt>::state_set_mp11
-        > preprocessed_states;
 
     // Helpers for row processing
-    template <typename T>
-    using event_filter_predicate = mp11::mp_and<
-        is_base_of<typename T::transition_event, Event>,
-        mp11::mp_not<typename has_not_real_row_tag<T>::type>
-        >;
-    typedef mp11::mp_copy_if<
-        typename to_mp_list<Stt>::type,
-        event_filter_predicate
-        > filtered_rows;
     template<typename Transition>
     using preprocess_row = mp11::mp_list<
         // Offset into the entries array
@@ -226,10 +264,6 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
             &Transition::execute
             >
         >;
-    typedef mp11::mp_transform<
-        preprocess_row,
-        filtered_rows
-        > preprocessed_rows;
 
  public:
     // initialize the dispatch table for a given Event and Fsm
@@ -239,10 +273,28 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         using init_cell = init_cell<favor_compile_time>;
 
         // Initialize cells for no transition.
+        typedef mp11::mp_transform<
+            preprocess_state,
+            typename generate_state_set<Stt>::state_set_mp11
+            > preprocessed_states;
         mp11::mp_for_each<preprocessed_states>(default_init_cell{entries});
-
+        
         // Fill in cells for matching transitions
+        typedef mp11::mp_copy_if<
+            typename to_mp_list<Stt>::type,
+            event_filter_predicate
+            > filtered_rows;
+        typedef mp11::mp_transform<
+            preprocess_row,
+            filtered_rows
+            > preprocessed_rows;
         mp11::mp_for_each<preprocessed_rows>(init_cell{entries});
+
+        // typedef mp11::mp_transform<
+        //     preprocess_everything,
+        //     typename to_mp_list<Stt>::type
+        //     > preprocessed_everything;
+        // mp11::mp_for_each<preprocessed_everything>(init_cell{entries});
     }
 
     // The singleton instance.
