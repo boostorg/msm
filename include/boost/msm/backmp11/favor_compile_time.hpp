@@ -98,40 +98,15 @@ struct chain_row
 
 // A function object for use with mpl::for_each that stuffs
 // transitions into cells.
-template <typename Fsm>
-struct init_cell_favor_compile_time
+template<>
+struct init_cell<favor_compile_time>
 {
-    init_cell_favor_compile_time(chain_row* entries_)
-        : entries(entries_)
-    {}
-    // version for transition event not base of our event
-    template <class Transition>
-    typename ::boost::disable_if<
-        typename ::boost::is_same<typename Transition::current_state_type,Fsm>::type
-    ,void>::type
-    init_event_base_case(Transition const&) const
-    {
-        typedef typename create_stt<Fsm>::type stt;
-        BOOST_STATIC_CONSTANT(int, state_id =
-            (get_state_id<stt,typename Transition::current_state_type>::value));
-        entries[state_id+1].one_state.push_front(reinterpret_cast<void*>(&Transition::execute));
-    }
-    template <class Transition>
-    typename ::boost::enable_if<
-        typename ::boost::is_same<typename Transition::current_state_type,Fsm>::type
-    ,void>::type
-    init_event_base_case(Transition const&) const
-    {
-        entries[0].one_state.push_front(reinterpret_cast<void*>(&Transition::execute));
-    }
+    init_cell(chain_row* entries_) : entries(entries_) {}
 
-    // Cell initializer function object, used with mpl::for_each
-    template <class Transition>
-    void operator()(Transition const& tr) const
+    template<typename PreprocessedRow>
+    void operator()(PreprocessedRow const&)
     {
-        // only if the transition event is a base of our event is the reinterpret_case safe
-        // -> which is always the case, because this functor is called with filtered rows
-        init_event_base_case(tr);
+        entries[mp11::mp_first<PreprocessedRow>::value].one_state.push_front(reinterpret_cast<void*>(mp11::mp_second<PreprocessedRow>::value));
     }
 
     chain_row* entries;
@@ -277,16 +252,34 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         typename to_mp_list<Stt>::type,
         event_filter_predicate
         > filtered_rows;
+    template<typename Transition>
+    using preprocess_row = mp11::mp_list<
+        // Offset into the entries array
+        mp11::mp_if_c<
+            is_same<typename Transition::current_state_type,Fsm>::value,
+            mp11::mp_size_t<0>,
+            mp11::mp_size_t<get_state_id<typename create_stt<Fsm>::type, typename Transition::current_state_type>::value + 1>
+            >,
+        // Address of the execute function
+        std::integral_constant<
+            cell,
+            &Transition::execute
+            >
+        >;
+    typedef mp11::mp_transform<
+        preprocess_row,
+        filtered_rows
+        > preprocessed_rows;
 
  public:
     // initialize the dispatch table for a given Event and Fsm
     dispatch_table()
     {
         using default_init_cell_favor_compile_time = default_init_cell_favor_compile_time<Fsm, Event>;
-        using init_cell_favor_compile_time = init_cell_favor_compile_time<Fsm>;
+        using init_cell = init_cell<favor_compile_time>;
 
         // Initialize cells for no transition
-        mp11::mp_for_each<filtered_rows>(init_cell_favor_compile_time{entries});
+        mp11::mp_for_each<preprocessed_rows>(init_cell{entries});
 
         mp11::mp_for_each<typename generate_state_set<Stt>::state_set_mp11>
             (default_init_cell_favor_compile_time{entries});
