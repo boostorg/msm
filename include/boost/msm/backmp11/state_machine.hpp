@@ -67,7 +67,6 @@
 #include <boost/msm/backmp11/history_policies.hpp>
 #include <boost/msm/back/common_types.hpp>
 #include <boost/msm/back/args.hpp>
-#include <boost/msm/back/default_compile_policy.hpp>
 #include <boost/msm/backmp11/dispatch_table.hpp>
 #include <boost/msm/back/no_fsm_check.hpp>
 #include <boost/msm/back/queue_container_deque.hpp>
@@ -92,20 +91,6 @@ BOOST_MPL_HAS_XXX_TRAIT_DEF(event_queue_before_deferred_queue)
 
 namespace boost { namespace msm { namespace back
 {
-
-// TODO: Clean up
-namespace detail_favor_runtime_speed
-{
-    struct init_cell;
-    struct default_init_cell;
-}
-namespace detail_favor_compile_time
-{
-    template <typename Fsm>
-    struct init_cell;
-    template<class Fsm, class EventType, class Enable>
-    struct default_init_cell;
-}
 
 // event used internally for wrapping a direct entry
 template <class StateType,class Event>
@@ -224,11 +209,11 @@ private:
     template <class ,class , class, class, class
     > friend class boost::msm::back::state_machine;
 
-    // all default_init_cell functors are friend with each other to allow initialization
+    // all cell initialization functors are friends to allow initialization
     // of the fsm dispatch tables
     // TODO: Clean up
     template<class Fsm, class EventType, class Enable>
-    friend class detail_favor_compile_time::default_init_cell;
+    friend class default_init_cell_favor_compile_time;
 
     // helper to add, if needed, visitors to all states
     // version without visitors

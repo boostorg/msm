@@ -29,6 +29,7 @@
 #include <boost/type_traits/is_same.hpp>
 
 #include <boost/msm/event_traits.hpp>
+#include <boost/msm/back/default_compile_policy.hpp>
 #include <boost/msm/backmp11/metafunctions.hpp>
 #include <boost/msm/back/common_types.hpp>
 
@@ -37,45 +38,49 @@ BOOST_MPL_HAS_XXX_TRAIT_DEF(is_frow)
 namespace boost { namespace msm { namespace back 
 {
 
-namespace detail_favor_runtime_speed
-{
+template<typename CompilePolicy>
+struct init_cell;
 
-struct init_cell
+template<>
+struct init_cell<favor_runtime_speed>
 {
     // TODO:
     // Double-check function pointer casts, especially for args.
-    typedef HandledEnum (*generic_cell)();
-    init_cell(generic_cell* entries) : entries(entries) {}
+    typedef HandledEnum (*cell)();
+    init_cell(cell* entries) : entries(entries) {}
 
     template<typename PreprocessedRow>
     void operator()(PreprocessedRow const&)
     {
         if (!mp11::mp_first<PreprocessedRow>::value)
         {
-            entries[mp11::mp_second<PreprocessedRow>::value] = reinterpret_cast<generic_cell>(mp11::mp_third<PreprocessedRow>::value);
+            entries[mp11::mp_second<PreprocessedRow>::value] = reinterpret_cast<cell>(mp11::mp_third<PreprocessedRow>::value);
         }
     }
 
-    generic_cell* entries;
+    cell* entries;
 };
 
-struct default_init_cell
+template<typename CompilePolicy>
+struct default_init_cell;
+
+template<>
+struct default_init_cell<favor_runtime_speed>
 {
     // TODO:
     // Double-check function pointer casts, especially for args.
-    typedef HandledEnum (*generic_cell)();
-    default_init_cell(generic_cell* entries) : entries(entries) {}
+    typedef HandledEnum (*cell)();
+    default_init_cell(cell* entries) : entries(entries) {}
 
     template<typename PreprocessedState>
     void operator()(PreprocessedState const&)
     {
-        entries[mp11::mp_first<PreprocessedState>::value] = reinterpret_cast<generic_cell>(mp11::mp_second<PreprocessedState>::value);
+        entries[mp11::mp_first<PreprocessedState>::value] = reinterpret_cast<cell>(mp11::mp_second<PreprocessedState>::value);
     }
 
-    generic_cell* entries;
+    cell* entries;
 };
 
-} // detail_favor_runtime_speed
 
 // Generates a singleton runtime lookup table that maps current state
 // to a function that makes the SM take its transition on the given
@@ -319,8 +324,8 @@ struct dispatch_table
     // initialize the dispatch table for a given Event and Fsm
     dispatch_table()
     {
-        using default_init_cell = detail_favor_runtime_speed::default_init_cell;
-        using init_cell = detail_favor_runtime_speed::init_cell;
+        using default_init_cell = default_init_cell<favor_runtime_speed>;
+        using init_cell = init_cell<favor_runtime_speed>;
 
         // Initialize cells for no transition
         typedef mp11::mp_transform<
@@ -328,7 +333,7 @@ struct dispatch_table
             typename generate_state_set<Stt>::state_set_mp11
             > preprocessed_states;
         mp11::mp_for_each<preprocessed_states>
-            (default_init_cell{reinterpret_cast<default_init_cell::generic_cell*>(entries)});
+            (default_init_cell{reinterpret_cast<default_init_cell::cell*>(entries)});
         
         // build chaining rows for rows coming from the same state and the current event
         // first we build a map of sequence for every source
@@ -352,7 +357,7 @@ struct dispatch_table
             > chained_and_preprocessed_rows;
         // Go back and fill in cells for matching transitions.
         mp11::mp_for_each<chained_and_preprocessed_rows>
-            (init_cell{reinterpret_cast<init_cell::generic_cell*>(entries)});
+            (init_cell{reinterpret_cast<init_cell::cell*>(entries)});
     }
 
     // The singleton instance.

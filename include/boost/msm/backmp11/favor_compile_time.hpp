@@ -96,15 +96,12 @@ struct chain_row
     std::deque<void*> one_state;
 };
 
-namespace detail_favor_compile_time
-{
-
 // A function object for use with mpl::for_each that stuffs
 // transitions into cells.
 template <typename Fsm>
-struct init_cell
+struct init_cell_favor_compile_time
 {
-    init_cell(chain_row* entries_)
+    init_cell_favor_compile_time(chain_row* entries_)
         : entries(entries_)
     {}
     // version for transition event not base of our event
@@ -144,11 +141,11 @@ struct init_cell
 // initializes with call_no_transition, defer_transition or default_eventless_transition
 // variant for non-anonymous transitions
 template <class Fsm, class EventType, class Enable=void>
-struct default_init_cell
+struct default_init_cell_favor_compile_time
 {
     typedef HandledEnum (*cell)(Fsm&, int,int,EventType const&);
 
-    default_init_cell(chain_row* tofill_entries_)
+    default_init_cell_favor_compile_time(chain_row* tofill_entries_)
         : tofill_entries(tofill_entries_)
     {}
     template <bool deferred,bool composite, int some_dummy=0>
@@ -231,13 +228,13 @@ struct default_init_cell
 
 // variant for anonymous transitions
 template <class Fsm, class EventType>
-struct default_init_cell<Fsm, EventType,
+struct default_init_cell_favor_compile_time<Fsm, EventType,
                             typename ::boost::enable_if<
                             typename is_completion_event<EventType>::type>::type>
 {
     typedef HandledEnum (*cell)(Fsm&, int,int,EventType const&);
 
-    default_init_cell(chain_row* tofill_entries_)
+    default_init_cell_favor_compile_time(chain_row* tofill_entries_)
         : tofill_entries(tofill_entries_)
     {}
 
@@ -255,7 +252,6 @@ struct default_init_cell<Fsm, EventType,
     chain_row* tofill_entries;
 };
 
-} // detail_favor_compile_time
 
 // Generates a singleton runtime lookup table that maps current state
 // to a function that makes the SM take its transition on the given
@@ -286,14 +282,14 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     // initialize the dispatch table for a given Event and Fsm
     dispatch_table()
     {
-        using default_init_cell = detail_favor_compile_time::default_init_cell<Fsm, Event>;
-        using init_cell = detail_favor_compile_time::init_cell<Fsm>;
+        using default_init_cell_favor_compile_time = default_init_cell_favor_compile_time<Fsm, Event>;
+        using init_cell_favor_compile_time = init_cell_favor_compile_time<Fsm>;
 
         // Initialize cells for no transition
-        mp11::mp_for_each<filtered_rows>(init_cell{entries});
+        mp11::mp_for_each<filtered_rows>(init_cell_favor_compile_time{entries});
 
         mp11::mp_for_each<typename generate_state_set<Stt>::state_set_mp11>
-            (default_init_cell{entries});
+            (default_init_cell_favor_compile_time{entries});
     }
 
     // The singleton instance.
