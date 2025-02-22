@@ -81,6 +81,29 @@ struct default_init_cell<favor_runtime_speed>
     cell* entries;
 };
 
+template<typename Fsm, typename State, typename Event>
+struct table_index
+{
+    using type = mp11::mp_if<
+        mp11::mp_or<
+            mp11::mp_not<is_same<State, Fsm>>,
+            typename has_state_delayed_event<State, Event>::type
+            >,
+        mp11::mp_size_t<get_state_id<typename create_stt<Fsm>::type, State>::value + 1>,
+        mp11::mp_size_t<0>
+        >;
+};
+template<typename Fsm, typename State>
+struct table_index<Fsm, State, void>
+{
+    using type = mp11::mp_if<
+        mp11::mp_not<is_same<State, Fsm>>,
+        mp11::mp_size_t<get_state_id<typename create_stt<Fsm>::type, State>::value + 1>,
+        mp11::mp_size_t<0>
+        >;
+};
+template<typename Fsm, typename State, typename Event = void>
+using get_table_index = typename table_index<Fsm, State, Event>::type;
 
 // Generates a singleton runtime lookup table that maps current state
 // to a function that makes the SM take its transition on the given
@@ -217,11 +240,7 @@ struct dispatch_table
     template<typename State>
     using preprocess_state = mp11::mp_list<
         // Offset into the entries array
-        mp11::mp_if_c<
-            is_same<State,Fsm>::value,
-            mp11::mp_size_t<0>,
-            mp11::mp_size_t<get_state_id<Stt,State>::value + 1>
-            >,
+        get_table_index<Fsm, State, Event>,
         // Address of the function to assign
         mp11::mp_if_c<
             is_completion_event<Event>::type::value,
@@ -300,11 +319,7 @@ struct dispatch_table
         // Condition for executing
         has_not_real_row_tag<Transition>,
         // Offset into the entries array
-        mp11::mp_if_c<
-            is_same<typename Transition::current_state_type,Fsm>::value,
-            mp11::mp_size_t<0>,
-            mp11::mp_size_t<get_state_id<typename create_stt<Fsm>::type, typename Transition::current_state_type>::value + 1>
-            >,
+        get_table_index<Fsm, typename Transition::current_state_type>,
         // Address of the execute function
         mp11::mp_eval_if_c<
             is_kleene_event<typename Transition::transition_event>::type::value,

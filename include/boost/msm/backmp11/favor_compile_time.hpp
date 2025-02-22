@@ -243,6 +243,42 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     typedef typename generate_state_set<Stt>::state_set_mp11 state_set_mp11;
     BOOST_STATIC_CONSTANT(int, max_state = (mp11::mp_size<state_set_mp11>::value));
 
+    // Helpers for state processing
+    // template<typename State>
+    // using preprocess_state = mp11::mp_list<
+    //     // Offset into the entries array
+    //     mp11::mp_if_c<
+    //         is_same<State,Fsm>::value,
+    //         mp11::mp_size_t<0>,
+    //         mp11::mp_size_t<get_state_id<Stt,State>::value + 1>
+    //         >,
+    //     // Address of the function to assign
+    //     mp11::mp_if_c<
+    //         is_completion_event<Event>::type::value,
+    //         std::integral_constant<
+    //             cell,
+    //             &Fsm::default_eventless_transition
+    //             >,
+    //         mp11::mp_eval_if_c<
+    //             !has_state_delayed_event<State,Event>::type::value,
+    //             mp11::mp_if_c<
+    //                 is_same<State,Fsm>::value,
+    //                 std::integral_constant<
+    //                     cell,
+    //                     &Fsm::call_no_transition_internal
+    //                     >,
+    //                 std::integral_constant<
+    //                     cell,
+    //                     &Fsm::call_no_transition
+    //                     >
+    //                 >,
+    //             fsm_defer_transition,
+    //             Fsm
+    //             >
+    //         >
+    //     >;
+
+    // Helpers for row processing
     template <typename T>
     using event_filter_predicate = mp11::mp_and<
         is_base_of<typename T::transition_event, Event>,
@@ -255,11 +291,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     template<typename Transition>
     using preprocess_row = mp11::mp_list<
         // Offset into the entries array
-        mp11::mp_if_c<
-            is_same<typename Transition::current_state_type,Fsm>::value,
-            mp11::mp_size_t<0>,
-            mp11::mp_size_t<get_state_id<typename create_stt<Fsm>::type, typename Transition::current_state_type>::value + 1>
-            >,
+        get_table_index<Fsm, typename Transition::current_state_type>,
         // Address of the execute function
         std::integral_constant<
             cell,
@@ -279,10 +311,10 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         using init_cell = init_cell<favor_compile_time>;
 
         // Initialize cells for no transition
-        mp11::mp_for_each<preprocessed_rows>(init_cell{entries});
-
         mp11::mp_for_each<typename generate_state_set<Stt>::state_set_mp11>
             (default_init_cell_favor_compile_time{entries});
+
+        mp11::mp_for_each<preprocessed_rows>(init_cell{entries});
     }
 
     // The singleton instance.
