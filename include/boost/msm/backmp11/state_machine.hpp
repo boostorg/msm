@@ -1165,8 +1165,8 @@ private:
         // and add for every event a forwarding row
         typedef typename ::boost::mpl::eval_if<
                 typename CompilePolicy::add_forwarding_rows,
-                add_forwarding_row_helper<table_with_all_events,::boost::mpl::vector0<>,StateType>,
-                ::boost::mpl::identity< ::boost::mpl::vector0<> >
+                add_forwarding_row_helper<table_with_all_events,mp11::mp_list<>,StateType>,
+                ::boost::mpl::identity< mp11::mp_list<> >
         >::type type;
     };
     template <class StateType>
