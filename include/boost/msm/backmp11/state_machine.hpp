@@ -2622,7 +2622,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          }
          // iterates through all states to find the one to be activated
          template <class State>
-         void operator()( ::boost::msm::wrap<State> const&)
+         void operator()(State const&)
          {
              entry_exit_helper<Event,is_entry>::template helper< ::boost::mpl::bool_<is_entry>,State >();
          }
@@ -2640,7 +2640,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          static void do_start(library_sm* self_,Event const& incomingEvent)
          {
              //forward the event for handling by sub state machines
-             ::boost::mpl::for_each<state_list, ::boost::msm::wrap< ::boost::mpl::placeholders::_1> >
+             mp11::mp_for_each<state_set_mp11>
                  (entry_exit_helper<Event,true>(self_->m_states[region_id::value],incomingEvent,self_));
              region_start_helper
                  < ::boost::mpl::int_<region_id::value+1> >::do_start(self_,incomingEvent);

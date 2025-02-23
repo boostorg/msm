@@ -32,10 +32,24 @@ struct process_any_event_helper
 {
     process_any_event_helper(msm::back::HandledEnum& res_,Fsm* self_,::boost::any any_event_):
     res(res_),self(self_),any_event(any_event_),finished(false){}
-    template <class Event>
-    void operator()(boost::msm::wrap<Event> const&)
+    
+    static HandledEnum execute(Fsm* self, ::boost::any const& any_event)
     {
-        if ( ! finished && ::boost::any_cast<Event>(&any_event)!=0)
+        typedef typename recursive_get_transition_table<Fsm>::type stt;
+        typedef typename generate_event_set<stt>::event_set_mp11 stt_events;
+        typedef typename recursive_get_internal_transition_table<Fsm, ::boost::mpl::true_>::type istt;
+        typedef typename generate_event_set<typename Fsm::template create_real_stt<Fsm, istt>::type>::event_set_mp11 istt_events;
+        typedef mp11::mp_set_union<stt_events, istt_events> all_events;
+        
+        HandledEnum res= HANDLED_FALSE;
+        mp11::mp_for_each<all_events>(process_any_event_helper<Fsm>(res, self, any_event));
+        return res;
+    }
+    
+    template <class Event>
+    void operator()(Event const&)
+    {
+        if (!finished && ::boost::any_cast<Event>(&any_event) != 0)
         {
             finished = true;
             res = self->process_event_internal(::boost::any_cast<Event>(any_event));
@@ -53,15 +67,7 @@ private:
     template<>                                                                                      \
     ::boost::msm::back::HandledEnum fsmname::process_any_event( ::boost::any const& any_event)      \
     {                                                                                               \
-        typedef ::boost::msm::back::recursive_get_transition_table<fsmname>::type stt;              \
-        typedef ::boost::msm::back::generate_event_set<stt>::type stt_events;                       \
-        typedef ::boost::msm::back::recursive_get_internal_transition_table<fsmname, ::boost::mpl::true_ >::type istt;    \
-        typedef ::boost::msm::back::generate_event_set<create_real_stt<fsmname,istt>::type >::type istt_events;  \
-        typedef ::boost::msm::back::set_insert_range<stt_events,istt_events>::type all_events;      \
-        ::boost::msm::back::HandledEnum res= ::boost::msm::back::HANDLED_FALSE;                     \
-        ::boost::mpl::for_each<all_events, ::boost::msm::wrap< ::boost::mpl::placeholders::_1> >    \
-        (::boost::msm::back::process_any_event_helper<fsmname>(res,this,any_event));                \
-        return res;                                                                                 \
+        return ::boost::msm::back::process_any_event_helper<fsmname>::execute(this, any_event);     \
     }                                                                                               \
     }}}
 
@@ -82,7 +88,7 @@ struct chain_row
         typename std::deque<cell>::const_iterator it = one_state.begin();
         while (it != one_state.end() && (res != HANDLED_TRUE && res != HANDLED_DEFERRED ))
         {
-            auto fnc = reinterpret_cast<real_cell>(*it);
+            auto fnc = reinterpret_cast<real_cell>(reinterpret_cast<void*>(*it));
             HandledEnum handled = (*fnc)(fsm,region,state,evt);
             // reject is considered as erasing an error (HANDLED_FALSE)
             if ((HANDLED_FALSE==handled) && (HANDLED_GUARD_REJECT==res) )
@@ -107,7 +113,8 @@ struct init_cell<favor_compile_time>
     template<typename PreprocessedRow>
     void operator()(PreprocessedRow const&)
     {
-        entries[mp11::mp_first<PreprocessedRow>::value].one_state.push_front(reinterpret_cast<chain_row::cell>(mp11::mp_second<PreprocessedRow>::value));
+        entries[mp11::mp_first<PreprocessedRow>::value].one_state.push_front(
+            reinterpret_cast<chain_row::cell>(reinterpret_cast<void*>(mp11::mp_second<PreprocessedRow>::value)));
     }
 
     chain_row* entries;
@@ -123,7 +130,8 @@ struct default_init_cell<favor_compile_time>
     template<typename PreprocessedRow>
     void operator()(PreprocessedRow const&)
     {
-        entries[mp11::mp_first<PreprocessedRow>::value].one_state.push_back(reinterpret_cast<chain_row::cell>(mp11::mp_second<PreprocessedRow>::value));
+        entries[mp11::mp_first<PreprocessedRow>::value].one_state.push_back(
+            reinterpret_cast<chain_row::cell>(reinterpret_cast<void*>(mp11::mp_second<PreprocessedRow>::value)));
     }
 
     chain_row* entries;

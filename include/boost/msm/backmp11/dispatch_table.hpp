@@ -52,7 +52,8 @@ struct init_cell<favor_runtime_speed>
     {
         if (!mp11::mp_first<PreprocessedRow>::value)
         {
-            entries[mp11::mp_second<PreprocessedRow>::value] = reinterpret_cast<cell>(mp11::mp_third<PreprocessedRow>::value);
+            entries[mp11::mp_second<PreprocessedRow>::value] = 
+                reinterpret_cast<cell>(reinterpret_cast<void*>(mp11::mp_third<PreprocessedRow>::value));
         }
     }
 
@@ -75,7 +76,8 @@ struct default_init_cell<favor_runtime_speed>
     template<typename PreprocessedState>
     void operator()(PreprocessedState const&)
     {
-        entries[mp11::mp_first<PreprocessedState>::value] = reinterpret_cast<cell>(mp11::mp_second<PreprocessedState>::value);
+        entries[mp11::mp_first<PreprocessedState>::value] =
+            reinterpret_cast<cell>(reinterpret_cast<void*>(mp11::mp_second<PreprocessedState>::value));
     }
 
     cell* entries;
