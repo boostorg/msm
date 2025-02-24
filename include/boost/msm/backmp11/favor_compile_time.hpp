@@ -138,6 +138,49 @@ struct default_init_cell<favor_compile_time>
 };
 
 
+
+
+struct generic_init_cell_value
+{
+    size_t index;
+    chain_row::cell address;
+};
+
+template<typename Fsm, typename Event>
+using cell_experiment = HandledEnum (*)(Fsm&, int,int,Event const&);
+
+template<typename cell>
+struct init_cell_value
+{
+    size_t index;
+    cell address;
+};
+template<size_t v1, typename TCell, TCell v2>
+struct init_cell_constant
+{
+    static constexpr init_cell_value<TCell> value = {v1, v2};
+};
+
+inline void default_init_cells(chain_row* entries, const generic_init_cell_value* array, size_t size)
+{
+    for (size_t i=0; i<size; i++)
+    {
+        const auto& item = array[i];
+        entries[item.index].one_state.push_back(reinterpret_cast<chain_row::cell>(item.address));
+    }
+}
+
+inline void init_cells(chain_row* entries, const generic_init_cell_value* array, size_t size)
+{
+    for (size_t i=0; i<size; i++)
+    {
+        const auto& item = array[i];
+        entries[item.index].one_state.push_front(reinterpret_cast<chain_row::cell>(item.address));
+    }
+}
+
+
+
 // Generates a singleton runtime lookup table that maps current state
 // to a function that makes the SM take its transition on the given
 // Event type.
@@ -158,6 +201,16 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     {
         return (fsm.template get_state<TransitionState&>()).process_any_event( ::boost::any(evt));
     }
+
+    // Helpers to create a cell initializer array
+    using init_cell_value = init_cell_value<cell>;
+    template<size_t v1, cell v2>
+    using init_cell_constant = init_cell_constant<v1, cell, v2>;
+    // struct init_cell_table
+    // {
+    //     const cell* const data;
+    //     const size_t size;
+    // };
 
     template<typename fsm>
     using fsm_defer_transition = std::integral_constant<
@@ -219,6 +272,46 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
             >
         >;
 
+    template<cell v>
+    struct cell_address_wrapper
+    {
+        static constexpr cell value = v;
+    };
+
+    template<typename State>
+    using preprocess_state_2 = init_cell_constant<
+        // Offset into the entries array
+        get_table_index<Fsm, State, Event>::value,
+        // Address of the function to assign
+        mp11::mp_if_c<
+            is_completion_event<Event>::type::value,
+            // Completion event
+            cell_address_wrapper<&Fsm::default_eventless_transition>,
+            // No completion event
+            mp11::mp_eval_if_c<
+                !has_state_delayed_event<State, Event>::type::value,
+                // Not a deferred event
+                mp11::mp_if_c<
+                    is_same<State, Fsm>::value,
+                    // State is this Fsm
+                    cell_address_wrapper<&Fsm::call_no_transition>,
+                    // State is not this Fsm
+                    mp11::mp_eval_if_c<
+                        !is_composite_state<State>::type::value,
+                        // State is not a submachine
+                        cell_address_wrapper<&Fsm::call_no_transition>,
+                        // State is a submachine
+                        state_call_submachine,
+                        State
+                        >
+                    >,
+                // A deferred event
+                fsm_defer_transition,
+                Fsm
+                >
+            >::value
+        >;
+
     // Helpers for row processing
     template<typename Transition>
     using preprocess_row = mp11::mp_list<
@@ -231,30 +324,78 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
             >
         >;
 
+    template<typename Transition>
+    using preprocess_row_2 = init_cell_constant<
+        // Offset into the entries array
+        get_table_index<Fsm, typename Transition::current_state_type>::value,
+        // Address of the execute function
+        &Transition::execute
+        >;
+
+    template<typename Table, std::size_t... I>
+    static const init_cell_value* const create_init_cells_impl(mp11::index_sequence<I...>)
+    {
+        static constexpr init_cell_value values[] {mp11::mp_at_c<Table, I>::value...};
+        return values;
+    }
+    template<typename Table>
+    static const init_cell_value* const create_init_cells()
+    {
+        return create_init_cells_impl<Table>(mp11::make_index_sequence<mp11::mp_size<Table>::value>{});
+    }
+
  public:
+    // initialize the dispatch table for a given Event and Fsm
+    // dispatch_table()
+    // {
+    //     using default_init_cell = default_init_cell<favor_compile_time>;
+    //     using init_cell = init_cell<favor_compile_time>;
+
+    //     // Initialize cells for no transition
+    //     typedef mp11::mp_transform<
+    //         preprocess_state,
+    //         typename generate_state_set<Stt>::state_set_mp11
+    //         > preprocessed_states;
+    //     mp11::mp_for_each<preprocessed_states>(default_init_cell{entries});
+
+    //     // Fill in cells for matching transitions
+    //     typedef mp11::mp_copy_if<
+    //         typename to_mp_list<Stt>::type,
+    //         event_filter_predicate
+    //         > filtered_rows;
+    //     typedef mp11::mp_transform<
+    //         preprocess_row,
+    //         filtered_rows
+    //         > preprocessed_rows;
+    //     mp11::mp_for_each<preprocessed_rows>(init_cell{entries});
+    // }
+
     // initialize the dispatch table for a given Event and Fsm
     dispatch_table()
     {
-        using default_init_cell = default_init_cell<favor_compile_time>;
-        using init_cell = init_cell<favor_compile_time>;
-
-        // Initialize cells for no transition
         typedef mp11::mp_transform<
-            preprocess_state,
+            preprocess_state_2,
             typename generate_state_set<Stt>::state_set_mp11
             > preprocessed_states;
-        mp11::mp_for_each<preprocessed_states>(default_init_cell{entries});
-        
+        static const auto default_init_cell_array = create_init_cells<preprocessed_states>();
+        auto generic_default_init_cell_array =
+            reinterpret_cast<const generic_init_cell_value*>(default_init_cell_array);
+        default_init_cells(entries, generic_default_init_cell_array, mp11::mp_size<preprocessed_states>::value);
+
         // Fill in cells for matching transitions
         typedef mp11::mp_copy_if<
             typename to_mp_list<Stt>::type,
             event_filter_predicate
             > filtered_rows;
         typedef mp11::mp_transform<
-            preprocess_row,
+            preprocess_row_2,
             filtered_rows
             > preprocessed_rows;
-        mp11::mp_for_each<preprocessed_rows>(init_cell{entries});
+        // Array instance needed separately to circumvent weird linker error.
+        static const auto init_cell_array = create_init_cells<preprocessed_rows>();
+        auto generic_init_cell_array =
+            reinterpret_cast<const generic_init_cell_value*>(init_cell_array);
+        init_cells(entries, generic_init_cell_array, mp11::mp_size<preprocessed_rows>::value);
     }
 
     // The singleton instance.
