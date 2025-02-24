@@ -167,6 +167,12 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     template<size_t v1, cell v2>
     using init_cell_constant = init_cell_constant<v1, cell, v2>;
 
+    template<cell v>
+    struct cell_address_wrapper
+    {
+        static constexpr cell value = v;
+    };
+
     template<typename fsm>
     using fsm_defer_transition = std::integral_constant<
         cell,
@@ -184,11 +190,6 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         >;
 
     // Helpers for state processing
-    template<cell v>
-    struct cell_address_wrapper
-    {
-        static constexpr cell value = v;
-    };
     template<typename State>
     using preprocess_state = init_cell_constant<
         // Offset into the entries array
@@ -223,6 +224,25 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
             >::value
         >;
 
+    template<typename V, typename State>
+    using push_call_submachine_init_cell = mp11::mp_push_back<V, init_cell_constant<get_table_index<Fsm, State, Event>::value, &call_submachine<State>>>;
+    template<typename V, typename State>
+    using push_defer_transition_init_cell = mp11::mp_push_back<V, init_cell_constant<get_table_index<Fsm, State, Event>::value, &State::defer_transition>>;
+    template <typename V, typename State>
+    using preprocess_state_2 = mp11::mp_eval_if_c<
+        !has_state_delayed_event<State, Event>::type::value,
+        mp11::mp_eval_if_c<
+            !(is_composite_state<State>::type::value && !is_same<State, Fsm>::value),
+            V,
+            push_call_submachine_init_cell,
+            V,
+            State
+            >,
+        push_defer_transition_init_cell,
+        V,
+        State
+        >;
+
     // Helpers for row processing
     template<typename Transition>
     using preprocess_row = init_cell_constant<
@@ -248,9 +268,20 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     // initialize the dispatch table for a given Event and Fsm
     dispatch_table()
     {
-        typedef mp11::mp_transform<
-            preprocess_state,
-            typename generate_state_set<Stt>::state_set_mp11
+        // typedef mp11::mp_transform<
+        //     preprocess_state,
+        //     typename generate_state_set<Stt>::state_set_mp11
+        //     > preprocessed_states;
+        // static const auto default_init_cell_array = create_init_cells<preprocessed_states>();
+        // auto generic_default_init_cell_array =
+        //     reinterpret_cast<const generic_init_cell_value*>(default_init_cell_array);
+        // default_init_cells(entries, generic_default_init_cell_array, mp11::mp_size<preprocessed_states>::value);
+
+        // Only instantiate cells that defer an event or call a submachine.
+        typedef mp11::mp_fold<
+            typename generate_state_set<Stt>::state_set_mp11,
+            mp11::mp_list<>,
+            preprocess_state_2
             > preprocessed_states;
         static const auto default_init_cell_array = create_init_cells<preprocessed_states>();
         auto generic_default_init_cell_array =
