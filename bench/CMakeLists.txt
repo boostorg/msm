@@ -22,8 +22,8 @@ add_test(bench_backmp11_nested_fsm_favor_compile_time bench_backmp11_nested_fsm_
 
 add_custom_target(benchmarks)
 add_dependencies(benchmarks
-    bench_back
-    bench_back_favor_compile_time
+    # bench_back
+    # bench_back_favor_compile_time
     # bench_back11
     bench_backmp11
     bench_backmp11_favor_compile_time
@@ -31,8 +31,8 @@ add_dependencies(benchmarks
 
 add_custom_target(benchmarks_nested_fsm)
 add_dependencies(benchmarks_nested_fsm
-    bench_back_nested_fsm
-    bench_back_nested_fsm_favor_compile_time
+    # bench_back_nested_fsm
+    # bench_back_nested_fsm_favor_compile_time
     bench_backmp11_nested_fsm
     bench_backmp11_nested_fsm_favor_compile_time
 )

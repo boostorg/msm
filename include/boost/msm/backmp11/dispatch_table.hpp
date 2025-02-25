@@ -36,6 +36,40 @@ BOOST_MPL_HAS_XXX_TRAIT_DEF(is_frow)
 namespace boost { namespace msm { namespace back 
 {
 
+// Value used to initialize a cell of the dispatch table
+template<typename Cell>
+struct init_cell_value
+{
+    size_t index;
+    Cell address;
+};
+template<size_t v1, typename Cell, Cell v2>
+struct init_cell_constant
+{
+    static constexpr init_cell_value<Cell> value = {v1, v2};
+};
+
+// Type-punned init cell value to suppress redundant template instantiations
+typedef HandledEnum (*generic_cell)();
+struct generic_init_cell_value
+{
+    size_t index;
+    generic_cell address;
+};
+
+// Helper to create an array of init cell values for table initialization
+template<typename Cell, typename InitCellConstants, std::size_t... I>
+static const auto* const create_init_cells_impl(mp11::index_sequence<I...>)
+{
+    static constexpr init_cell_value<Cell> values[] {mp11::mp_at_c<InitCellConstants, I>::value...};
+    return values;
+}
+template<typename Cell, typename InitCellConstants>
+static const auto* const create_init_cells()
+{
+    return create_init_cells_impl<Cell, InitCellConstants>(mp11::make_index_sequence<mp11::mp_size<InitCellConstants>::value>{});
+}
+
 template<typename CompilePolicy>
 struct init_cell;
 
@@ -44,17 +78,16 @@ struct init_cell;
 template<>
 struct init_cell<favor_runtime_speed>
 {
-    typedef HandledEnum (*cell)();
-    init_cell(cell* entries) : entries(entries) {}
+    init_cell(generic_cell* entries) : entries(entries) {}
 
-    template<typename PreprocessedRow>
-    void operator()(PreprocessedRow const&)
+    template<typename init_cell_constant>
+    void operator()(init_cell_constant const&)
     {
-            entries[mp11::mp_first<PreprocessedRow>::value] = 
-                reinterpret_cast<cell>(reinterpret_cast<void*>(mp11::mp_second<PreprocessedRow>::value));
+        entries[init_cell_constant::value.index] =
+            reinterpret_cast<generic_cell>(reinterpret_cast<void*>(init_cell_constant::value.address));
     }
 
-    cell* entries;
+    generic_cell* entries;
 };
 
 template<typename CompilePolicy>
@@ -65,20 +98,26 @@ struct default_init_cell;
 template<>
 struct default_init_cell<favor_runtime_speed>
 {
-    // TODO:
-    // Double-check function pointer casts, especially for args.
-    typedef HandledEnum (*cell)();
-    default_init_cell(cell* entries) : entries(entries) {}
+    default_init_cell(generic_cell* entries) : entries(entries) {}
 
-    template<typename PreprocessedState>
-    void operator()(PreprocessedState const&)
+    template<typename init_cell_constant>
+    void operator()(init_cell_constant const&)
     {
-        entries[mp11::mp_first<PreprocessedState>::value] =
-            reinterpret_cast<cell>(reinterpret_cast<void*>(mp11::mp_second<PreprocessedState>::value));
+        entries[init_cell_constant::value.index] =
+            reinterpret_cast<generic_cell>(reinterpret_cast<void*>(init_cell_constant::value.address));
     }
 
-    cell* entries;
+    generic_cell* entries;
 };
+
+inline void init_cells_runtime(generic_cell* entries, const generic_init_cell_value* array, size_t size)
+{
+    for (size_t i=0; i<size; i++)
+    {
+        const auto& item = array[i];
+        entries[item.index] = item.address;
+    }
+}
 
 template<typename Fsm, typename State, typename Event>
 struct table_index
@@ -230,40 +269,36 @@ struct dispatch_table
         }
     };
 
+    using init_cell_value = init_cell_value<cell>;
+
+    template<size_t v1, cell v2>
+    using init_cell_constant = init_cell_constant<v1, cell, v2>;
+
+    template<cell v>
+    using cell_constant = std::integral_constant<cell, v>;
+
     // Helpers for state processing
-    template<typename fsm = Fsm>
-    using fsm_defer_transition = std::integral_constant<
-        cell,
-        &fsm::defer_transition
-        >;
+    template<typename fsm>
+    using fsm_defer_transition = cell_constant<&fsm::defer_transition>;
     template<typename State>
-    using preprocess_state = mp11::mp_list<
+    using preprocess_state = init_cell_constant<
         // Offset into the entries array
-        get_table_index<Fsm, State, Event>,
+        get_table_index<Fsm, State, Event>::value,
         // Address of the function to assign
         mp11::mp_if_c<
             is_completion_event<Event>::type::value,
-            std::integral_constant<
-                cell,
-                &Fsm::default_eventless_transition
-                >,
+            cell_constant<&Fsm::default_eventless_transition>,
             mp11::mp_eval_if_c<
                 !has_state_delayed_event<State,Event>::type::value,
                 mp11::mp_if_c<
                     is_same<State,Fsm>::value,
-                    std::integral_constant<
-                        cell,
-                        &Fsm::call_no_transition_internal
-                        >,
-                    std::integral_constant<
-                        cell,
-                        &Fsm::call_no_transition
-                        >
+                    cell_constant<&Fsm::call_no_transition_internal>,
+                    cell_constant<&Fsm::call_no_transition>
                     >,
                 fsm_defer_transition,
                 Fsm
                 >
-            >
+            >::value
         >;
 
     // Helpers for first operation (fold)
@@ -312,26 +347,22 @@ struct dispatch_table
         mp11::mp_front<mp11::mp_second<T>>
         >;
     template<typename Transition>
-    using preprocess_row_helper = std::integral_constant<
-        cell,
-        &Transition::execute
-        >;
+    using preprocess_row_helper = cell_constant<&Transition::execute>;
     template<typename Transition>
-    using preprocess_row = mp11::mp_list<
+    using preprocess_row = init_cell_constant<
         // Offset into the entries array
-        get_table_index<Fsm, typename Transition::current_state_type>,
+        get_table_index<Fsm, typename Transition::current_state_type>::value,
         // Address of the execute function
         mp11::mp_eval_if_c<
             is_kleene_event<typename Transition::transition_event>::type::value,
-            std::integral_constant<
-                cell,
+            cell_constant<
                 // TODO:
                 // Try out against enable_if in convert_event_and_forward
                 &convert_event_and_forward<Transition>::execute
                 >,
             preprocess_row_helper,
             Transition
-            >
+            >::value
         >;
 
 
@@ -347,8 +378,15 @@ struct dispatch_table
             preprocess_state,
             typename generate_state_set<Stt>::state_set_mp11
             > preprocessed_states;
-        mp11::mp_for_each<preprocessed_states>
-            (default_init_cell{reinterpret_cast<default_init_cell::cell*>(entries)});
+        // mp11::mp_for_each<preprocessed_states>
+        //     (default_init_cell{reinterpret_cast<generic_cell*>(entries)});
+        static const auto default_init_cell_array = create_init_cells<cell, preprocessed_states>();
+        init_cells_runtime(
+            reinterpret_cast<generic_cell*>(entries),
+            reinterpret_cast<const generic_init_cell_value*>(default_init_cell_array),
+            mp11::mp_size<preprocessed_states>::value
+            );
+
         
         // build chaining rows for rows coming from the same state and the current event
         // first we build a map of sequence for every source
@@ -371,8 +409,14 @@ struct dispatch_table
             chained_rows
             > chained_and_preprocessed_rows;
         // Go back and fill in cells for matching transitions.
-        mp11::mp_for_each<chained_and_preprocessed_rows>
-            (init_cell{reinterpret_cast<init_cell::cell*>(entries)});
+        // mp11::mp_for_each<chained_and_preprocessed_rows>
+        //     (init_cell{reinterpret_cast<generic_cell*>(entries)});
+        static const auto init_cell_array = create_init_cells<cell, chained_and_preprocessed_rows>();
+        init_cells_runtime(
+            reinterpret_cast<generic_cell*>(entries),
+            reinterpret_cast<const generic_init_cell_value*>(init_cell_array),
+            mp11::mp_size<chained_and_preprocessed_rows>::value
+            );
     }
 
     // The singleton instance.

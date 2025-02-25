@@ -79,13 +79,12 @@ struct favor_compile_time
 
 struct chain_row
 {
-    typedef HandledEnum (*cell)();
     template<typename Fsm, typename Event>
     HandledEnum operator()(Fsm& fsm, int region,int state,Event const& evt) const
     {
         typedef HandledEnum (*real_cell)(Fsm&, int,int,Event const&);
         HandledEnum res = HANDLED_FALSE;
-        typename std::deque<cell>::const_iterator it = one_state.begin();
+        typename std::deque<generic_cell>::const_iterator it = one_state.begin();
         while (it != one_state.end() && (res != HANDLED_TRUE && res != HANDLED_DEFERRED ))
         {
             auto fnc = reinterpret_cast<real_cell>(reinterpret_cast<void*>(*it));
@@ -100,35 +99,18 @@ struct chain_row
         return res;
     }
     // Use a deque with a generic type to avoid unnecessary template instantiations.
-    std::deque<cell> one_state;
+    std::deque<generic_cell> one_state;
 };
 
 
-struct generic_init_cell_value
-{
-    size_t index;
-    chain_row::cell address;
-};
 
-template<typename cell>
-struct init_cell_value
-{
-    size_t index;
-    cell address;
-};
-
-template<size_t v1, typename TCell, TCell v2>
-struct init_cell_constant
-{
-    static constexpr init_cell_value<TCell> value = {v1, v2};
-};
 
 inline void default_init_cells(chain_row* entries, const generic_init_cell_value* array, size_t size)
 {
     for (size_t i=0; i<size; i++)
     {
         const auto& item = array[i];
-        entries[item.index].one_state.push_back(reinterpret_cast<chain_row::cell>(item.address));
+        entries[item.index].one_state.push_back(item.address);
     }
 }
 
@@ -137,7 +119,7 @@ inline void init_cells(chain_row* entries, const generic_init_cell_value* array,
     for (size_t i=0; i<size; i++)
     {
         const auto& item = array[i];
-        entries[item.index].one_state.push_front(reinterpret_cast<chain_row::cell>(item.address));
+        entries[item.index].one_state.push_front(item.address);
     }
 }
 
@@ -168,10 +150,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     using init_cell_constant = init_cell_constant<v1, cell, v2>;
 
     template<cell v>
-    struct cell_address_wrapper
-    {
-        static constexpr cell value = v;
-    };
+    using cell_constant = std::integral_constant<cell, v>;
 
     template<typename fsm>
     using fsm_defer_transition = std::integral_constant<
@@ -198,7 +177,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         mp11::mp_if_c<
             is_completion_event<Event>::type::value,
             // Completion event
-            cell_address_wrapper<&Fsm::default_eventless_transition>,
+            cell_constant<&Fsm::default_eventless_transition>,
             // No completion event
             mp11::mp_eval_if_c<
                 !has_state_delayed_event<State, Event>::type::value,
@@ -206,12 +185,12 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
                 mp11::mp_if_c<
                     is_same<State, Fsm>::value,
                     // State is this Fsm
-                    cell_address_wrapper<&Fsm::call_no_transition>,
+                    cell_constant<&Fsm::call_no_transition>,
                     // State is not this Fsm
                     mp11::mp_eval_if_c<
                         !is_composite_state<State>::type::value,
                         // State is not a submachine
-                        cell_address_wrapper<&Fsm::call_no_transition>,
+                        cell_constant<&Fsm::call_no_transition>,
                         // State is a submachine
                         state_call_submachine,
                         State
@@ -252,18 +231,6 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         &Transition::execute
         >;
 
-    template<typename Table, std::size_t... I>
-    static const init_cell_value* const create_init_cells_impl(mp11::index_sequence<I...>)
-    {
-        static constexpr init_cell_value values[] {mp11::mp_at_c<Table, I>::value...};
-        return values;
-    }
-    template<typename Table>
-    static const init_cell_value* const create_init_cells()
-    {
-        return create_init_cells_impl<Table>(mp11::make_index_sequence<mp11::mp_size<Table>::value>{});
-    }
-
  public:
     // initialize the dispatch table for a given Event and Fsm
     dispatch_table()
@@ -277,16 +244,18 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         //     reinterpret_cast<const generic_init_cell_value*>(default_init_cell_array);
         // default_init_cells(entries, generic_default_init_cell_array, mp11::mp_size<preprocessed_states>::value);
 
-        // Only instantiate cells that defer an event or call a submachine.
+        // Instantiate cells that defer an event or call a submachine.
         typedef mp11::mp_fold<
             typename generate_state_set<Stt>::state_set_mp11,
             mp11::mp_list<>,
             preprocess_state_2
             > preprocessed_states;
-        static const auto default_init_cell_array = create_init_cells<preprocessed_states>();
-        auto generic_default_init_cell_array =
-            reinterpret_cast<const generic_init_cell_value*>(default_init_cell_array);
-        default_init_cells(entries, generic_default_init_cell_array, mp11::mp_size<preprocessed_states>::value);
+        static const auto default_init_cell_array = create_init_cells<cell, preprocessed_states>();
+        default_init_cells(
+            entries,
+            reinterpret_cast<const generic_init_cell_value*>(default_init_cell_array),
+            mp11::mp_size<preprocessed_states>::value
+            );
 
         // Fill in cells for matching transitions
         typedef mp11::mp_copy_if<
@@ -298,10 +267,12 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
             filtered_rows
             > preprocessed_rows;
         // Array instance needed separately to circumvent weird linker error.
-        static const auto init_cell_array = create_init_cells<preprocessed_rows>();
-        auto generic_init_cell_array =
-            reinterpret_cast<const generic_init_cell_value*>(init_cell_array);
-        init_cells(entries, generic_init_cell_array, mp11::mp_size<preprocessed_rows>::value);
+        static const auto init_cell_array = create_init_cells<cell, preprocessed_rows>();
+        init_cells(
+            entries,
+            reinterpret_cast<const generic_init_cell_value*>(init_cell_array),
+            mp11::mp_size<preprocessed_rows>::value
+            );
     }
 
     // The singleton instance.
