@@ -59,65 +59,33 @@ struct generic_init_cell_value
 
 // Helper to create an array of init cell values for table initialization
 template<typename Cell, typename InitCellConstants, std::size_t... I>
-static const auto* const create_init_cells_impl(mp11::index_sequence<I...>)
+static const auto* const get_init_cells_impl(mp11::index_sequence<I...>)
 {
     static constexpr init_cell_value<Cell> values[] {mp11::mp_at_c<InitCellConstants, I>::value...};
     return values;
 }
 template<typename Cell, typename InitCellConstants>
-static const auto* const create_init_cells()
+static const auto* const get_init_cells()
 {
-    return create_init_cells_impl<Cell, InitCellConstants>(mp11::make_index_sequence<mp11::mp_size<InitCellConstants>::value>{});
+    return reinterpret_cast<const generic_init_cell_value*>(
+        get_init_cells_impl<Cell, InitCellConstants>(mp11::make_index_sequence<mp11::mp_size<InitCellConstants>::value>{}));
 }
 
 template<typename CompilePolicy>
-struct init_cell;
+struct cell_initializer;
 
-// A function object for use with mp11::mp_for_each that stuffs
-// transitions into cells.
 template<>
-struct init_cell<favor_runtime_speed>
+struct cell_initializer<favor_runtime_speed>
 {
-    init_cell(generic_cell* entries) : entries(entries) {}
-
-    template<typename init_cell_constant>
-    void operator()(init_cell_constant const&)
+    static void init(generic_cell* entries, const generic_init_cell_value* array, size_t size)
     {
-        entries[init_cell_constant::value.index] =
-            reinterpret_cast<generic_cell>(reinterpret_cast<void*>(init_cell_constant::value.address));
+        for (size_t i=0; i<size; i++)
+        {
+            const auto& item = array[i];
+            entries[item.index] = item.address;
+        }
     }
-
-    generic_cell* entries;
 };
-
-template<typename CompilePolicy>
-struct default_init_cell;
-
-// A function object for use with mp11::mp_for_each that stuffs
-// transitions into cells.
-template<>
-struct default_init_cell<favor_runtime_speed>
-{
-    default_init_cell(generic_cell* entries) : entries(entries) {}
-
-    template<typename init_cell_constant>
-    void operator()(init_cell_constant const&)
-    {
-        entries[init_cell_constant::value.index] =
-            reinterpret_cast<generic_cell>(reinterpret_cast<void*>(init_cell_constant::value.address));
-    }
-
-    generic_cell* entries;
-};
-
-inline void init_cells_runtime(generic_cell* entries, const generic_init_cell_value* array, size_t size)
-{
-    for (size_t i=0; i<size; i++)
-    {
-        const auto& item = array[i];
-        entries[item.index] = item.address;
-    }
-}
 
 template<typename Fsm, typename State, typename Event>
 struct table_index
@@ -277,28 +245,18 @@ struct dispatch_table
     template<cell v>
     using cell_constant = std::integral_constant<cell, v>;
 
+    using cell_initializer = cell_initializer<favor_runtime_speed>;
+
     // Helpers for state processing
-    template<typename fsm>
-    using fsm_defer_transition = cell_constant<&fsm::defer_transition>;
-    template<typename State>
-    using preprocess_state = init_cell_constant<
-        // Offset into the entries array
-        get_table_index<Fsm, State, Event>::value,
-        // Address of the function to assign
-        mp11::mp_if_c<
-            is_completion_event<Event>::type::value,
-            cell_constant<&Fsm::default_eventless_transition>,
-            mp11::mp_eval_if_c<
-                !has_state_delayed_event<State,Event>::type::value,
-                mp11::mp_if_c<
-                    is_same<State,Fsm>::value,
-                    cell_constant<&Fsm::call_no_transition_internal>,
-                    cell_constant<&Fsm::call_no_transition>
-                    >,
-                fsm_defer_transition,
-                Fsm
-                >
-            >::value
+    template<typename V, typename State>
+    using push_defer_transition_init_cell = mp11::mp_push_back<V, init_cell_constant<get_table_index<Fsm, State, Event>::value, &State::defer_transition>>;
+    template<typename V, typename State>
+    using preprocess_state = mp11::mp_eval_if_c<
+        !has_state_delayed_event<State, Event>::type::value,
+        V,
+        push_defer_transition_init_cell,
+        V,
+        State
         >;
 
     // Helpers for first operation (fold)
@@ -370,23 +328,22 @@ struct dispatch_table
     // initialize the dispatch table for a given Event and Fsm
     dispatch_table()
     {
-        using default_init_cell = default_init_cell<favor_runtime_speed>;
-        using init_cell = init_cell<favor_runtime_speed>;
-
         // Initialize cells for no transition
-        typedef mp11::mp_transform<
-            preprocess_state,
-            typename generate_state_set<Stt>::state_set_mp11
+        for (size_t i=0;i<max_state+1; i++)
+        {
+            entries[i] = &Fsm::call_no_transition;
+        }
+        // Initialize cells for defer transition
+        typedef mp11::mp_fold<
+            typename generate_state_set<Stt>::state_set_mp11,
+            mp11::mp_list<>,
+            preprocess_state
             > preprocessed_states;
-        // mp11::mp_for_each<preprocessed_states>
-        //     (default_init_cell{reinterpret_cast<generic_cell*>(entries)});
-        static const auto default_init_cell_array = create_init_cells<cell, preprocessed_states>();
-        init_cells_runtime(
+        cell_initializer::init(
             reinterpret_cast<generic_cell*>(entries),
-            reinterpret_cast<const generic_init_cell_value*>(default_init_cell_array),
+            get_init_cells<cell, preprocessed_states>(),
             mp11::mp_size<preprocessed_states>::value
             );
-
         
         // build chaining rows for rows coming from the same state and the current event
         // first we build a map of sequence for every source
@@ -409,12 +366,9 @@ struct dispatch_table
             chained_rows
             > chained_and_preprocessed_rows;
         // Go back and fill in cells for matching transitions.
-        // mp11::mp_for_each<chained_and_preprocessed_rows>
-        //     (init_cell{reinterpret_cast<generic_cell*>(entries)});
-        static const auto init_cell_array = create_init_cells<cell, chained_and_preprocessed_rows>();
-        init_cells_runtime(
+        cell_initializer::init(
             reinterpret_cast<generic_cell*>(entries),
-            reinterpret_cast<const generic_init_cell_value*>(init_cell_array),
+            get_init_cells<cell, chained_and_preprocessed_rows>(),
             mp11::mp_size<chained_and_preprocessed_rows>::value
             );
     }

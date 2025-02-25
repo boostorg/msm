@@ -102,9 +102,6 @@ struct chain_row
     std::deque<generic_cell> one_state;
 };
 
-
-
-
 inline void default_init_cells(chain_row* entries, const generic_init_cell_value* array, size_t size)
 {
     for (size_t i=0; i<size; i++)
@@ -152,74 +149,30 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     template<cell v>
     using cell_constant = std::integral_constant<cell, v>;
 
-    template<typename fsm>
-    using fsm_defer_transition = std::integral_constant<
-        cell,
-        &fsm::defer_transition
-        >;
-    template<typename State>
-    using state_call_submachine = std::integral_constant<
-        cell,
-        &call_submachine<State>
-        >;
-    template <typename T>
-    using event_filter_predicate = mp11::mp_and<
-        is_base_of<typename T::transition_event, Event>,
-        mp11::mp_not<typename has_not_real_row_tag<T>::type>
-        >;
-
     // Helpers for state processing
     template<typename State>
+    using call_submachine_cell = cell_constant<&call_submachine<State>>;
+    template<typename State>
+    using defer_transition_cell = cell_constant<&State::defer_transition>;
+    template <typename State>
     using preprocess_state = init_cell_constant<
-        // Offset into the entries array
         get_table_index<Fsm, State, Event>::value,
-        // Address of the function to assign
-        mp11::mp_if_c<
-            is_completion_event<Event>::type::value,
-            // Completion event
-            cell_constant<&Fsm::default_eventless_transition>,
-            // No completion event
+        mp11::mp_eval_if_c<
+            !has_state_delayed_event<State, Event>::type::value,
             mp11::mp_eval_if_c<
-                !has_state_delayed_event<State, Event>::type::value,
-                // Not a deferred event
-                mp11::mp_if_c<
-                    is_same<State, Fsm>::value,
-                    // State is this Fsm
-                    cell_constant<&Fsm::call_no_transition>,
-                    // State is not this Fsm
-                    mp11::mp_eval_if_c<
-                        !is_composite_state<State>::type::value,
-                        // State is not a submachine
-                        cell_constant<&Fsm::call_no_transition>,
-                        // State is a submachine
-                        state_call_submachine,
-                        State
-                        >
-                    >,
-                // A deferred event
-                fsm_defer_transition,
-                Fsm
-                >
+                !(is_composite_state<State>::type::value && !is_same<State, Fsm>::value),
+                void,
+                call_submachine_cell,
+                State
+                >,
+            defer_transition_cell,
+            State
             >::value
         >;
-
-    template<typename V, typename State>
-    using push_call_submachine_init_cell = mp11::mp_push_back<V, init_cell_constant<get_table_index<Fsm, State, Event>::value, &call_submachine<State>>>;
-    template<typename V, typename State>
-    using push_defer_transition_init_cell = mp11::mp_push_back<V, init_cell_constant<get_table_index<Fsm, State, Event>::value, &State::defer_transition>>;
-    template <typename V, typename State>
-    using preprocess_state_2 = mp11::mp_eval_if_c<
-        !has_state_delayed_event<State, Event>::type::value,
-        mp11::mp_eval_if_c<
-            !(is_composite_state<State>::type::value && !is_same<State, Fsm>::value),
-            V,
-            push_call_submachine_init_cell,
-            V,
-            State
-            >,
-        push_defer_transition_init_cell,
-        V,
-        State
+    template<typename State>
+    using state_filter_predicate = mp11::mp_or<
+        typename has_state_delayed_event<State, Event>::type,
+        mp11::mp_and<is_composite_state<State>, mp11::mp_not<is_same<State, Fsm>>>
         >;
 
     // Helpers for row processing
@@ -230,30 +183,28 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         // Address of the execute function
         &Transition::execute
         >;
+    template <typename T>
+    using event_filter_predicate = mp11::mp_and<
+        is_base_of<typename T::transition_event, Event>,
+        mp11::mp_not<typename has_not_real_row_tag<T>::type>
+        >;
 
  public:
     // initialize the dispatch table for a given Event and Fsm
     dispatch_table()
     {
-        // typedef mp11::mp_transform<
-        //     preprocess_state,
-        //     typename generate_state_set<Stt>::state_set_mp11
-        //     > preprocessed_states;
-        // static const auto default_init_cell_array = create_init_cells<preprocessed_states>();
-        // auto generic_default_init_cell_array =
-        //     reinterpret_cast<const generic_init_cell_value*>(default_init_cell_array);
-        // default_init_cells(entries, generic_default_init_cell_array, mp11::mp_size<preprocessed_states>::value);
-
-        // Instantiate cells that defer an event or call a submachine.
-        typedef mp11::mp_fold<
+        // Initialize cells that defer an event or call a submachine.
+        typedef mp11::mp_copy_if<
             typename generate_state_set<Stt>::state_set_mp11,
-            mp11::mp_list<>,
-            preprocess_state_2
+            state_filter_predicate
+            > filtered_states;
+        typedef mp11::mp_transform<
+            preprocess_state,
+            filtered_states
             > preprocessed_states;
-        static const auto default_init_cell_array = create_init_cells<cell, preprocessed_states>();
         default_init_cells(
             entries,
-            reinterpret_cast<const generic_init_cell_value*>(default_init_cell_array),
+            get_init_cells<cell, preprocessed_states>(),
             mp11::mp_size<preprocessed_states>::value
             );
 
@@ -266,11 +217,9 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
             preprocess_row,
             filtered_rows
             > preprocessed_rows;
-        // Array instance needed separately to circumvent weird linker error.
-        static const auto init_cell_array = create_init_cells<cell, preprocessed_rows>();
         init_cells(
             entries,
-            reinterpret_cast<const generic_init_cell_value*>(init_cell_array),
+            get_init_cells<cell, preprocessed_rows>(),
             mp11::mp_size<preprocessed_rows>::value
             );
     }
