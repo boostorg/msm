@@ -50,11 +50,8 @@ struct init_cell<favor_runtime_speed>
     template<typename PreprocessedRow>
     void operator()(PreprocessedRow const&)
     {
-        if (!mp11::mp_first<PreprocessedRow>::value)
-        {
-            entries[mp11::mp_second<PreprocessedRow>::value] = 
-                reinterpret_cast<cell>(reinterpret_cast<void*>(mp11::mp_third<PreprocessedRow>::value));
-        }
+            entries[mp11::mp_first<PreprocessedRow>::value] = 
+                reinterpret_cast<cell>(reinterpret_cast<void*>(mp11::mp_second<PreprocessedRow>::value));
     }
 
     cell* entries;
@@ -271,9 +268,12 @@ struct dispatch_table
 
     // Helpers for first operation (fold)
     template <typename T>
-    using event_filter_predicate = mp11::mp_or<
-        is_base_of<typename T::transition_event, Event>,
-        typename is_kleene_event<typename T::transition_event>::type
+    using event_filter_predicate = mp11::mp_and<
+        mp11::mp_not<has_not_real_row_tag<T>>,
+        mp11::mp_or<
+            is_base_of<typename T::transition_event, Event>,
+            typename is_kleene_event<typename T::transition_event>::type
+            >
         >;
     template <typename M, typename Key, typename Value>
     using push_map_value = mp11::mp_push_front<
@@ -318,8 +318,6 @@ struct dispatch_table
         >;
     template<typename Transition>
     using preprocess_row = mp11::mp_list<
-        // Condition for executing
-        has_not_real_row_tag<Transition>,
         // Offset into the entries array
         get_table_index<Fsm, typename Transition::current_state_type>,
         // Address of the execute function
