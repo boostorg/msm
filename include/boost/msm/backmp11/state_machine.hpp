@@ -2602,17 +2602,16 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
                         (copy_helper(this));
      }
 
-     // helper used to call the correct entry/exit method
+     // helper used to call the correct entry method
      // unfortunately in O(number of states in the sub-sm) but should be better than a virtual call
-     template<class Event,bool is_entry>
-     struct entry_exit_helper
+     template<class Event>
+     struct entry_helper
      {
-         entry_exit_helper(int id,Event const& e,library_sm* self_):
+         entry_helper(int id,Event const& e,library_sm* self_):
             state_id(id),evt(e),self(self_){}
-         // helper for entry actions
-         template <class IsEntry,class StateAndId>
-         typename ::boost::enable_if<typename IsEntry::type,void >::type
-         helper( ::boost::msm::back::dummy<0> = 0)
+
+         template <class StateAndId>
+         void operator()(StateAndId const&)
          {
              using State = mp11::mp_first<StateAndId>;
              using Id = mp11::mp_second<StateAndId>;
@@ -2622,10 +2621,22 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
                  execute_entry<State>(std::get<Id::value>(self->m_substate_list),evt,*self);
              }
          }
-         // helper for exit actions
-         template <class IsEntry,class StateAndId>
-         typename boost::disable_if<typename IsEntry::type,void >::type
-         helper( ::boost::msm::back::dummy<1> = 0)
+     private:
+         int            state_id;
+         Event const&   evt;
+         library_sm*    self;
+     };
+
+     // helper used to call the correct exit method
+     // unfortunately in O(number of states in the sub-sm) but should be better than a virtual call
+     template<class Event>
+     struct exit_helper
+     {
+         exit_helper(int id,Event const& e,library_sm* self_):
+            state_id(id),evt(e),self(self_){}
+
+         template <class StateAndId>
+         void operator()(StateAndId const&)
          {
              using State = mp11::mp_first<StateAndId>;
              using Id = mp11::mp_second<StateAndId>;
@@ -2634,12 +2645,6 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
              {
                  execute_exit<State>(std::get<Id::value>(self->m_substate_list),evt,*self);
              }
-         }
-         // iterates through all states to find the one to be activated
-         template <class StateAndId>
-         void operator()(StateAndId const&)
-         {
-             entry_exit_helper<Event,is_entry>::template helper< ::boost::mpl::bool_<is_entry>,StateAndId >();
          }
      private:
          int            state_id;
@@ -2656,7 +2661,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          {
              //forward the event for handling by sub state machines
              mp11::mp_for_each<state_map_mp11>
-                 (entry_exit_helper<Event,true>(self_->m_states[region_id::value],incomingEvent,self_));
+                 (entry_helper<Event>(self_->m_states[region_id::value],incomingEvent,self_));
              region_start_helper
                  < ::boost::mpl::int_<region_id::value+1> >::do_start(self_,incomingEvent);
          }
@@ -2812,7 +2817,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          {
 
              mp11::mp_for_each<state_map_mp11>
-                 (entry_exit_helper<Event,false>(self_->m_states[region_id::value],incomingEvent,self_));
+                 (exit_helper<Event>(self_->m_states[region_id::value],incomingEvent,self_));
              region_entry_exit_helper
                  < ::boost::mpl::int_<region_id::value+1> >::do_exit(self_,incomingEvent);
          }
