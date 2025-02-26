@@ -1183,6 +1183,7 @@ private:
     typedef typename get_initial_states<typename Derived::initial_state>::type initial_states;
     typedef typename generate_state_set<stt>::type state_list;
     typedef typename generate_state_set<stt>::state_set_mp11 state_set_mp11;
+    typedef typename generate_state_map<stt>::type state_map_mp11;
     typedef typename HistoryPolicy::template apply<nr_regions::value>::type concrete_history;
 
     typedef mp11::mp_rename<state_set_mp11, std::tuple> substate_list;
@@ -2609,32 +2610,36 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          entry_exit_helper(int id,Event const& e,library_sm* self_):
             state_id(id),evt(e),self(self_){}
          // helper for entry actions
-         template <class IsEntry,class State>
+         template <class IsEntry,class StateAndId>
          typename ::boost::enable_if<typename IsEntry::type,void >::type
          helper( ::boost::msm::back::dummy<0> = 0)
          {
-             BOOST_STATIC_CONSTANT(int, id = (get_state_id<stt,State>::value));
+             using State = mp11::mp_first<StateAndId>;
+             using Id = mp11::mp_second<StateAndId>;
+             BOOST_STATIC_CONSTANT(int, id = (Id::value));
              if (id == state_id)
              {
-                 execute_entry<State>(std::get<get_state_id<stt, State>::value>(self->m_substate_list),evt,*self);
+                 execute_entry<State>(std::get<Id::value>(self->m_substate_list),evt,*self);
              }
          }
          // helper for exit actions
-         template <class IsEntry,class State>
+         template <class IsEntry,class StateAndId>
          typename boost::disable_if<typename IsEntry::type,void >::type
          helper( ::boost::msm::back::dummy<1> = 0)
          {
-             BOOST_STATIC_CONSTANT(int, id = (get_state_id<stt,State>::value));
+             using State = mp11::mp_first<StateAndId>;
+             using Id = mp11::mp_second<StateAndId>;
+             BOOST_STATIC_CONSTANT(int, id = (Id::value));
              if (id == state_id)
              {
-                 execute_exit<State>(std::get<get_state_id<stt, State>::value>(self->m_substate_list),evt,*self);
+                 execute_exit<State>(std::get<Id::value>(self->m_substate_list),evt,*self);
              }
          }
          // iterates through all states to find the one to be activated
-         template <class State>
-         void operator()(State const&)
+         template <class StateAndId>
+         void operator()(StateAndId const&)
          {
-             entry_exit_helper<Event,is_entry>::template helper< ::boost::mpl::bool_<is_entry>,State >();
+             entry_exit_helper<Event,is_entry>::template helper< ::boost::mpl::bool_<is_entry>,StateAndId >();
          }
      private:
          int            state_id;
@@ -2650,7 +2655,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          static void do_start(library_sm* self_,Event const& incomingEvent)
          {
              //forward the event for handling by sub state machines
-             mp11::mp_for_each<state_set_mp11>
+             mp11::mp_for_each<state_map_mp11>
                  (entry_exit_helper<Event,true>(self_->m_states[region_id::value],incomingEvent,self_));
              region_start_helper
                  < ::boost::mpl::int_<region_id::value+1> >::do_start(self_,incomingEvent);
@@ -2805,7 +2810,8 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          template<class Event>
          static void do_exit(library_sm* self_,Event const& incomingEvent)
          {
-             mp11::mp_for_each<state_set_mp11>
+
+             mp11::mp_for_each<state_map_mp11>
                  (entry_exit_helper<Event,false>(self_->m_states[region_id::value],incomingEvent,self_));
              region_entry_exit_helper
                  < ::boost::mpl::int_<region_id::value+1> >::do_exit(self_,incomingEvent);

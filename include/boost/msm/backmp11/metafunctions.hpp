@@ -96,19 +96,7 @@ struct transition_target_type
     typedef typename Transition::next_state_type type;
 };
 
-// helper functions for generate_state_ids
-// create a pair of a state and a passed id for source and target states
-template <class Id,class Transition>
-struct make_pair_source_state_id
-{
-    typedef typename ::boost::mpl::pair<typename Transition::current_state_type,Id> type;
-};
-template <class Id,class Transition>
-struct make_pair_target_state_id
-{
-    typedef typename ::boost::mpl::pair<typename Transition::next_state_type,Id> type;
-};
-
+// Helper to convert a MPL sequence to Mp11
 template<typename T>
 struct to_mp_list
 {
@@ -250,6 +238,19 @@ struct generate_state_set
         set_push_target_state
         > state_set_mp11;
     typedef mp11::mp_apply<mpl::set, state_set_mp11> type;
+};
+
+// extends a state set to a map with key=state and value=id
+template <class stt>
+struct generate_state_map
+{
+    typedef typename generate_state_set<stt>::state_set_mp11 state_set;
+    typedef mp11::mp_iota<mp11::mp_size<state_set>> indices;
+    typedef mp11::mp_transform_q<
+        mp11::mp_bind<mp11::mp_list, mp11::_1, mp11::_2>,
+        state_set,
+        indices
+        > type;
 };
 
 // iterates through the transition table and generate a mpl::set<> containing all the events

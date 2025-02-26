@@ -12,6 +12,7 @@ Most efficient improvements:
 TODOs:
 
 - Understand the background of region_start_helper
+- Add events to exit the sub-sms
 
 Ideas short-term:
 
