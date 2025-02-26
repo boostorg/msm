@@ -11,8 +11,10 @@ Most efficient improvements:
 
 TODOs:
 
-- Understand the background of region_start_helper
 - Add events to exit the sub-sms
+- Consider preprocessing a state set that filters sub-fsms to speed up the dispatch table processing in case the current Fsm doesn't handle the event
+- Understand the background of region_start_helper
+
 
 Ideas short-term:
 

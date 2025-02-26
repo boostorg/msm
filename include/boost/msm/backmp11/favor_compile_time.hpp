@@ -62,15 +62,6 @@ private:
     bool                        finished;
 };
 
-#define BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(fsmname)                                              \
-    namespace boost::msm::back {                                                                    \
-    template<>                                                                                      \
-    ::boost::msm::back::HandledEnum fsmname::process_any_event( ::boost::any const& any_event)      \
-    {                                                                                               \
-        return ::boost::msm::back::process_any_event_helper<fsmname>::execute(this, any_event);     \
-    }                                                                                               \
-    }
-
 #define BOOST_MSM_BACK_GENERATE_FSM(fsmname)                                                        \
     template<>                                                                                      \
     template<>                                                                                      \
@@ -88,6 +79,11 @@ private:
                     (init_states(m_states));                                                        \
         m_history.set_initial_states(m_states);                                                     \
         fill_states(this);                                                                          \
+    }                                                                                               \
+    template<>                                                                                      \
+    ::boost::msm::back::HandledEnum fsmname::process_any_event( ::boost::any const& any_event)      \
+    {                                                                                               \
+        return ::boost::msm::back::process_any_event_helper<fsmname>::execute(this, any_event);     \
     }
 
 struct favor_compile_time
@@ -160,6 +156,8 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     typedef typename generate_state_set<Stt>::state_set_mp11 state_set_mp11;
     BOOST_STATIC_CONSTANT(int, max_state = (mp11::mp_size<state_set_mp11>::value));
 
+    typedef typename generate_event_set<Stt>::event_set_mp11 event_set;
+
     template <class TransitionState>
     static HandledEnum call_submachine(Fsm& fsm, int , int , Event const& evt)
     {
@@ -218,7 +216,8 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
 
  public:
     // initialize the dispatch table for a given Event and Fsm
-    dispatch_table()
+    template<typename EventType = Event>
+    dispatch_table(typename enable_if<mp11::mp_contains<event_set, EventType>>::type* = 0)
     {
         // Initialize cells that defer an event or call a submachine.
         typedef mp11::mp_copy_if<
@@ -248,6 +247,27 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
             entries,
             get_init_cells<cell, preprocessed_rows>(),
             mp11::mp_size<preprocessed_rows>::value
+            );
+    }
+
+    // shortened version in case the stt doesn't contain the event,
+    // it can only be handled by a submachine
+    template<typename EventType = Event>
+    dispatch_table(typename disable_if<mp11::mp_contains<event_set, EventType>>::type* = 0)
+    {
+        // Initialize cells that defer an event or call a submachine.
+        typedef mp11::mp_copy_if<
+            typename generate_state_set<Stt>::state_set_mp11,
+            state_filter_predicate
+            > filtered_states;
+        typedef mp11::mp_transform<
+            preprocess_state,
+            filtered_states
+            > preprocessed_states;
+        cell_initializer::default_init(
+            entries,
+            get_init_cells<cell, preprocessed_states>(),
+            mp11::mp_size<preprocessed_states>::value
             );
     }
 

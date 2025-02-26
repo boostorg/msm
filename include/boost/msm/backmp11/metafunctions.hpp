@@ -273,7 +273,7 @@ struct generate_event_set
 
 // returns a mpl::bool_<true> if State has Event as deferred event
 template <class State, class Event>
-struct has_state_delayed_event  
+struct has_state_delayed_event
 {
     typedef typename mp11::mp_contains<
         typename to_mp_list<typename State::deferred_events>::type,
@@ -314,9 +314,7 @@ struct is_pseudo_entry
 template <class State>
 struct is_pseudo_exit 
 {
-    typedef typename ::boost::mpl::if_< typename has_pseudo_exit<State>::type,
-        ::boost::mpl::bool_<true>, ::boost::mpl::bool_<false> 
-    >::type type;
+    typedef typename has_pseudo_exit<State>::type type;
 };
 // says if a state is an entry pseudo state or an explicit entry
 template <class State>
