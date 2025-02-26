@@ -11,12 +11,14 @@ Most efficient improvements:
 
 TODOs:
 
-
+- Understand the background of region_start_helper
 
 Ideas short-term:
 
+- defer the constructor of a fsm with favor_compile_time to a GENERATE macro
 - Skip the dispatch table if the event is not part of the SM's transition table (non-recursive)
 -> There are 3 options: Sub-SM is active (call it) or event is deferred (defer it) or have no action (call no transition)
+
 
 Ideas long-term:
 

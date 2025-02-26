@@ -63,13 +63,32 @@ private:
 };
 
 #define BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(fsmname)                                              \
-    namespace boost { namespace msm { namespace back{                                               \
+    namespace boost::msm::back {                                                                    \
     template<>                                                                                      \
     ::boost::msm::back::HandledEnum fsmname::process_any_event( ::boost::any const& any_event)      \
     {                                                                                               \
         return ::boost::msm::back::process_any_event_helper<fsmname>::execute(this, any_event);     \
     }                                                                                               \
-    }}}
+    }
+
+#define BOOST_MSM_BACK_GENERATE_FSM(fsmname)                                                        \
+    template<>                                                                                      \
+    template<>                                                                                      \
+    fsmname::state_machine(typename std::enable_if<true>::type*)                                    \
+        :Derived()                                                                                  \
+        ,m_events_queue()                                                                           \
+        ,m_deferred_events_queue()                                                                  \
+        ,m_history()                                                                                \
+        ,m_event_processing(false)                                                                  \
+        ,m_is_included(false)                                                                       \
+        ,m_visitors()                                                                               \
+        ,m_substate_list()                                                                          \
+    {                                                                                               \
+        ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >     \
+                    (init_states(m_states));                                                        \
+        m_history.set_initial_states(m_states);                                                     \
+        fill_states(this);                                                                          \
+    }
 
 struct favor_compile_time
 {

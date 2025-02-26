@@ -91,6 +91,9 @@ BOOST_MPL_HAS_XXX_TRAIT_DEF(event_queue_before_deferred_queue)
 
 namespace boost { namespace msm { namespace back
 {
+
+struct favor_compile_time;
+
 // event used internally for wrapping a direct entry
 template <class StateType,class Event>
 struct direct_entry_event
@@ -1654,7 +1657,8 @@ public:
      }
 
      // Construct with the default initial states
-     state_machine()
+     template<typename Policy = CompilePolicy>
+     state_machine(typename std::enable_if<std::is_same_v<Policy, favor_runtime_speed>>::type* = 0)
          :Derived()
          ,m_events_queue()
          ,m_deferred_events_queue()
@@ -1671,6 +1675,12 @@ public:
          // create states
          fill_states(this);
      }
+
+     // State machine constructors with favor_compile_time policy
+     // need to be instantiated explicitly.
+     template<typename Policy = CompilePolicy>
+     state_machine(typename std::enable_if<std::is_same_v<Policy, favor_compile_time>>::type* = 0);
+
 
      // Construct with the default initial states and some default argument(s)
 #if defined (BOOST_NO_CXX11_RVALUE_REFERENCES)                                      \
@@ -3005,7 +3015,6 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
         // allocate the place without reallocation
         m_visitors.fill_visitors(max_state);
         mp11::tuple_for_each(m_substate_list,add_state<ContainingSM>(this,containing_sm));
-
     }
 
 private:
