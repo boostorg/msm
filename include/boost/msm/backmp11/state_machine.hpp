@@ -2636,13 +2636,6 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          {
              entry_exit_helper<Event,is_entry>::template helper< ::boost::mpl::bool_<is_entry>,State >();
          }
-         // Overload required when this function is called via region_entry_exit_helper.
-         // Can be removed when the related mpl::for_each calls are replaced.
-         template <class State>
-         void operator()(wrap<State> const&)
-         {
-             entry_exit_helper<Event,is_entry>::template helper< ::boost::mpl::bool_<is_entry>,State >();
-         }
      private:
          int            state_id;
          Event const&   evt;
@@ -2812,7 +2805,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          template<class Event>
          static void do_exit(library_sm* self_,Event const& incomingEvent)
          {
-             ::boost::mpl::for_each<state_list, ::boost::msm::wrap< ::boost::mpl::placeholders::_1> >
+             mp11::mp_for_each<state_set_mp11>
                  (entry_exit_helper<Event,false>(self_->m_states[region_id::value],incomingEvent,self_));
              region_entry_exit_helper
                  < ::boost::mpl::int_<region_id::value+1> >::do_exit(self_,incomingEvent);
