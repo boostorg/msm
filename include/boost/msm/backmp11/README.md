@@ -13,6 +13,10 @@ TODOs:
 
 - Add events to exit the sub-sms
 - Consider preprocessing a state set that filters sub-fsms to speed up the dispatch table processing in case the current Fsm doesn't handle the event
+- Consider preprocessing the whole stt in one go (only applies to favor compile time due to missing event hierarchy):
+  - each row in the stt leads to one init cell constant, map with events as keys
+  - Value: List of init_cell constants, where index relates to current_state_type and function needs to be deduced
+- Consider trying out the tuple impl from SML
 - Understand the background of region_start_helper
 
 
