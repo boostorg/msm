@@ -248,18 +248,13 @@ struct dispatch_table
     using cell_initializer = cell_initializer<favor_runtime_speed>;
 
     // Helpers for state processing
-    template<typename V, typename State>
-    using push_defer_transition_init_cell = mp11::mp_push_back<V, init_cell_constant<get_table_index<Fsm, State, Event>::value, &State::defer_transition>>;
-    template<typename V, typename State>
-    using preprocess_state = mp11::mp_eval_if_c<
-        !has_state_delayed_event<State, Event>::type::value,
-        V,
-        push_defer_transition_init_cell,
-        V,
-        State
-        >;
+    template<typename State>
+    using state_filter_predicate = typename has_state_delayed_event<State, Event>::type;
+    template<typename State>
+    using preprocess_state = init_cell_constant<get_table_index<Fsm, State, Event>::value, &State::defer_transition>;
 
-    // Helpers for first operation (fold)
+    // Helpers for row processing
+    // First operation (fold)
     template <typename T>
     using event_filter_predicate = mp11::mp_and<
         mp11::mp_not<has_not_real_row_tag<T>>,
@@ -289,8 +284,7 @@ struct dispatch_table
                 >
             >
         >;
-    
-    // Helpers for second operation (transform)
+    // Second operation (transform)
     template<typename T>
     using to_mpl_map_entry = mpl::pair<
         mp11::mp_first<T>,
@@ -334,10 +328,13 @@ struct dispatch_table
             entries[i] = &Fsm::call_no_transition;
         }
         // Initialize cells for defer transition
-        typedef mp11::mp_fold<
+        typedef mp11::mp_copy_if<
             typename generate_state_set<Stt>::state_set_mp11,
-            mp11::mp_list<>,
-            preprocess_state
+            state_filter_predicate
+            > filtered_states;
+        typedef mp11::mp_transform<
+            preprocess_state,
+            filtered_states
             > preprocessed_states;
         cell_initializer::init(
             reinterpret_cast<generic_cell*>(entries),

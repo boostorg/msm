@@ -11,17 +11,21 @@ Most efficient improvements:
 
 TODOs:
 
-- Get rid of one more fold (-> copy_if & transform) in dispatch_table
-- Introduce cell_initializer in favor_compile_time
 
 
 Ideas short-term:
 
-- Skip the dispatch table if the event is not part of the SM's transition table
+- Skip the dispatch table if the event is not part of the SM's transition table (non-recursive)
+-> There are 3 options: Sub-SM is active (call it) or event is deferred (defer it) or have no action (call no transition)
 
 Ideas long-term:
 
 - Switch tables to have events as rows instead of states as rows
+-> Would be another m_dispatch_tables member in state_machine
+-> Needs remapping before dispatch:
+--> Event gets converted to an index and used in a mapping table, that gets the actual index in the dispatch table of the current state
+--> Then we can execute the function
+
 
 
 Learnings:

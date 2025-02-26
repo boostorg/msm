@@ -102,23 +102,29 @@ struct chain_row
     std::deque<generic_cell> one_state;
 };
 
-inline void default_init_cells(chain_row* entries, const generic_init_cell_value* array, size_t size)
+template<>
+struct cell_initializer<favor_compile_time>
 {
-    for (size_t i=0; i<size; i++)
+    static void default_init(chain_row* entries, const generic_init_cell_value* array, size_t size)
     {
-        const auto& item = array[i];
-        entries[item.index].one_state.push_back(item.address);
+        for (size_t i=0; i<size; i++)
+        {
+            const auto& item = array[i];
+            entries[item.index].one_state.push_back(item.address);
+        }
     }
-}
 
-inline void init_cells(chain_row* entries, const generic_init_cell_value* array, size_t size)
-{
-    for (size_t i=0; i<size; i++)
+    static void init(chain_row* entries, const generic_init_cell_value* array, size_t size)
     {
-        const auto& item = array[i];
-        entries[item.index].one_state.push_front(item.address);
+        for (size_t i=0; i<size; i++)
+        {
+            const auto& item = array[i];
+            entries[item.index].one_state.push_front(item.address);
+        }
     }
-}
+};
+
+
 
 // Generates a singleton runtime lookup table that maps current state
 // to a function that makes the SM take its transition on the given
@@ -148,6 +154,8 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
 
     template<cell v>
     using cell_constant = std::integral_constant<cell, v>;
+
+    using cell_initializer = cell_initializer<favor_compile_time>;
 
     // Helpers for state processing
     template<typename State>
@@ -202,7 +210,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
             preprocess_state,
             filtered_states
             > preprocessed_states;
-        default_init_cells(
+        cell_initializer::default_init(
             entries,
             get_init_cells<cell, preprocessed_states>(),
             mp11::mp_size<preprocessed_states>::value
@@ -217,7 +225,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
             preprocess_row,
             filtered_rows
             > preprocessed_rows;
-        init_cells(
+        cell_initializer::init(
             entries,
             get_init_cells<cell, preprocessed_rows>(),
             mp11::mp_size<preprocessed_rows>::value
