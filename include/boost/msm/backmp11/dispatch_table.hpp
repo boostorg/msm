@@ -250,8 +250,8 @@ struct dispatch_table
     // Helpers for state processing
     template<typename State>
     using state_filter_predicate = typename has_state_delayed_event<State, Event>::type;
-    template<typename State>
-    using preprocess_state = init_cell_constant<get_table_index<Fsm, State, Event>::value, &State::defer_transition>;
+    template<typename State, typename fsm=Fsm>
+    using preprocess_state = init_cell_constant<get_table_index<Fsm, State, Event>::value, &fsm::defer_transition>;
 
     // Helpers for row processing
     // First operation (fold)

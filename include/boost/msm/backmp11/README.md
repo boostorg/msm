@@ -31,3 +31,4 @@ Ideas long-term:
 Learnings:
 
 - If only a subset needs to be processed, prefer copy_if & transform over fold
+- Selecting a template-based function overload in Mp11 seems more efficient than using enable_if/disable_if
