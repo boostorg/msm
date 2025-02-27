@@ -240,6 +240,19 @@ struct generate_state_set
     typedef mp11::mp_apply<mpl::set, state_set_mp11> type;
 };
 
+// filters the state set to contain only composite states
+template <class stt>
+struct generate_composite_state_set
+{
+    typedef typename generate_state_set<stt>::state_set_mp11 state_set;
+    template<typename State>
+    using is_composite = typename is_composite_state<State>::type;
+    typedef mp11::mp_copy_if<
+        state_set,
+        is_composite
+        > type;
+};
+
 // extends a state set to a map with key=state and value=id
 template <class stt>
 struct generate_state_map

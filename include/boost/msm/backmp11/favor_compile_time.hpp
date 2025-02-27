@@ -257,7 +257,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     {
         // Initialize cells that defer an event or call a submachine.
         typedef mp11::mp_copy_if<
-            typename generate_state_set<Stt>::state_set_mp11,
+            typename generate_composite_state_set<Stt>::type,
             state_filter_predicate
             > filtered_states;
         typedef mp11::mp_transform<
