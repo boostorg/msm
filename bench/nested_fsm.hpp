@@ -88,7 +88,12 @@ struct internal_transition_event
     int two = 2;
 };
 
-struct switch_fsm_event
+struct enter_sub_fsm_event
+{
+    int two = 2;
+};
+
+struct exit_sub_fsm_event
 {
     int two = 2;
 };
@@ -101,7 +106,15 @@ struct state_tpl: msm::front::state<>
     {
         fsm.process_event(internal_transition_event{});
     }
+
+    // Don't trigger an additional event processing when we exit a fsm, forces
+    // the dispatch tables of the sub-fsms to be created in all CUs.
+    template<class Fsm>
+    void on_exit(const exit_sub_fsm_event& event, Fsm& fsm)
+    {
+    }
 };
+
 
 template<int Index>
 struct state_transition_action
@@ -146,7 +159,8 @@ struct fsm_: public msm::front::state_machine_def<fsm_<Offset, SubFsm>>
         , Row<state_tpl<N+Offset>, internal_transition_event, none, internal_transition_action<N>>
         COUNTER
 #undef X
-    , Row<state_tpl<Offset>, switch_fsm_event, sub_fsm, none, none>
+    , Row<state_tpl<Offset>, enter_sub_fsm_event, sub_fsm, none, none>
+    , Row<sub_fsm, exit_sub_fsm_event, state_tpl<Offset>, none, none>
     >;
 
     int counter = 0;
@@ -190,7 +204,7 @@ int run_fsm()
     }
 
     // Second FSM
-    first_sm.process_event(switch_fsm_event{});
+    first_sm.process_event(enter_sub_fsm_event{});
     for(auto i = 0; i < test_loop_size; ++i)
     {
 #define X(N) \
@@ -200,7 +214,7 @@ int run_fsm()
     }
 
     // Third FSM
-    first_sm.process_event(switch_fsm_event{});
+    first_sm.process_event(enter_sub_fsm_event{});
     for(auto i = 0; i < test_loop_size; ++i)
     {
 #define X(N) \
@@ -209,7 +223,12 @@ int run_fsm()
 #undef X
     }
 
-    return first_sm.counter + second_sm.counter + third_sm.counter;
+    auto sum = first_sm.counter + second_sm.counter + third_sm.counter;
+
+    first_sm.process_event(exit_sub_fsm_event{});
+    first_sm.process_event(exit_sub_fsm_event{});
+
+    return sum;
 }
 
 template<typename Fsm>

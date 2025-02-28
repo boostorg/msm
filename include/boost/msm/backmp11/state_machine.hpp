@@ -1285,6 +1285,17 @@ private:
         return process_event_internal(evt, EVENT_SOURCE_DIRECT);
     }
 
+    // template<class Event, class Policy = CompilePolicy>
+    // typename ::boost::enable_if<std::is_same<Policy, favor_runtime_speed>,execute_return >::type
+    // process_event(Event const& evt)
+    // {
+    //     return process_event_internal(evt, EVENT_SOURCE_DIRECT);
+    // }
+
+    // template<class Event, class Policy = CompilePolicy>
+    // typename ::boost::enable_if<std::is_same<Policy, favor_compile_time>,execute_return >::type
+    // process_event(Event const& evt);
+
     template <class EventType>
     void enqueue_event_helper(EventType const& evt, ::boost::mpl::false_ const &)
     {
@@ -2784,43 +2795,16 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          };
      };
 
-     // helper for entry
-     template <class region_id,int Dummy=0>
-     struct region_entry_exit_helper
-     {
-         template<class Event>
-         static void do_entry(library_sm* self_,Event const& incomingEvent)
-         {
-             self_->m_states[region_id::value] =
-                 self_->m_history.history_entry(incomingEvent)[region_id::value];
-             region_entry_exit_helper
-                 < ::boost::mpl::int_<region_id::value+1> >::do_entry(self_,incomingEvent);
-         }
-         template<class Event>
-         static void do_exit(library_sm* self_,Event const& incomingEvent)
-         {
-
-             mp11::mp_for_each<state_map_mp11>
-                 (exit_helper<Event>(self_->m_states[region_id::value],incomingEvent,self_));
-             region_entry_exit_helper
-                 < ::boost::mpl::int_<region_id::value+1> >::do_exit(self_,incomingEvent);
-         }
-     };
-     template <int Dummy>
-     struct region_entry_exit_helper< ::boost::mpl::int_<nr_regions::value>,Dummy>
-     {
-         // end of processing
-         template<class Event>
-         static void do_entry(library_sm*,Event const& ){}
-         template<class Event>
-         static void do_exit(library_sm*,Event const& ){}
-     };
      // entry/exit for states machines which are themselves embedded in other state machines (composites)
      template <class Event,class FsmType>
      void do_entry(Event const& incomingEvent,FsmType& fsm)
      {
         // by default we activate the history/init states, can be overwritten by direct_event_start_helper
-        region_entry_exit_helper< ::boost::mpl::int_<0> >::do_entry(this,incomingEvent);
+        for (size_t region_id=0; region_id<nr_regions::value; region_id++)
+        {
+             m_states[region_id] =
+                 m_history.history_entry(incomingEvent)[region_id];
+        }
         // block immediate handling of events
         m_event_processing = true;
         // if the event is generating a direct entry/fork, set the current state(s) to the direct state(s)
@@ -2837,7 +2821,11 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
      {
         // first recursively exit the sub machines
         // forward the event for handling by sub state machines
-        region_entry_exit_helper< ::boost::mpl::int_<0> >::do_exit(this,incomingEvent);
+        for (size_t region_id=0; region_id<nr_regions::value; region_id++)
+        {
+             mp11::mp_for_each<state_map_mp11>
+                 (exit_helper<Event>(m_states[region_id],incomingEvent,this));
+        }
         // then call our own exit
         (static_cast<Derived*>(this))->on_exit(incomingEvent,fsm);
         // give the history a chance to handle this (or not).
