@@ -14,9 +14,6 @@ TODOs:
 - Consider a way to put only events into the queue for favor_compile_time (boost::any)
 - Consider a way to defer compilation of internal_start for favor_compile_time
 - Add events to exit the sub-sms
-- Consider preprocessing the whole stt in one go (only applies to favor compile time due to missing event hierarchy):
-  - each row in the stt leads to one init cell constant, map with events as keys
-  - Value: List of init_cell constants, where index relates to current_state_type and function needs to be deduced
 - Consider trying out the tuple impl from SML
 - Consider using a std::vector for the chain row (favor compile time)
 - Understand the background of region_start_helper
