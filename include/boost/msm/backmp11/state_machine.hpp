@@ -1659,7 +1659,7 @@ public:
 
      // Construct with the default initial states
      template<typename Policy = CompilePolicy>
-     state_machine(typename std::enable_if<std::is_same_v<Policy, favor_runtime_speed>>::type* = 0)
+     state_machine(typename std::enable_if<std::is_same<Policy, favor_runtime_speed>::value>::type* = 0)
          :Derived()
          ,m_events_queue()
          ,m_deferred_events_queue()
@@ -1680,7 +1680,7 @@ public:
      // State machine constructors with favor_compile_time policy
      // need to be instantiated explicitly.
      template<typename Policy = CompilePolicy>
-     state_machine(typename std::enable_if<std::is_same_v<Policy, favor_compile_time>>::type* = 0);
+     state_machine(typename std::enable_if<std::is_same<Policy, favor_compile_time>::value>::type* = 0);
 
 
      // Construct with the default initial states and some default argument(s)

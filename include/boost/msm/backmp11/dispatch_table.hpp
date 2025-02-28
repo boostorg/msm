@@ -59,13 +59,13 @@ struct generic_init_cell_value
 
 // Helper to create an array of init cell values for table initialization
 template<typename Cell, typename InitCellConstants, std::size_t... I>
-static const auto* const get_init_cells_impl(mp11::index_sequence<I...>)
+static const init_cell_value<Cell>* const get_init_cells_impl(mp11::index_sequence<I...>)
 {
     static constexpr init_cell_value<Cell> values[] {mp11::mp_at_c<InitCellConstants, I>::value...};
     return values;
 }
 template<typename Cell, typename InitCellConstants>
-static const auto* const get_init_cells()
+static const generic_init_cell_value* const get_init_cells()
 {
     return reinterpret_cast<const generic_init_cell_value*>(
         get_init_cells_impl<Cell, InitCellConstants>(mp11::make_index_sequence<mp11::mp_size<InitCellConstants>::value>{}));

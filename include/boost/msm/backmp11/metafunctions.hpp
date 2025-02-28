@@ -141,17 +141,6 @@ struct get_active_state_switch_policy
     >::type type;
 };
 
-// returns the id of a given state
-template <class stt,class State>
-struct get_state_id
-{
-    typedef typename mp11::mp_find<
-        typename generate_state_set<stt>::state_set_mp11,
-        State
-        > type;
-    enum {value = type::value};
-};
-
 // returns a mpl::vector containing the init states of a state machine
 template <class States>
 struct get_initial_states 
@@ -189,15 +178,6 @@ struct get_explicit_creation_as_sequence
         ::boost::mpl::is_sequence<ToCreateSeq>,
         ToCreateSeq,
         typename ::boost::mpl::push_back< ::boost::mpl::vector0<>,ToCreateSeq>::type >::type type;
-};
-
-// returns true if 2 transitions have the same source (used to remove duplicates in search of composite states)
-template <class stt,class Transition1,class Transition2>
-struct have_same_source
-{
-    enum {current_state1 = get_state_id<stt,typename Transition1::current_state_type >::type::value};
-    enum {current_state2 = get_state_id<stt,typename Transition2::current_state_type >::type::value};
-    enum {value = ((int)current_state1 == (int)current_state2) };
 };
 
 // returns true for composite states
@@ -238,6 +218,17 @@ struct generate_state_set
         set_push_target_state
         > state_set_mp11;
     typedef mp11::mp_apply<mpl::set, state_set_mp11> type;
+};
+
+// returns the id of a given state
+template <class stt,class State>
+struct get_state_id
+{
+    typedef typename mp11::mp_find<
+        typename generate_state_set<stt>::state_set_mp11,
+        State
+        > type;
+    enum {value = type::value};
 };
 
 // filters the state set to contain only composite states
@@ -282,6 +273,17 @@ struct generate_event_set
         event_set_pusher
         > event_set_mp11;
     typedef mp11::mp_apply<mpl::set, event_set_mp11> type;
+};
+
+// returns the id of a given event
+template <class stt,class Event>
+struct get_event_id
+{
+    typedef typename mp11::mp_find<
+        typename generate_event_set<stt>::event_set_mp11,
+        Event
+        > type;
+    enum {value = type::value};
 };
 
 // returns a mpl::bool_<true> if State has Event as deferred event

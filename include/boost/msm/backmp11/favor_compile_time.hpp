@@ -139,7 +139,48 @@ struct cell_initializer<favor_compile_time>
     }
 };
 
+// split the stt into rows grouped by event
+template<typename Stt>
+struct group_rows_by_event
+{
+    typedef typename generate_event_set<Stt>::event_set_mp11 event_set_mp11;
+    // Consider only real rows
+    template<typename Transition>
+    using is_real_row = mp11::mp_not<typename has_not_real_row_tag<Transition>::type>;
+    typedef mp11::mp_copy_if<Stt, is_real_row> real_rows;
+    // Go through each row and group transitions by event.
+    template<typename Row, typename Event>
+    using has_event = std::is_same<typename Row::transition_event, Event>;
+    template<typename V, typename Event>
+    using partition_by_event = mp11::mp_list<
+        // From first element we remove the rows that we have grouped
+        mp11::mp_remove_if_q<
+            mp11::mp_first<V>,
+            mp11::mp_bind_back<has_event, Event>
+            >,
+        // To second element we append a group of rows that is handled by the event
+        mp11::mp_push_back<
+            mp11::mp_second<V>,
+            mp11::mp_copy_if_q<
+                mp11::mp_first<V>,
+                mp11::mp_bind_back<has_event, Event>
+                >
+            >
+        >;
+    typedef mp11::mp_fold<
+        event_set_mp11,
+        mp11::mp_list<real_rows, mp11::mp_list<>>,
+        partition_by_event
+        > grouped_rows;
+    static_assert(mp11::mp_empty<mp11::mp_first<grouped_rows>>::value, "Internal error: Not all rows grouped");
+    typedef mp11::mp_second<grouped_rows> type;
+};
 
+template<typename Stt, typename Event>
+using get_rows_of_event = mp11::mp_at_c<
+    typename group_rows_by_event<Stt>::type,
+    get_event_id<Stt, Event>::value
+    >;
 
 // Generates a singleton runtime lookup table that maps current state
 // to a function that makes the SM take its transition on the given
@@ -208,16 +249,11 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
         // Address of the execute function
         &Transition::execute
         >;
-    template <typename T>
-    using event_filter_predicate = mp11::mp_and<
-        is_base_of<typename T::transition_event, Event>,
-        mp11::mp_not<typename has_not_real_row_tag<T>::type>
-        >;
 
  public:
     // initialize the dispatch table for a given Event and Fsm
     template<typename EventType = Event>
-    dispatch_table(typename enable_if<mp11::mp_contains<event_set, EventType>>::type* = 0)
+    dispatch_table(typename enable_if<mp11::mp_set_contains<event_set, EventType>>::type* = 0)
     {
         // Initialize cells that defer an event or call a submachine.
         typedef mp11::mp_copy_if<
@@ -235,13 +271,9 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
             );
 
         // Fill in cells for matching transitions
-        typedef mp11::mp_copy_if<
-            typename to_mp_list<Stt>::type,
-            event_filter_predicate
-            > filtered_rows;
         typedef mp11::mp_transform<
             preprocess_row,
-            filtered_rows
+            get_rows_of_event<Stt, Event>
             > preprocessed_rows;
         cell_initializer::init(
             entries,
@@ -253,7 +285,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     // shortened version in case the stt doesn't contain the event,
     // it can only be handled by a submachine
     template<typename EventType = Event>
-    dispatch_table(typename disable_if<mp11::mp_contains<event_set, EventType>>::type* = 0)
+    dispatch_table(typename disable_if<mp11::mp_set_contains<event_set, EventType>>::type* = 0)
     {
         // Initialize cells that defer an event or call a submachine.
         typedef mp11::mp_copy_if<
