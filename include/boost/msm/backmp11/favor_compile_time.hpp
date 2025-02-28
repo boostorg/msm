@@ -224,16 +224,11 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     using preprocess_state = init_cell_constant<
         get_table_index<Fsm, State, Event>::value,
         mp11::mp_eval_if_c<
-            !has_state_delayed_event<State, Event>::type::value,
-            mp11::mp_eval_if_c<
-                !(is_composite_state<State>::type::value && !is_same<State, Fsm>::value),
-                void,
-                call_submachine_cell,
-                State
-                >,
-            defer_transition_cell,
+            has_state_delayed_event<State, Event>::type::value,
+            mp11::mp_defer<defer_transition_cell, State>,
+            call_submachine_cell,
             State
-            >::value
+            >::type::value
         >;
     template<typename State>
     using state_filter_predicate = mp11::mp_or<
