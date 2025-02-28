@@ -220,15 +220,17 @@ struct generate_state_set
     typedef mp11::mp_apply<mpl::set, state_set_mp11> type;
 };
 
-// returns the id of a given state
-template <class stt,class State>
-struct get_state_id
+// extends a state set to a map with key=state and value=id
+template <class stt>
+struct generate_state_map
 {
-    typedef typename mp11::mp_find<
-        typename generate_state_set<stt>::state_set_mp11,
-        State
+    typedef typename generate_state_set<stt>::state_set_mp11 state_set;
+    typedef mp11::mp_iota<mp11::mp_size<state_set>> indices;
+    typedef mp11::mp_transform_q<
+        mp11::mp_bind<mp11::mp_list, mp11::_1, mp11::_2>,
+        state_set,
+        indices
         > type;
-    enum {value = type::value};
 };
 
 // filters the state set to contain only composite states
@@ -244,17 +246,15 @@ struct generate_composite_state_set
         > type;
 };
 
-// extends a state set to a map with key=state and value=id
-template <class stt>
-struct generate_state_map
+// returns the id of a given state
+template <class stt,class State>
+struct get_state_id
 {
-    typedef typename generate_state_set<stt>::state_set_mp11 state_set;
-    typedef mp11::mp_iota<mp11::mp_size<state_set>> indices;
-    typedef mp11::mp_transform_q<
-        mp11::mp_bind<mp11::mp_list, mp11::_1, mp11::_2>,
-        state_set,
-        indices
-        > type;
+    typedef mp11::mp_second<mp11::mp_map_find<
+        typename generate_state_map<stt>::type,
+        State
+        >> type;
+    enum {value = type::value};
 };
 
 // iterates through the transition table and generate a mpl::set<> containing all the events
@@ -267,7 +267,7 @@ struct generate_event_set
         V,
         typename T::transition_event
         >;
-    typedef typename mp11::mp_fold<
+    typedef mp11::mp_fold<
         typename to_mp_list<stt>::type,
         mp11::mp_list<>,
         event_set_pusher
@@ -275,14 +275,27 @@ struct generate_event_set
     typedef mp11::mp_apply<mpl::set, event_set_mp11> type;
 };
 
+// extends an event set to a map with key=event and value=id
+template <class stt>
+struct generate_event_map
+{
+    typedef typename generate_event_set<stt>::event_set_mp11 event_set;
+    typedef mp11::mp_iota<mp11::mp_size<event_set>> indices;
+    typedef mp11::mp_transform_q<
+        mp11::mp_bind<mp11::mp_list, mp11::_1, mp11::_2>,
+        event_set,
+        indices
+        > type;
+};
+
 // returns the id of a given event
 template <class stt,class Event>
 struct get_event_id
 {
-    typedef typename mp11::mp_find<
-        typename generate_event_set<stt>::event_set_mp11,
+    typedef mp11::mp_second<mp11::mp_map_find<
+        typename generate_event_map<stt>::type,
         Event
-        > type;
+        >> type;
     enum {value = type::value};
 };
 
