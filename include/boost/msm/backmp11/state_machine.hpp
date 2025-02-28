@@ -2257,6 +2257,7 @@ public:
 
 #ifndef BOOST_NO_RTTI
     HandledEnum process_any_event( ::boost::any const& evt);
+    void any_internal_start( ::boost::any const& evt, int nr_regions);
 #endif
 
 private:
@@ -2652,35 +2653,27 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          library_sm*    self;
      };
 
-     // helper to start the fsm
-     template <class region_id,int Dummy=0>
-     struct region_start_helper
+     // start for states machines which are themselves embedded in other state machines (composites)
+     template <class Event, class Policy = CompilePolicy>
+     typename enable_if<std::is_same<Policy, favor_runtime_speed>, void>::type
+     internal_start(Event const& incomingEvent)
      {
-         template<class Event>
-         static void do_start(library_sm* self_,Event const& incomingEvent)
+         for (size_t region_id=0; region_id<nr_regions::value; region_id++)
          {
              //forward the event for handling by sub state machines
              mp11::mp_for_each<state_map_mp11>
-                 (entry_helper<Event>(self_->m_states[region_id::value],incomingEvent,self_));
-             region_start_helper
-                 < ::boost::mpl::int_<region_id::value+1> >::do_start(self_,incomingEvent);
+                 (entry_helper<Event>(m_states[region_id],incomingEvent,this));
          }
-     };
-     template <int Dummy>
-     struct region_start_helper< ::boost::mpl::int_<nr_regions::value>,Dummy>
-     {
-         // end of processing
-         template<class Event>
-         static void do_start(library_sm*,Event const& ){}
-     };
-     // start for states machines which are themselves embedded in other state machines (composites)
-     template <class Event>
-     void internal_start(Event const& incomingEvent)
-     {
-         region_start_helper< ::boost::mpl::int_<0> >::do_start(this,incomingEvent);
          // give a chance to handle an anonymous (eventless) transition
          handle_eventless_transitions_helper<library_sm> eventless_helper(this,true);
          eventless_helper.process_completion_event();
+     }
+
+     template <class Event, class Policy = CompilePolicy>
+     typename enable_if<std::is_same<Policy, favor_compile_time>, void>::type
+     internal_start(Event const& incomingEvent)
+     {
+         any_internal_start(any(incomingEvent), nr_regions::value);
      }
 
      template <class StateType>
