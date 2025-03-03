@@ -11,6 +11,7 @@ Most efficient improvements:
 
 TODOs:
 
+- Understand the internal transition table wrt. favor compile time dispatch table
 - Check if it's possible to optimize process_any_event so that it doesn't have to check events recursively
 - Look into recursive processing of transition tables wrt. event and state sets
 - Consider a way to put only events into the queue for favor_compile_time (boost::any)

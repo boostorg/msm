@@ -84,7 +84,18 @@ private:
     ::boost::msm::back::HandledEnum fsmname::process_any_event( ::boost::any const& any_event)      \
     {                                                                                               \
         return ::boost::msm::back::process_any_event_helper<fsmname>::execute(this, any_event);     \
+    }                                                                                               \
+    template<>                                                                                      \
+    template<class Event, class Policy>                                                             \
+    typename ::boost::enable_if<                                                                    \
+        std::is_same<Policy, boost::msm::back::favor_compile_time>,                                 \
+        boost::msm::back::execute_return>::type                                                     \
+    fsmname::process_event_internal(Event const& evt, EventSource source)                           \
+    {                                                                                               \
+        return process_event_internal_impl(evt, source);                                            \
     }
+
+
 
 struct favor_compile_time
 {
@@ -134,7 +145,7 @@ struct cell_initializer<favor_compile_time>
         for (size_t i=0; i<size; i++)
         {
             const auto& item = array[i];
-            entries[item.index].one_state.push_front(item.address);
+            entries[item.index].one_state.push_back(item.address);
         }
     }
 };
@@ -262,7 +273,10 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
             preprocess_state,
             filtered_states
             > preprocessed_states;
-        cell_initializer::default_init(
+        // TODO:
+        // Check against default_init_cell behavior in back,
+        // in particular deferring transitions and internal transitions.
+        cell_initializer::init(
             entries,
             get_init_cells<cell, preprocessed_states>(),
             mp11::mp_size<preprocessed_states>::value

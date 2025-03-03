@@ -1285,17 +1285,6 @@ private:
         return process_event_internal(evt, EVENT_SOURCE_DIRECT);
     }
 
-    // template<class Event, class Policy = CompilePolicy>
-    // typename ::boost::enable_if<std::is_same<Policy, favor_runtime_speed>,execute_return >::type
-    // process_event(Event const& evt)
-    // {
-    //     return process_event_internal(evt, EVENT_SOURCE_DIRECT);
-    // }
-
-    // template<class Event, class Policy = CompilePolicy>
-    // typename ::boost::enable_if<std::is_same<Policy, favor_compile_time>,execute_return >::type
-    // process_event(Event const& evt);
-
     template <class EventType>
     void enqueue_event_helper(EventType const& evt, ::boost::mpl::false_ const &)
     {
@@ -2129,9 +2118,8 @@ public:
             // use this table as if it came directly from the user
             typedef dispatch_table<library_sm,complete_table,Event,CompilePolicy> table;
             // +1 because index 0 is reserved for this fsm
-            HandledEnum res =
-                table::instance().entries[self->m_states[0]+1](
-                *self, 0, self->m_states[0], evt);
+            const auto& chain_row = table::instance().entries[self->m_states[0]+1];
+            HandledEnum res = chain_row(*self, 0, self->m_states[0], evt);
             result = (HandledEnum)((int)result | (int)res);
             // process the event in the internal table of this fsm if the event is processable (present in the table)
             process_fsm_internal_table<Event>::process(evt,self,result);
@@ -2186,11 +2174,23 @@ public:
         HandledEnum&    result;
     };
 
+    template<class Event, class Policy = CompilePolicy>
+    typename ::boost::enable_if<std::is_same<Policy, favor_runtime_speed>,execute_return >::type
+    process_event_internal(Event const& evt,
+                           EventSource source = EVENT_SOURCE_DEFAULT)
+    {
+        return process_event_internal_impl(evt, source);
+    }
+
+    template<class Event, class Policy = CompilePolicy>
+    typename ::boost::enable_if<std::is_same<Policy, favor_compile_time>,execute_return >::type
+    process_event_internal(Event const& evt,
+                           EventSource source = EVENT_SOURCE_DEFAULT);
+
     // Main function used internally to make transitions
     // Can only be called for internally (for example in an action method) generated events.
     template<class Event>
-    execute_return process_event_internal(Event const& evt,
-                                          EventSource source = EVENT_SOURCE_DEFAULT)
+    execute_return process_event_internal_impl(Event const& evt, EventSource source)
     {
         // if the state machine has terminate or interrupt flags, check them, otherwise skip
         if (is_event_handling_blocked_helper<Event>
