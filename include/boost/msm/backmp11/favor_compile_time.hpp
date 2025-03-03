@@ -216,8 +216,11 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     using cell_initializer = cell_initializer<favor_compile_time>;
 
     // Helpers for state processing
-    template<typename State>
-    using call_submachine_cell = cell_constant<&call_submachine<State>>;
+    template<typename SubFsm>
+    struct call_submachine_cell
+    {
+        using type = cell_constant<&call_submachine<SubFsm>>;
+    };
     template<typename State>
     using defer_transition_cell = cell_constant<&State::defer_transition>;
     template <typename State>
