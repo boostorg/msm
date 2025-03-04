@@ -203,7 +203,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     template <class TransitionState>
     static HandledEnum call_submachine(Fsm& fsm, int , int , Event const& evt)
     {
-        return (fsm.template get_state<TransitionState&>()).process_any_event( ::boost::any(evt));
+        return (fsm.template get_state<TransitionState&>()).process_event_internal(evt);
     }
 
     using init_cell_value = init_cell_value<cell>;
