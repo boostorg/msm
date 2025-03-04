@@ -131,21 +131,24 @@ struct chain_row
 template<>
 struct cell_initializer<favor_compile_time>
 {
-    static void default_init(chain_row* entries, const generic_init_cell_value* array, size_t size)
-    {
-        for (size_t i=0; i<size; i++)
-        {
-            const auto& item = array[i];
-            entries[item.index].one_state.push_back(item.address);
-        }
-    }
+    // TODO:
+    // Check against default_init_cell behavior in original implementation,
+    // in particular deferring transitions and internal transitions.
+    // static void default_init(chain_row* entries, const generic_init_cell_value* array, size_t size)
+    // {
+    //     for (size_t i=0; i<size; i++)
+    //     {
+    //         const auto& item = array[i];
+    //         entries[item.index].one_state.push_back(item.address);
+    //     }
+    // }
 
     static void init(chain_row* entries, const generic_init_cell_value* array, size_t size)
     {
         for (size_t i=0; i<size; i++)
         {
             const auto& item = array[i];
-            entries[item.index].one_state.push_back(item.address);
+            entries[item.index].one_state.push_front(item.address);
         }
     }
 };
@@ -264,24 +267,6 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     template<typename EventType = Event>
     dispatch_table(typename enable_if<mp11::mp_set_contains<event_set, EventType>>::type* = 0)
     {
-        // Initialize cells that defer an event or call a submachine.
-        typedef mp11::mp_copy_if<
-            typename generate_state_set<Stt>::state_set_mp11,
-            state_filter_predicate
-            > filtered_states;
-        typedef mp11::mp_transform<
-            preprocess_state,
-            filtered_states
-            > preprocessed_states;
-        // TODO:
-        // Check against default_init_cell behavior in back,
-        // in particular deferring transitions and internal transitions.
-        cell_initializer::init(
-            entries,
-            get_init_cells<cell, preprocessed_states>(),
-            mp11::mp_size<preprocessed_states>::value
-            );
-
         // Fill in cells for matching transitions
         typedef mp11::mp_transform<
             preprocess_row,
@@ -291,6 +276,23 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
             entries,
             get_init_cells<cell, preprocessed_rows>(),
             mp11::mp_size<preprocessed_rows>::value
+            );
+
+        // Initialize cells that defer an event or call a submachine.
+        // This needs to happen last to make sure calling a submachine is handled before
+        // trying to call the transitions defined in this machine.
+        typedef mp11::mp_copy_if<
+            typename generate_state_set<Stt>::state_set_mp11,
+            state_filter_predicate
+            > filtered_states;
+        typedef mp11::mp_transform<
+            preprocess_state,
+            filtered_states
+            > preprocessed_states;
+        cell_initializer::init(
+            entries,
+            get_init_cells<cell, preprocessed_states>(),
+            mp11::mp_size<preprocessed_states>::value
             );
     }
 
@@ -308,7 +310,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
             preprocess_state,
             filtered_states
             > preprocessed_states;
-        cell_initializer::default_init(
+        cell_initializer::init(
             entries,
             get_init_cells<cell, preprocessed_states>(),
             mp11::mp_size<preprocessed_states>::value
