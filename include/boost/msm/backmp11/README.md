@@ -1,30 +1,22 @@
 # Boost MSM optimizations
 
-Most efficient improvements:
+Major improvements:
 
 - Replacement of CPU-intensive calls due to C++03 recursion from MPL to Mp11
 - Applied type punning where useful (to reduce template instantiations, std::deque & other things around the dispatch table)
 - Optimized cell initialization with initializer arrays (to reduce template instantiations)
 - favor_runtime_speed: Default-initialized everything and afterwards only defer transition cells
-- favor_compile_time: "Default"-initialized only defer transition & call submachine cells
-
+- favor_compile_time: Default-initialized only defer transition & call submachine cells
+- favor_compile_time: Call submachines via process_event_internal directly instead of process_any_event
+- favor_compile_time: Optimized algorithm for transition table processing to process each row only once (see group_rows_by_event)
 
 TODOs:
 
-- Understand the internal transition table wrt. favor compile time dispatch table
-- Check if it's possible to optimize process_any_event so that it doesn't have to check events recursively
+- Look into creating only one dispatch table to reduce template instantiations
+- Consider a way to put only events into the queue
 - Look into recursive processing of transition tables wrt. event and state sets
-- Consider a way to put only events into the queue for favor_compile_time (boost::any)
 - Consider trying out the tuple impl from SML
-- Consider using a std::vector for the chain row (favor compile time)
 - Understand the background of region_start_helper
-
-
-Ideas short-term:
-
-- defer the constructor of a fsm with favor_compile_time to a GENERATE macro
-- Skip the dispatch table if the event is not part of the SM's transition table (non-recursive)
--> There are 3 options: Sub-SM is active (call it) or event is deferred (defer it) or have no action (call no transition)
 
 
 Ideas long-term:

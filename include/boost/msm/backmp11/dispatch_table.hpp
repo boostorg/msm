@@ -111,6 +111,11 @@ struct table_index<Fsm, State, void>
 template<typename Fsm, typename State, typename Event = void>
 using get_table_index = typename table_index<Fsm, State, Event>::type;
 
+// TODO:
+// Check if a more generic dispatch table makes sense.
+template <class Fsm,class Stt,class CompilePolicy>
+struct new_dispatch_table;
+
 // Generates a singleton runtime lookup table that maps current state
 // to a function that makes the SM take its transition on the given
 // Event type.
