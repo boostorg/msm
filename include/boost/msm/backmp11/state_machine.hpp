@@ -1657,9 +1657,11 @@ public:
              ::boost::fusion::as_vector(FoldToList()(expr, boost::fusion::nil_())),update_state(this->m_substate_list));
      }
 
-     // Construct with the default initial states
-     template<typename Policy = CompilePolicy>
-     state_machine(typename std::enable_if<std::is_same<Policy, favor_runtime_speed>::value>::type* = 0)
+     
+ private:
+    struct internal_tag{};
+    // Construct with the default initial states
+    state_machine(internal_tag)
          :Derived()
          ,m_events_queue()
          ,m_deferred_events_queue()
@@ -1668,20 +1670,24 @@ public:
          ,m_is_included(false)
          ,m_visitors()
          ,m_substate_list()
-     {
+    {
          // initialize our list of states with the ones defined in Derived::initial_state
          ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
                         (init_states(m_states));
          m_history.set_initial_states(m_states);
          // create states
          fill_states(this);
-     }
+    }
+ public:
+     // Direct instantiation in case of favor_runtime_speed.
+     template<typename Policy = CompilePolicy>
+     state_machine(typename enable_if<is_same<Policy, favor_runtime_speed>>::type* = 0)
+         : state_machine(internal_tag{}) {}
 
      // State machine constructors with favor_compile_time policy
-     // need to be instantiated explicitly.
+     // require explicit instantiation.
      template<typename Policy = CompilePolicy>
-     state_machine(typename std::enable_if<std::is_same<Policy, favor_compile_time>::value>::type* = 0);
-
+     state_machine(typename enable_if<is_same<Policy, favor_compile_time>>::type* = 0);
 
      // Construct with the default initial states and some default argument(s)
 #if defined (BOOST_NO_CXX11_RVALUE_REFERENCES)                                      \
@@ -2175,7 +2181,7 @@ public:
     };
 
     template<class Event, class Policy = CompilePolicy>
-    typename ::boost::enable_if<std::is_same<Policy, favor_runtime_speed>,execute_return >::type
+    typename enable_if<is_same<Policy, favor_runtime_speed>, execute_return>::type
     process_event_internal(Event const& evt,
                            EventSource source = EVENT_SOURCE_DEFAULT)
     {
@@ -2183,7 +2189,7 @@ public:
     }
 
     template<class Event, class Policy = CompilePolicy>
-    typename ::boost::enable_if<std::is_same<Policy, favor_compile_time>,execute_return >::type
+    typename enable_if<is_same<Policy, favor_compile_time>, execute_return>::type
     process_event_internal(Event const& evt,
                            EventSource source = EVENT_SOURCE_DEFAULT);
 

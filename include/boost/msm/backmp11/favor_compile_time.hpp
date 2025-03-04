@@ -64,22 +64,9 @@ private:
 
 #define BOOST_MSM_BACK_GENERATE_FSM(fsmname)                                                        \
     template<>                                                                                      \
-    template<>                                                                                      \
-    fsmname::state_machine(typename std::enable_if<true>::type*)                                    \
-        :Derived()                                                                                  \
-        ,m_events_queue()                                                                           \
-        ,m_deferred_events_queue()                                                                  \
-        ,m_history()                                                                                \
-        ,m_event_processing(false)                                                                  \
-        ,m_is_included(false)                                                                       \
-        ,m_visitors()                                                                               \
-        ,m_substate_list()                                                                          \
-    {                                                                                               \
-        ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >     \
-                    (init_states(m_states));                                                        \
-        m_history.set_initial_states(m_states);                                                     \
-        fill_states(this);                                                                          \
-    }                                                                                               \
+    template<typename Policy>                                                                       \
+    fsmname::state_machine(typename enable_if<is_same<Policy, favor_compile_time>>::type*)          \
+        :state_machine(internal_tag{}) {}                                                           \
     template<>                                                                                      \
     ::boost::msm::back::HandledEnum fsmname::process_any_event( ::boost::any const& any_event)      \
     {                                                                                               \
@@ -88,9 +75,9 @@ private:
     template<>                                                                                      \
     template<class Event, class Policy>                                                             \
     typename ::boost::enable_if<                                                                    \
-        std::is_same<Policy, boost::msm::back::favor_compile_time>,                                 \
+        boost::is_same<Policy, boost::msm::back::favor_compile_time>,                               \
         boost::msm::back::execute_return>::type                                                     \
-    fsmname::process_event_internal(Event const& evt, EventSource source)                           \
+    BOOST_NOINLINE fsmname::process_event_internal(Event const& evt, EventSource source)            \
     {                                                                                               \
         return process_event_internal_impl(evt, source);                                            \
     }
