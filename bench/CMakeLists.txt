@@ -37,19 +37,16 @@ add_dependencies(benchmarks_backmp11
     # bench_backmp11_nestesd_fsm_multi_cu
 )
 
-add_custom_target(benchmarks)
-add_dependencies(benchmarks
-    # bench_back
-    # bench_back_favor_compile_time
-    # bench_back11
-    bench_backmp11
-    bench_backmp11_favor_compile_time
+add_custom_target(benchmarks_back)
+add_dependencies(benchmarks_back
+    bench_back
+    bench_back_favor_compile_time
+    bench_back_nested_fsm
+    bench_back_nested_fsm_favor_compile_time
 )
 
 add_custom_target(benchmarks_nested_fsm)
 add_dependencies(benchmarks_nested_fsm
-    # bench_back_nested_fsm
-    # bench_back_nested_fsm_favor_compile_time
     bench_backmp11_nested_fsm
     bench_backmp11_nested_fsm_favor_compile_time
 )

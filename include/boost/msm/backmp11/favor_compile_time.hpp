@@ -64,8 +64,8 @@ private:
 
 #define BOOST_MSM_BACK_GENERATE_FSM(fsmname)                                                        \
     template<>                                                                                      \
-    template<typename Policy>                                                                       \
-    fsmname::state_machine(typename enable_if<is_same<Policy, favor_compile_time>>::type*)          \
+    template<>                                                                       \
+    fsmname::state_machine(typename enable_if<true_type>::type*)          \
         :state_machine(internal_tag{}) {}                                                           \
     template<>                                                                                      \
     ::boost::msm::back::HandledEnum fsmname::process_any_event( ::boost::any const& any_event)      \
@@ -203,7 +203,7 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     template <class TransitionState>
     static HandledEnum call_submachine(Fsm& fsm, int , int , Event const& evt)
     {
-        return (fsm.template get_state<TransitionState&>()).process_event_internal(evt);
+        return (fsm.template get_state<TransitionState&>()).process_any_event(evt);
     }
 
     using init_cell_value = init_cell_value<cell>;
