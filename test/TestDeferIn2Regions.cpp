@@ -9,7 +9,7 @@
 // http://www.boost.org/LICENSE_1_0.txt)
 
 // back-end
-#include <boost/msm/back11/state_machine.hpp>
+#include "BackCommon.hpp"
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
@@ -118,9 +118,9 @@ namespace
         }
     };
     // Pick a back-end
-    typedef msm::back11::state_machine<player_> player;
+    typedef get_test_machines<player_> players;
 
-    BOOST_AUTO_TEST_CASE( Back11TestDeferIn2Regions )
+    BOOST_AUTO_TEST_CASE_TEMPLATE( Back11TestDeferIn2Regions, player, players )
     {
         player p;
         // needed to start the highest-level SM. This will call on_entry and mark the start of the SM
@@ -129,40 +129,40 @@ namespace
         p.process_event(event1());
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 1,"State12 should be active");
         BOOST_CHECK_MESSAGE(p.current_state()[1] == 2,"State21 should be active");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::State11&>().exit_counter == 1,"State11 exit not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::State11&>().entry_counter == 1,"State11 entry not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::State12&>().entry_counter == 1,"State12 entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.template get_state<player_::State11&>().exit_counter == 1,"State11 exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.template get_state<player_::State11&>().entry_counter == 1,"State11 entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.template get_state<player_::State12&>().entry_counter == 1,"State12 entry not called correctly");
 
         // deferred
         p.process_event(eventd());
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 1,"State12 should be active");
         BOOST_CHECK_MESSAGE(p.current_state()[1] == 2,"State21 should be active");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::State11&>().exit_counter == 1,"State11 exit not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::State11&>().entry_counter == 1,"State11 entry not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::State12&>().entry_counter == 1,"State12 entry not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::State12&>().exit_counter == 0,"State12 exit not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::State21&>().exit_counter == 0,"State21 exit not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::State21&>().entry_counter == 1,"State21 entry not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::State22&>().exit_counter == 0,"State22 exit not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::State22&>().entry_counter == 0,"State22 entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.template get_state<player_::State11&>().exit_counter == 1,"State11 exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.template get_state<player_::State11&>().entry_counter == 1,"State11 entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.template get_state<player_::State12&>().entry_counter == 1,"State12 entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.template get_state<player_::State12&>().exit_counter == 0,"State12 exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.template get_state<player_::State21&>().exit_counter == 0,"State21 exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.template get_state<player_::State21&>().entry_counter == 1,"State21 entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.template get_state<player_::State22&>().exit_counter == 0,"State22 exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.template get_state<player_::State22&>().entry_counter == 0,"State22 entry not called correctly");
 
         p.process_event(event3());
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 1,"State12 should be active");
         BOOST_CHECK_MESSAGE(p.current_state()[1] == 2,"State21 should be active");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::State21&>().exit_counter == 1,"State21 exit not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::State21&>().entry_counter == 2,"State21 entry not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::State22&>().exit_counter == 1,"State22 exit not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::State22&>().entry_counter == 1,"State22 entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.template get_state<player_::State21&>().exit_counter == 1,"State21 exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.template get_state<player_::State21&>().entry_counter == 2,"State21 entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.template get_state<player_::State22&>().exit_counter == 1,"State22 exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.template get_state<player_::State22&>().entry_counter == 1,"State22 entry not called correctly");
         BOOST_CHECK_MESSAGE(p.get_deferred_queue().size() == 1,"Deferred queue should have one element");
         p.clear_deferred_queue();
 
         p.process_event(event2());
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 4,"State13 should be active");
         BOOST_CHECK_MESSAGE(p.current_state()[1] == 2,"State21 should be active");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::State21&>().exit_counter == 1,"State21 exit not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::State21&>().entry_counter == 2,"State21 entry not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::State22&>().exit_counter == 1,"State22 exit not called correctly");
-        BOOST_CHECK_MESSAGE(p.get_state<player_::State22&>().entry_counter == 1,"State22 entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.template get_state<player_::State21&>().exit_counter == 1,"State21 exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.template get_state<player_::State21&>().entry_counter == 2,"State21 entry not called correctly");
+        BOOST_CHECK_MESSAGE(p.template get_state<player_::State22&>().exit_counter == 1,"State22 exit not called correctly");
+        BOOST_CHECK_MESSAGE(p.template get_state<player_::State22&>().entry_counter == 1,"State22 entry not called correctly");
         BOOST_CHECK_MESSAGE(p.get_deferred_queue().size() == 0,"Deferred queue should have no element");
     }
 }
