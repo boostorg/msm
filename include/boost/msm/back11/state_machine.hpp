@@ -436,7 +436,7 @@ private:
             BOOST_ASSERT(state == (current_state));
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
             if (has_pseudo_exit<T1>::type::value &&
-                !is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
+                !back11::is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
             {
                 return ::boost::msm::back::HANDLED_FALSE;
             }
@@ -517,7 +517,7 @@ private:
 
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
             if (has_pseudo_exit<T1>::type::value &&
-                !is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
+                !back11::is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
             {
                 return ::boost::msm::back::HANDLED_FALSE;
             }
@@ -582,7 +582,7 @@ private:
 
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
             if (has_pseudo_exit<T1>::type::value &&
-                !is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
+                !back11::is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
             {
                 return ::boost::msm::back::HANDLED_FALSE;
             }
@@ -649,7 +649,7 @@ private:
 
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
             if (has_pseudo_exit<T1>::type::value &&
-                !is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
+                !back11::is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
             {
                 return ::boost::msm::back::HANDLED_FALSE;
             }
