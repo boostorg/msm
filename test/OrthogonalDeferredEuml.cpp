@@ -159,7 +159,7 @@ namespace
         // TODO:
         // Investigate reason for test falure in back11.
         // hierarchical_state_machine<boost::msm::back11::state_machine>
-        > test_machines;    
+        > test_machines;
 
     //static char const* const state_names[] = { "Stopped", "Paused","Open", "Empty", "Playing" ,"AllOk","ErrorMode","ErrorTerminate" };
 
