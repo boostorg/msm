@@ -10,14 +10,14 @@
 
 
 // back-end
-#include <boost/msm/back11/state_machine.hpp>
+#include "BackCommon.hpp"
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/puml/puml.hpp>
-#include <PumlCommon.hpp>
+#include "PumlCommon.hpp"
 
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE back11_only_string_puml_test
+#define BOOST_TEST_MODULE only_string_puml_test
 #endif
 #include <boost/test/unit_test.hpp>
 
@@ -76,10 +76,10 @@ namespace
         }
     };
     // Pick a back-end
-    typedef msm::back11::state_machine<player_> player;
+    typedef get_test_machines<player_> players;
 
 
-    BOOST_AUTO_TEST_CASE(back11_only_string_puml_test)
+    BOOST_AUTO_TEST_CASE_TEMPLATE(only_string_puml_test, player, players)
     {     
         player p;
         static_assert(msm::back11::get_number_of_regions<typename player::initial_state>::type::value == 1);
@@ -89,7 +89,7 @@ namespace
 
         p.process_event(Event<by_name("open_close_")>{});
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 1,"Open should be active"); //Open
-        BOOST_CHECK_MESSAGE(p.is_flag_active<Flag<by_name("CDLoaded")>>() == false, "CDLoaded should not be active");
+        BOOST_CHECK_MESSAGE(p.template is_flag_active<Flag<by_name("CDLoaded")>>() == false, "CDLoaded should not be active");
 
         p.process_event(Event<by_name("open_close_")>{});
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 2,"Empty should be active"); //Empty
@@ -105,13 +105,13 @@ namespace
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 3,"Playing should be active"); //Playing
         BOOST_CHECK_MESSAGE(p.start_playback_counter == 1,"action not called correctly");
         BOOST_CHECK_MESSAGE(p.test_fct_counter == 1,"action not called correctly");
-        BOOST_CHECK_MESSAGE(p.is_flag_active < Flag<by_name("CDLoaded")>>() == true, "CDLoaded should be active");
+        BOOST_CHECK_MESSAGE(p.template is_flag_active < Flag<by_name("CDLoaded")>>() == true, "CDLoaded should be active");
         BOOST_CHECK_MESSAGE(p.entry_counter == 1, "Playing entry not called correctly");
         BOOST_CHECK_MESSAGE(p.exit_counter == 0, "Playing exit not called correctly");
 
         p.process_event(Event<by_name("pause_")>{});
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 4,"Paused should be active"); //Paused
-        BOOST_CHECK_MESSAGE(p.is_flag_active < Flag<by_name("CDLoaded")>>() == true, "CDLoaded should be active");
+        BOOST_CHECK_MESSAGE(p.template is_flag_active < Flag<by_name("CDLoaded")>>() == true, "CDLoaded should be active");
         BOOST_CHECK_MESSAGE(p.entry_counter == 1, "Playing entry not called correctly");
         BOOST_CHECK_MESSAGE(p.exit_counter == 1, "Playing exit not called correctly");
 
@@ -128,7 +128,7 @@ namespace
 
         p.process_event(Event<by_name("stop_")>{});
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 0,"Stopped should be active"); //Stopped
-        BOOST_CHECK_MESSAGE(p.is_flag_active < Flag<by_name("CDLoaded")>>() == true, "CDLoaded should be active");
+        BOOST_CHECK_MESSAGE(p.template is_flag_active < Flag<by_name("CDLoaded")>>() == true, "CDLoaded should be active");
 
         p.process_event(Event<by_name("stop_")>{});
         BOOST_CHECK_MESSAGE(p.current_state()[0] == 0,"Stopped should be active"); //Stopped

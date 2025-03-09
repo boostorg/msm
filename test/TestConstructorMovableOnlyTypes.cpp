@@ -15,11 +15,11 @@
 
 #include <memory>
 // back-end
-#include <boost/msm/back/state_machine.hpp>
+#include "BackCommon.hpp"
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE MyTest
+#define BOOST_TEST_MODULE test_constructor_movable_only_types
 #endif
 #include <boost/test/unit_test.hpp>
 
@@ -94,9 +94,9 @@ namespace
     };
 
     // Pick a back-end
-    typedef msm::back::state_machine<bistable_switch_> bistable_switch;
+    typedef get_test_machines<bistable_switch_> bistable_switches;
 
-    BOOST_AUTO_TEST_CASE(my_test)
+    BOOST_AUTO_TEST_CASE_TEMPLATE(test_constructor_movable_only_types, bistable_switch, bistable_switches)
     {
         auto bulp = std::make_unique<Lightbulp>(3);
 

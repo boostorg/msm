@@ -56,6 +56,7 @@
 #include <boost/msm/active_state_switching_policies.hpp>
 #include <boost/msm/row_tags.hpp>
 #include <boost/msm/msm_grammar.hpp>
+#include <boost/msm/back/traits.hpp>
 #include <boost/msm/back/fold_to_list.hpp>
 #include <boost/msm/back/metafunctions.hpp>
 #include <boost/msm/back/history_policies.hpp>
@@ -65,20 +66,6 @@
 #include <boost/msm/back/dispatch_table.hpp>
 #include <boost/msm/back/no_fsm_check.hpp>
 #include <boost/msm/back/queue_container_deque.hpp>
-
-BOOST_MPL_HAS_XXX_TRAIT_DEF(accept_sig)
-BOOST_MPL_HAS_XXX_TRAIT_DEF(no_automatic_create)
-BOOST_MPL_HAS_XXX_TRAIT_DEF(non_forwarding_flag)
-BOOST_MPL_HAS_XXX_TRAIT_DEF(direct_entry)
-BOOST_MPL_HAS_XXX_TRAIT_DEF(initial_event)
-BOOST_MPL_HAS_XXX_TRAIT_DEF(final_event)
-BOOST_MPL_HAS_XXX_TRAIT_DEF(do_serialize)
-BOOST_MPL_HAS_XXX_TRAIT_DEF(history_policy)
-BOOST_MPL_HAS_XXX_TRAIT_DEF(fsm_check)
-BOOST_MPL_HAS_XXX_TRAIT_DEF(compile_policy)
-BOOST_MPL_HAS_XXX_TRAIT_DEF(queue_container_policy)
-BOOST_MPL_HAS_XXX_TRAIT_DEF(using_declared_table)
-BOOST_MPL_HAS_XXX_TRAIT_DEF(event_queue_before_deferred_queue)
 
 #ifndef BOOST_MSM_CONSTRUCTOR_ARG_SIZE
 #define BOOST_MSM_CONSTRUCTOR_ARG_SIZE 5 // default max number of arguments for constructors
