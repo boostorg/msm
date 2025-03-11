@@ -9,16 +9,16 @@
 // http://www.boost.org/LICENSE_1_0.txt)
 
 // back-end
-#include <boost/msm/back/state_machine.hpp>
-#include <boost/msm/back/favor_compile_time.hpp>
+#include <boost/msm/backmp11/state_machine.hpp>
+#include <boost/msm/backmp11/favor_compile_time.hpp>
 #include <boost/msm/back11/state_machine.hpp>
 
 template<typename Front>
 using get_test_machines = boost::mpl::vector<
     boost::msm::back::state_machine<Front>,
-    boost::msm::back::state_machine<Front, boost::msm::back::favor_compile_time>,
-    boost::msm::back11::state_machine<Front>
-    >;
+    boost::msm::back::state_machine<Front, boost::msm::back::favor_compile_time>>;
+    // boost::msm::back11::state_machine<Front>
+    // >;
 
 #define BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(frontname)                          \
     using base = msm::front::state_machine_def<frontname>;                            \

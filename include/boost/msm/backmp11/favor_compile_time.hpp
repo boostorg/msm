@@ -42,12 +42,12 @@ struct process_any_event_helper
         typedef mp11::mp_set_union<stt_events, istt_events> all_events;
         
         HandledEnum res= HANDLED_FALSE;
-        mp11::mp_for_each<all_events>(process_any_event_helper<Fsm>(res, self, any_event));
+        mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, all_events>>(process_any_event_helper<Fsm>(res, self, any_event));
         return res;
     }
     
     template <class Event>
-    void operator()(Event const&)
+    void operator()(mp11::mp_identity<Event> const&)
     {
         if (!finished && ::boost::any_cast<Event>(&any_event) != 0)
         {
@@ -62,11 +62,13 @@ private:
     bool                        finished;
 };
 
-#define BOOST_MSM_BACK_GENERATE_FSM(fsmname)                                                        \
+#define BOOST_MSM_BACKMP11_GENERATE_CONSTRUCTOR(fsmname)                                            \
     template<>                                                                                      \
-    template<>                                                                       \
-    fsmname::state_machine(typename enable_if<true_type>::type*)          \
-        :state_machine(internal_tag{}) {}                                                           \
+    template<>                                                                                      \
+    fsmname::state_machine(typename enable_if<true_type>::type*)                                    \
+        :state_machine(internal_tag{}) {}
+
+#define BOOST_MSM_BACKMP11_GENERATE_PROCESS_EVENT(fsmname)                                          \
     template<>                                                                                      \
     ::boost::msm::back::HandledEnum fsmname::process_any_event( ::boost::any const& any_event)      \
     {                                                                                               \
@@ -82,6 +84,9 @@ private:
         return process_event_internal_impl(evt, source);                                            \
     }
 
+#define BOOST_MSM_BACKMP11_GENERATE_FSM(fsmname)       \
+    BOOST_MSM_BACKMP11_GENERATE_CONSTRUCTOR(fsmname)   \
+    BOOST_MSM_BACKMP11_GENERATE_PROCESS_EVENT(fsmname)
 
 
 struct favor_compile_time

@@ -27,11 +27,10 @@
 #include <boost/type_traits/is_same.hpp>
 
 #include <boost/msm/event_traits.hpp>
+#include <boost/msm/back/traits.hpp>
 #include <boost/msm/back/default_compile_policy.hpp>
 #include <boost/msm/backmp11/metafunctions.hpp>
 #include <boost/msm/back/common_types.hpp>
-
-BOOST_MPL_HAS_XXX_TRAIT_DEF(is_frow)
 
 namespace boost { namespace msm { namespace back 
 {

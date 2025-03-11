@@ -1,17 +1,21 @@
 file(GLOB SOURCES "*.cpp")
 # TODO:
 # Fully install boost to test Serialize
-list(FILTER SOURCES EXCLUDE REGEX "Serialize|BigWithFunctors")
+list(FILTER SOURCES EXCLUDE REGEX "Serialize")
 # list(FILTER SOURCES INCLUDE REGEX "Anonymous")
 
 add_executable(msm_test
-    ${SOURCES}
+    # ${SOURCES}
     # Anonymous.cpp
-    # AnonymousEuml.cpp
     # AnonymousAndGuard.cpp
+    # AnonymousEuml.cpp
     # BigWithFunctors.cpp
+    # CompositeEuml.cpp
     # CompositeMachine.cpp
-    # Entries.cpp
+    Constructor.cpp
+    Entries.cpp
+    EventQueue.cpp
+    History.cpp
     main.cpp
 )
 target_include_directories(msm_test PRIVATE ../include)

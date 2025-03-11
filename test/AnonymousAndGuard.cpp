@@ -105,3 +105,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(anonymous_and_guard_test2, MyStateMachine, MyState
     BOOST_CHECK_MESSAGE(sm.current_state()[0] == 0, "Running should be active");
     BOOST_CHECK_MESSAGE(sm.current_state()[1] == 3, "Completed should be active");
 }
+
+using backmp11_fsm = boost::msm::back::state_machine<Bug, boost::msm::back::favor_compile_time>;
+BOOST_MSM_BACKMP11_GENERATE_FSM(backmp11_fsm);

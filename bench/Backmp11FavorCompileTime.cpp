@@ -13,4 +13,4 @@ int main()
     return 0;
 }
 
-BOOST_MSM_BACK_GENERATE_FSM(fsm0);
+BOOST_MSM_BACKMP11_GENERATE_FSM(fsm0);

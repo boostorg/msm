@@ -62,7 +62,7 @@ private:
     bool                        finished;
 };
 
-#define BOOST_MSM_BACK_GENERATE_FSM(fsmname)                                                        \
+#define BOOST_MSM_BACKMP11_GENERATE_FSM(fsmname)                                                        \
     template<>                                                                                      \
     template<typename Policy>                                                                       \
     fsmname::state_machine(typename enable_if<is_same<Policy, favor_compile_time>>::type*)          \

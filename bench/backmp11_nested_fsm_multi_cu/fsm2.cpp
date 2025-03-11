@@ -7,4 +7,4 @@
 
 using fsm2 = msm::back::state_machine<fsm_<PROBLEM_SIZE/2>, msm::back::favor_compile_time>;
 
-BOOST_MSM_BACK_GENERATE_FSM(fsm2);
+BOOST_MSM_BACKMP11_GENERATE_FSM(fsm2);
