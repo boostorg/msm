@@ -14,7 +14,7 @@
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-variable"
 #endif
-#include <boost/msm/back/state_machine.hpp>
+#include "BackCommon.hpp"
 #include <boost/msm/front/euml/common.hpp>
 #include <boost/msm/front/functor_row.hpp>
 #include <boost/msm/front/state_machine_def.hpp>
@@ -23,7 +23,7 @@
 #endif
 
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE back11_anonymous_and_guard_test
+#define BOOST_TEST_MODULE anonymous_and_guard_test
 #endif
 #include <boost/test/unit_test.hpp>
 
@@ -86,9 +86,9 @@ struct Bug : public bmf::state_machine_def<Bug> {
 };
 
 // backend
-typedef boost::msm::back::state_machine<Bug> MyStateMachine;
+typedef get_test_machines<Bug> MyStateMachines;
 
-BOOST_AUTO_TEST_CASE(back11_anonymous_and_guard_test1)
+BOOST_AUTO_TEST_CASE_TEMPLATE(anonymous_and_guard_test1, MyStateMachine, MyStateMachines)
 {
     MyStateMachine sm;
     sm.start();
@@ -97,7 +97,7 @@ BOOST_AUTO_TEST_CASE(back11_anonymous_and_guard_test1)
     BOOST_CHECK_MESSAGE(sm.current_state()[1] == 3, "Completed should be active");
 }
 
-BOOST_AUTO_TEST_CASE(back11_anonymous_and_guard_test2)
+BOOST_AUTO_TEST_CASE_TEMPLATE(anonymous_and_guard_test2, MyStateMachine, MyStateMachines)
 {
     MyStateMachine sm;
     sm.start();
