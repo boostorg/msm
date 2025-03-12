@@ -85,7 +85,6 @@ private:
     }
 
 #define BOOST_MSM_BACKMP11_GENERATE_FSM(fsmname)       \
-    BOOST_MSM_BACKMP11_GENERATE_CONSTRUCTOR(fsmname)   \
     BOOST_MSM_BACKMP11_GENERATE_PROCESS_EVENT(fsmname)
 
 
@@ -227,14 +226,33 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     {
         using type = cell_constant<&call_submachine<SubFsm>>;
     };
-    template<typename State>
-    using defer_transition_cell = cell_constant<&State::defer_transition>;
+    template<typename fsm>
+    using defer_transition_cell = cell_constant<&fsm::defer_transition>;
+    // TODO:
+    // This code is more readable but evaluates defer_transition_cell too early.
+    // template <typename State>
+    // using preprocess_state = init_cell_constant<
+    //     get_table_index<Fsm, State, Event>::value,
+    //     mp11::mp_eval_if_c<
+    //         has_state_delayed_event<State, Event>::type::value,
+    //         mp11::mp_defer<defer_transition_cell, State>,
+    //         call_submachine_cell,
+    //         State
+    //         >::type::value
+    //     >;
+    // TODO:
+    // Maybe 2 separate preprocess runs are better?
     template <typename State>
     using preprocess_state = init_cell_constant<
         get_table_index<Fsm, State, Event>::value,
         mp11::mp_eval_if_c<
             has_state_delayed_event<State, Event>::type::value,
-            mp11::mp_defer<defer_transition_cell, State>,
+                mp11::mp_eval_if<
+                    mp11::mp_not<typename has_state_delayed_event<State, Event>::type>,
+                    cell_constant<nullptr>,
+                    defer_transition_cell,
+                    Fsm
+                    >,
             call_submachine_cell,
             State
             >::type::value

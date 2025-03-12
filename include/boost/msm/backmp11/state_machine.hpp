@@ -25,7 +25,7 @@
 
 #include <boost/core/ignore_unused.hpp>
 #include <boost/mp11.hpp>
-#include <boost/mp11/mpl.hpp>
+#include <boost/mp11/mpl_list.hpp>
 #include <boost/mpl/contains.hpp>
 #include <boost/mpl/deref.hpp>
 #include <boost/mpl/assert.hpp>
@@ -1644,11 +1644,8 @@ public:
              ::boost::fusion::as_vector(FoldToList()(expr, boost::fusion::nil_())),update_state(this->m_substate_list));
      }
 
-     
- // private:
-    struct internal_tag{};
     // Construct with the default initial states
-    state_machine(internal_tag)
+    state_machine()
          :Derived()
          ,m_events_queue()
          ,m_deferred_events_queue()
@@ -1665,16 +1662,6 @@ public:
          // create states
          fill_states(this);
     }
- public:
-     // Direct instantiation in case of favor_runtime_speed.
-     template<typename Policy = CompilePolicy>
-     state_machine(typename enable_if<is_same<Policy, favor_runtime_speed>>::type* = 0)
-         : state_machine(internal_tag{}) {}
-
-     // State machine constructors with favor_compile_time policy
-     // require explicit instantiation.
-     template<typename Policy = CompilePolicy>
-     state_machine(typename enable_if<is_same<Policy, favor_compile_time>>::type* = 0);
 
      // Construct with the default initial states and some default argument(s)
 #if defined (BOOST_NO_CXX11_RVALUE_REFERENCES)                                      \

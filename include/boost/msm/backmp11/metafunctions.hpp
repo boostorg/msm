@@ -14,7 +14,7 @@
 #include <algorithm>
 
 #include <boost/mp11.hpp>
-#include <boost/mp11/mpl.hpp>
+#include <boost/mp11/mpl_list.hpp>
 #include <boost/mpl/set.hpp>
 #include <boost/mpl/at.hpp>
 #include <boost/mpl/pair.hpp>
