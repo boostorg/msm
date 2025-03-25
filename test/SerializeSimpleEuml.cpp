@@ -213,3 +213,6 @@ namespace
 // at the risk of a programming error creating duplicate objects.
 // this is to get rid of warning because p is not const
 // BOOST_CLASS_TRACKING(player, boost::serialization::track_never)
+
+using backmp11_fsm = boost::msm::back::state_machine<player_, boost::msm::back::favor_compile_time>;
+BOOST_MSM_BACKMP11_GENERATE_PROCESS_EVENT(backmp11_fsm);

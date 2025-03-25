@@ -378,7 +378,12 @@ namespace
 // this is to get rid of warning because p is not const
 // BOOST_CLASS_TRACKING(player, boost::serialization::track_never)
 
-using back0 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::player;
-using back1 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::player_::Playing;
-BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back0);
-BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back1);
+// using back0 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::player;
+// using back1 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::player_::Playing;
+// BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back0);
+// BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back1);
+
+using backmp11_0 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::player;
+BOOST_MSM_BACKMP11_GENERATE_FSM(backmp11_0);
+using backmp11_1 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::player_::Playing;
+BOOST_MSM_BACKMP11_GENERATE_FSM(backmp11_1);
