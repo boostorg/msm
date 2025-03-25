@@ -149,3 +149,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(transition_skipping_test, top, tops)
     BOOST_CHECK_MESSAGE(msm.current_state()[0] == 2, "other2 should be active"); //Open
 
 }
+
+using backmp11_fsm = boost::msm::back::state_machine<top_, boost::msm::back::favor_compile_time>;
+BOOST_MSM_BACKMP11_GENERATE_PROCESS_EVENT(backmp11_fsm);

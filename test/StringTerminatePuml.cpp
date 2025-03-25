@@ -14,7 +14,7 @@
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/puml/puml.hpp>
-#include <PumlCommon.hpp>
+#include "PumlCommon.hpp"
 
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
 #define BOOST_TEST_MODULE string_terminate_puml_test
@@ -92,3 +92,5 @@ namespace
     }
 }
 
+using backmp11_fsm = boost::msm::back::state_machine<front_, boost::msm::back::favor_compile_time>;
+BOOST_MSM_BACKMP11_GENERATE_PROCESS_EVENT(backmp11_fsm);

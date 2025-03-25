@@ -115,3 +115,5 @@ namespace
     }
 }
 
+using backmp11_fsm = boost::msm::back::state_machine<bistable_switch_, boost::msm::back::favor_compile_time>;
+BOOST_MSM_BACKMP11_GENERATE_PROCESS_EVENT(backmp11_fsm);
