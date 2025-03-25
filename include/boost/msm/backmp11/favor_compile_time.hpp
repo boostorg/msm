@@ -62,12 +62,6 @@ private:
     bool                        finished;
 };
 
-#define BOOST_MSM_BACKMP11_GENERATE_CONSTRUCTOR(fsmname)                                            \
-    template<>                                                                                      \
-    template<>                                                                                      \
-    fsmname::state_machine(typename enable_if<true_type>::type*)                                    \
-        :state_machine(internal_tag{}) {}
-
 #define BOOST_MSM_BACKMP11_GENERATE_PROCESS_EVENT(fsmname)                                          \
     template<>                                                                                      \
     ::boost::msm::back::HandledEnum fsmname::process_any_event( ::boost::any const& any_event)      \

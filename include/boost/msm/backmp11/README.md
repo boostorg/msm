@@ -7,13 +7,13 @@ Major improvements:
 - Optimized cell initialization with initializer arrays (to reduce template instantiations)
 - favor_runtime_speed: Default-initialized everything and afterwards only defer transition cells
 - favor_compile_time: Default-initialized only defer transition & call submachine cells
-- favor_compile_time: Call submachines via process_event_internal directly instead of process_any_event
 - favor_compile_time: Optimized algorithm for transition table processing to process each row only once (see group_rows_by_event)
 
 TODOs:
 
 - Look into creating only one dispatch table to reduce template instantiations
 - Consider a way to put only events into the queue
+- favor_compile_time: Call submachines via process_event_internal directly instead of process_any_event
 - Look into recursive processing of transition tables wrt. event and state sets
 - Consider trying out the tuple impl from SML
 - Understand the background of region_start_helper
