@@ -116,18 +116,6 @@ struct chain_row
 template<>
 struct cell_initializer<favor_compile_time>
 {
-    // TODO:
-    // Check against default_init_cell behavior in original implementation,
-    // in particular deferring transitions and internal transitions.
-    // static void default_init(chain_row* entries, const generic_init_cell_value* array, size_t size)
-    // {
-    //     for (size_t i=0; i<size; i++)
-    //     {
-    //         const auto& item = array[i];
-    //         entries[item.index].one_state.push_back(item.address);
-    //     }
-    // }
-
     static void init(chain_row* entries, const generic_init_cell_value* array, size_t size)
     {
         for (size_t i=0; i<size; i++)
@@ -222,26 +210,13 @@ struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
     };
     template<typename fsm>
     using defer_transition_cell = cell_constant<&fsm::defer_transition>;
-    // TODO:
-    // This code is more readable but evaluates defer_transition_cell too early.
-    // template <typename State>
-    // using preprocess_state = init_cell_constant<
-    //     get_table_index<Fsm, State, Event>::value,
-    //     mp11::mp_eval_if_c<
-    //         has_state_delayed_event<State, Event>::type::value,
-    //         mp11::mp_defer<defer_transition_cell, State>,
-    //         call_submachine_cell,
-    //         State
-    //         >::type::value
-    //     >;
-    // TODO:
-    // Maybe 2 separate preprocess runs are better?
     template <typename State>
     using preprocess_state = init_cell_constant<
         get_table_index<Fsm, State, Event>::value,
         mp11::mp_eval_if_c<
             has_state_delayed_event<State, Event>::type::value,
                 mp11::mp_eval_if<
+                    // Boilerplate required to have both branches lazy evaluated.
                     mp11::mp_not<typename has_state_delayed_event<State, Event>::type>,
                     cell_constant<nullptr>,
                     defer_transition_cell,

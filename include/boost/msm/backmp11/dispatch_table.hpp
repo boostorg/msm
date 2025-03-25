@@ -110,11 +110,6 @@ struct table_index<Fsm, State, void>
 template<typename Fsm, typename State, typename Event = void>
 using get_table_index = typename table_index<Fsm, State, Event>::type;
 
-// TODO:
-// Check if a more generic dispatch table makes sense.
-template <class Fsm,class Stt,class CompilePolicy>
-struct new_dispatch_table;
-
 // Generates a singleton runtime lookup table that maps current state
 // to a function that makes the SM take its transition on the given
 // Event type.
@@ -312,8 +307,6 @@ struct dispatch_table
         mp11::mp_eval_if_c<
             is_kleene_event<typename Transition::transition_event>::type::value,
             cell_constant<
-                // TODO:
-                // Try out against enable_if in convert_event_and_forward
                 &convert_event_and_forward<Transition>::execute
                 >,
             preprocess_row_helper,
