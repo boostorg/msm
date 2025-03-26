@@ -172,8 +172,8 @@ using get_rows_of_event = mp11::mp_at_c<
 // Generates a singleton runtime lookup table that maps current state
 // to a function that makes the SM take its transition on the given
 // Event type.
-template<class Fsm, class Stt>
-struct new_dispatch_table<Fsm, Stt, back::favor_compile_time>
+template <class Fsm,class Stt, class Event>
+struct dispatch_table < Fsm, Stt, Event, ::boost::msm::back::favor_compile_time>
 {
  private:
     // This is a table of these function pointers.
