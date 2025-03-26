@@ -46,4 +46,10 @@ Challenges:
 - Will be difficult to create init cells for the dispatch table, because each row will have a different kind of function pointer.
 -> Structured binding? Tuple assignment?
 - What happens if an event without transition table entry gets passed? We cannot preserve the type info!
--> Loosing it is not a good idea, find out how it's working at the moment
+-> the no_transition invocation should remain in the header, think about "generating" only the dispatch table(s) and not process_event_internal
+
+
+Next steps:
+- Neglect the question how to serve multiple CUs or generate something deferred to later, first find out if a different dispatch table makes a noticeable difference
+- Start with a new dispatch_tables class for a SM, effectively some cascade of hash maps
+- Use the most possible simple example
