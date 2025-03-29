@@ -173,137 +173,154 @@ using get_rows_of_event = mp11::mp_at_c<
 // to a function that makes the SM take its transition on the given
 // Event type.
 template<class Fsm, class Stt>
-struct new_dispatch_table<Fsm, Stt, back::favor_compile_time>
+struct dispatch_table<Fsm, Stt, back::favor_compile_time>
 {
- private:
-    // This is a table of these function pointers.
-    typedef HandledEnum (*cell)(Fsm&, int,int,Event const&);
+public:
+    // Dispatch function for a specific event.
+    template<class Event>
+    using cell = HandledEnum (*)(Fsm&, int,int,Event const&);
 
+    // Get a dispatch function from the table for a given event and state.
+    template<class Event>
+    static const chain_row& get(size_t state_id)
+    {
+        return event_dispatch_table<Event>::instance().entries[state_id];
+    }
+
+private:
     // Compute the maximum state value in the sm so we know how big
-    // to make the table
+    // to make the tables
     typedef typename generate_state_set<Stt>::state_set_mp11 state_set_mp11;
     BOOST_STATIC_CONSTANT(int, max_state = (mp11::mp_size<state_set_mp11>::value));
 
-    typedef typename generate_event_set<Stt>::event_set_mp11 event_set;
-
-    template <class TransitionState>
-    static HandledEnum call_submachine(Fsm& fsm, int , int , Event const& evt)
+    // Dispatch table for a specific event.
+    template<class Event>
+    class event_dispatch_table
     {
-        return (fsm.template get_state<TransitionState&>()).process_any_event(evt);
-    }
+    public:
+        using cell = cell<Event>;
 
-    using init_cell_value = init_cell_value<cell>;
+        // The singleton instance.
+        static const event_dispatch_table& instance() {
+            static event_dispatch_table table;
+            return table;
+        }
 
-    template<size_t v1, cell v2>
-    using init_cell_constant = init_cell_constant<v1, cell, v2>;
+    private:
+        typedef typename generate_event_set<Stt>::event_set_mp11 event_set;
 
-    template<cell v>
-    using cell_constant = std::integral_constant<cell, v>;
+        template <class TransitionState>
+        static HandledEnum call_submachine(Fsm& fsm, int , int , Event const& evt)
+        {
+            return (fsm.template get_state<TransitionState&>()).process_any_event(evt);
+        }
 
-    using cell_initializer = cell_initializer<favor_compile_time>;
+        using init_cell_value = init_cell_value<cell>;
 
-    // Helpers for state processing
-    template<typename SubFsm>
-    struct call_submachine_cell
-    {
-        using type = cell_constant<&call_submachine<SubFsm>>;
+        template<size_t v1, cell v2>
+        using init_cell_constant = init_cell_constant<v1, cell, v2>;
+
+        template<cell v>
+        using cell_constant = std::integral_constant<cell, v>;
+
+        using cell_initializer = cell_initializer<favor_compile_time>;
+
+        // Helpers for state processing
+        template<typename SubFsm>
+        struct call_submachine_cell
+        {
+            using type = cell_constant<&call_submachine<SubFsm>>;
+        };
+        template<typename fsm>
+        using defer_transition_cell = cell_constant<&fsm::defer_transition>;
+        template <typename State>
+        using preprocess_state = init_cell_constant<
+            get_table_index<Fsm, State, Event>::value,
+            mp11::mp_eval_if_c<
+                has_state_delayed_event<State, Event>::type::value,
+                    mp11::mp_eval_if<
+                        // Boilerplate required to have both branches lazy evaluated.
+                        mp11::mp_not<typename has_state_delayed_event<State, Event>::type>,
+                        cell_constant<nullptr>,
+                        defer_transition_cell,
+                        Fsm
+                        >,
+                call_submachine_cell,
+                State
+                >::type::value
+            >;
+        template<typename State>
+        using state_filter_predicate = mp11::mp_or<
+            typename has_state_delayed_event<State, Event>::type,
+            mp11::mp_and<is_composite_state<State>, mp11::mp_not<is_same<State, Fsm>>>
+            >;
+
+        // Helpers for row processing
+        template<typename Transition>
+        using preprocess_row = init_cell_constant<
+            // Offset into the entries array
+            get_table_index<Fsm, typename Transition::current_state_type>::value,
+            // Address of the execute function
+            &Transition::execute
+            >;
+
+        // initialize the dispatch table for a given Event and Fsm
+        template<typename EventType = Event>
+        event_dispatch_table(typename enable_if<mp11::mp_set_contains<event_set, EventType>>::type* = 0)
+        {
+            // Fill in cells for matching transitions
+            typedef mp11::mp_transform<
+                preprocess_row,
+                get_rows_of_event<Stt, Event>
+                > preprocessed_rows;
+            cell_initializer::init(
+                entries,
+                get_init_cells<cell, preprocessed_rows>(),
+                mp11::mp_size<preprocessed_rows>::value
+                );
+
+            // Initialize cells that defer an event or call a submachine.
+            // This needs to happen last to make sure calling a submachine is handled before
+            // trying to call the transitions defined in this machine.
+            typedef mp11::mp_copy_if<
+                typename generate_state_set<Stt>::state_set_mp11,
+                state_filter_predicate
+                > filtered_states;
+            typedef mp11::mp_transform<
+                preprocess_state,
+                filtered_states
+                > preprocessed_states;
+            cell_initializer::init(
+                entries,
+                get_init_cells<cell, preprocessed_states>(),
+                mp11::mp_size<preprocessed_states>::value
+                );
+        }
+
+        // shortened version in case the stt doesn't contain the event,
+        // it can only be handled by a submachine
+        template<typename EventType = Event>
+        event_dispatch_table(typename disable_if<mp11::mp_set_contains<event_set, EventType>>::type* = 0)
+        {
+            // Initialize cells that defer an event or call a submachine.
+            typedef mp11::mp_copy_if<
+                typename generate_composite_state_set<Stt>::type,
+                state_filter_predicate
+                > filtered_states;
+            typedef mp11::mp_transform<
+                preprocess_state,
+                filtered_states
+                > preprocessed_states;
+            cell_initializer::init(
+                entries,
+                get_init_cells<cell, preprocessed_states>(),
+                mp11::mp_size<preprocessed_states>::value
+                );
+        }
+
+    public: // data members
+        chain_row entries[max_state+1];
     };
-    template<typename fsm>
-    using defer_transition_cell = cell_constant<&fsm::defer_transition>;
-    template <typename State>
-    using preprocess_state = init_cell_constant<
-        get_table_index<Fsm, State, Event>::value,
-        mp11::mp_eval_if_c<
-            has_state_delayed_event<State, Event>::type::value,
-                mp11::mp_eval_if<
-                    // Boilerplate required to have both branches lazy evaluated.
-                    mp11::mp_not<typename has_state_delayed_event<State, Event>::type>,
-                    cell_constant<nullptr>,
-                    defer_transition_cell,
-                    Fsm
-                    >,
-            call_submachine_cell,
-            State
-            >::type::value
-        >;
-    template<typename State>
-    using state_filter_predicate = mp11::mp_or<
-        typename has_state_delayed_event<State, Event>::type,
-        mp11::mp_and<is_composite_state<State>, mp11::mp_not<is_same<State, Fsm>>>
-        >;
-
-    // Helpers for row processing
-    template<typename Transition>
-    using preprocess_row = init_cell_constant<
-        // Offset into the entries array
-        get_table_index<Fsm, typename Transition::current_state_type>::value,
-        // Address of the execute function
-        &Transition::execute
-        >;
-
- public:
-    // initialize the dispatch table for a given Event and Fsm
-    template<typename EventType = Event>
-    dispatch_table(typename enable_if<mp11::mp_set_contains<event_set, EventType>>::type* = 0)
-    {
-        // Fill in cells for matching transitions
-        typedef mp11::mp_transform<
-            preprocess_row,
-            get_rows_of_event<Stt, Event>
-            > preprocessed_rows;
-        cell_initializer::init(
-            entries,
-            get_init_cells<cell, preprocessed_rows>(),
-            mp11::mp_size<preprocessed_rows>::value
-            );
-
-        // Initialize cells that defer an event or call a submachine.
-        // This needs to happen last to make sure calling a submachine is handled before
-        // trying to call the transitions defined in this machine.
-        typedef mp11::mp_copy_if<
-            typename generate_state_set<Stt>::state_set_mp11,
-            state_filter_predicate
-            > filtered_states;
-        typedef mp11::mp_transform<
-            preprocess_state,
-            filtered_states
-            > preprocessed_states;
-        cell_initializer::init(
-            entries,
-            get_init_cells<cell, preprocessed_states>(),
-            mp11::mp_size<preprocessed_states>::value
-            );
-    }
-
-    // shortened version in case the stt doesn't contain the event,
-    // it can only be handled by a submachine
-    template<typename EventType = Event>
-    dispatch_table(typename disable_if<mp11::mp_set_contains<event_set, EventType>>::type* = 0)
-    {
-        // Initialize cells that defer an event or call a submachine.
-        typedef mp11::mp_copy_if<
-            typename generate_composite_state_set<Stt>::type,
-            state_filter_predicate
-            > filtered_states;
-        typedef mp11::mp_transform<
-            preprocess_state,
-            filtered_states
-            > preprocessed_states;
-        cell_initializer::init(
-            entries,
-            get_init_cells<cell, preprocessed_states>(),
-            mp11::mp_size<preprocessed_states>::value
-            );
-    }
-
-    // The singleton instance.
-    static const dispatch_table& instance() {
-        static dispatch_table table;
-        return table;
-    }
-
- public: // data members
-     chain_row entries[max_state+1];
 };
 
 }}} // boost::msm::back

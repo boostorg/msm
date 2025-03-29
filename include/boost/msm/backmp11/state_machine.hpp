@@ -2074,8 +2074,8 @@ public:
         {
             if (result != HANDLED_TRUE)
             {
-                typedef dispatch_table<library_sm,complete_table,Event,CompilePolicy> table;
-                HandledEnum res_internal = table::instance().entries[0](*self_, 0, self_->m_states[0], evt);
+                typedef dispatch_table<library_sm,complete_table,CompilePolicy> table;
+                HandledEnum res_internal = table::template get<Event>(0)(*self_, 0, self_->m_states[0], evt);
                 result = (HandledEnum)((int)result | (int)res_internal);
             }
         }
@@ -2096,10 +2096,10 @@ public:
         void process(Event const& evt)
         {
             // use this table as if it came directly from the user
-            typedef dispatch_table<library_sm,complete_table,Event,CompilePolicy> table;
+            typedef dispatch_table<library_sm,complete_table,CompilePolicy> table;
             // +1 because index 0 is reserved for this fsm
-            const auto& chain_row = table::instance().entries[self->m_states[0]+1];
-            HandledEnum res = chain_row(*self, 0, self->m_states[0], evt);
+            const auto& entry = table::template get<Event>(self->m_states[0]+1);
+            HandledEnum res = entry(*self, 0, self->m_states[0], evt);
             result = (HandledEnum)((int)result | (int)res);
             // process the event in the internal table of this fsm if the event is processable (present in the table)
             process_fsm_internal_table<Event>::process(evt,self,result);
@@ -2121,10 +2121,10 @@ public:
             static void process(Event const& evt,library_sm* self_,HandledEnum& result_)
             {
                 // use this table as if it came directly from the user
-                typedef dispatch_table<library_sm,complete_table,Event,CompilePolicy> table;
+                typedef dispatch_table<library_sm,complete_table,CompilePolicy> table;
                 // +1 because index 0 is reserved for this fsm
                 HandledEnum res =
-                    table::instance().entries[self_->m_states[region_id::value]+1](
+                    table::template get<Event>(self_->m_states[region_id::value]+1)(
                     *self_, region_id::value , self_->m_states[region_id::value], evt);
                 result_ = (HandledEnum)((int)result_ | (int)res);
                 In< ::boost::mpl::int_<region_id::value+1> >::process(evt,self_,result_);
@@ -2987,8 +2987,8 @@ private:
     {
     };
 
-    template <class Fsm,class Stt, class Event, class Compile>
-    friend struct dispatch_table;
+    template<class Fsm, class Stt, class Compile>
+    friend class dispatch_table;
 
     // data members
     int                             m_states[nr_regions::value];
