@@ -11,9 +11,8 @@
 #ifndef BOOST_MSM_BACK_FAVOR_COMPILE_TIME_H
 #define BOOST_MSM_BACK_FAVOR_COMPILE_TIME_H
 
-#include <deque>
-#include <typeindex>
 #include <utility>
+#include <deque>
 
 #include <boost/mpl/filter_view.hpp>
 #include <boost/mpl/for_each.hpp>
@@ -127,55 +126,48 @@ struct cell_initializer<favor_compile_time>
     }
 };
 
-// split the stt into rows grouped by state
+// split the stt into rows grouped by event
 template<typename Stt>
-struct group_rows_by_state
+struct group_rows_by_event
 {
-    typedef typename generate_state_set<Stt>::state_set_mp11 state_set_mp11;
+    typedef typename generate_event_set<Stt>::event_set_mp11 event_set_mp11;
     // Consider only real rows
     template<typename Transition>
     using is_real_row = mp11::mp_not<typename has_not_real_row_tag<Transition>::type>;
     typedef mp11::mp_copy_if<Stt, is_real_row> real_rows;
-    // Go through each row and group transitions by state.
-    template<typename Row, typename State>
-    using has_state = std::is_same<typename Row::current_state_type, State>;
-    template<typename V, typename State>
-    using partition_by_state = mp11::mp_list<
+    // Go through each row and group transitions by event.
+    template<typename Row, typename Event>
+    using has_event = std::is_same<typename Row::transition_event, Event>;
+    template<typename V, typename Event>
+    using partition_by_event = mp11::mp_list<
         // From first element we remove the rows that we have grouped
         mp11::mp_remove_if_q<
             mp11::mp_first<V>,
-            mp11::mp_bind_back<has_state, State>
+            mp11::mp_bind_back<has_event, Event>
             >,
-        // To second element we append a group of rows that is handled by the state
+        // To second element we append a group of rows that is handled by the event
         mp11::mp_push_back<
             mp11::mp_second<V>,
             mp11::mp_copy_if_q<
                 mp11::mp_first<V>,
-                mp11::mp_bind_back<has_state, State>
+                mp11::mp_bind_back<has_event, Event>
                 >
             >
         >;
     typedef mp11::mp_fold<
-        state_set_mp11,
+        event_set_mp11,
         mp11::mp_list<real_rows, mp11::mp_list<>>,
-        partition_by_state
+        partition_by_event
         > grouped_rows;
-    // static_assert(mp11::mp_empty<mp11::mp_first<grouped_rows>>::value, "Internal error: Not all rows grouped");
+    static_assert(mp11::mp_empty<mp11::mp_first<grouped_rows>>::value, "Internal error: Not all rows grouped");
     typedef mp11::mp_second<grouped_rows> type;
 };
 
-template<typename Stt, typename State>
-using get_rows_of_state = mp11::mp_at_c<
-    typename group_rows_by_state<Stt>::type,
-    get_state_id<Stt, State>::value
+template<typename Stt, typename Event>
+using get_rows_of_event = mp11::mp_at_c<
+    typename group_rows_by_event<Stt>::type,
+    get_event_id<Stt, Event>::value
     >;
-
-// Convert an event to a type index.
-template<class Event>
-inline std::type_index to_type_index()
-{
-    return std::type_index{typeid(Event)};
-}
 
 // Generates a singleton runtime lookup table that maps current state
 // to a function that makes the SM take its transition on the given
@@ -188,93 +180,147 @@ public:
     template<class Event>
     using cell = HandledEnum (*)(Fsm&, int,int,Event const&);
 
-    // Get the dispatch function from the table for a given event and state.
+    // Get a dispatch function from the table for a given event and state.
     template<class Event>
     static const chain_row& get(size_t state_id)
     {
-        return get(state_id, to_type_index<Event>());
-    }
-
-    // Get the dispatch function from the table for a given event and state
-    // (event already transformed to a type index).
-    static const chain_row& get(size_t state_id, const std::type_index& type_index)
-    {
-        return dispatch_table::instance().m_state_dispatch_tables[state_id].get(type_index);
+        return event_dispatch_table<Event>::instance().entries[state_id];
     }
 
 private:
-    dispatch_table()
-    {
-        mp11::mp_for_each<state_set_mp11>(
-            [&](auto state)
-            {
-                using State = decltype(state);
-                m_state_dispatch_tables[get_state_id<Stt, State>::value+1].template init<State>();
-            }
-        );
-    }
+    // Compute the maximum state value in the sm so we know how big
+    // to make the tables
+    typedef typename generate_state_set<Stt>::state_set_mp11 state_set_mp11;
+    BOOST_STATIC_CONSTANT(int, max_state = (mp11::mp_size<state_set_mp11>::value));
 
-    // The singleton instance.
-    static const dispatch_table& instance()
-    {
-        static dispatch_table table;
-        return table;
-    }
-
-    // Dispatch table for one state.
-    class state_dispatch_table
+    // Dispatch table for a specific event.
+    template<class Event>
+    class event_dispatch_table
     {
     public:
-        // Initialize the table for the given state.
-        template<typename State>
-        void init()
-        {
-            // Fill in cells for all rows of the stt.
-            mp11::mp_for_each<get_rows_of_state<Stt, State>>(
-                [&](auto row)
-                {
-                    using Row = decltype(row);
-                    auto& chain_row = m_entries[to_type_index<typename Row::transition_event>()];
-                    chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&Row::execute));
-                }
-            );
+        using cell = cell<Event>;
 
-            // Fill in cells for deferred events.
-            mp11::mp_for_each<typename to_mp_list<typename State::deferred_events>::type>(
-                [&](auto event)
-                {
-                    using Event = decltype(event);
-                    auto& chain_row = m_entries[to_type_index<Event>()];
-                    chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&Fsm::template defer_transition<Event>));
-                }
-            );
-
-            // TODO:
-            // Fill in cells for calling a submachine.
-            // if constexpr (is_composite_state<State>::value)
-            // {
-
-            // }
-        }
-
-        // Get the dispatch function for a given event.
-        const chain_row& get(std::type_index type_index) const
-        {
-            auto it = m_entries.find(type_index);
-            return (it != m_entries.end()) ? it->second : m_default_chain_row;
+        // The singleton instance.
+        static const event_dispatch_table& instance() {
+            static event_dispatch_table table;
+            return table;
         }
 
     private:
-        std::unordered_map<std::type_index, chain_row> m_entries;
-        // Special member returned for entries that are not found in the table.
-        chain_row m_default_chain_row;
-    };
+        typedef typename generate_event_set<Stt>::event_set_mp11 event_set;
 
-    // Compute the maximum state value in the sm so we know how big
-    // to make the table
-    typedef typename generate_state_set<Stt>::state_set_mp11 state_set_mp11;
-    BOOST_STATIC_CONSTANT(int, max_state = (mp11::mp_size<state_set_mp11>::value));
-    state_dispatch_table m_state_dispatch_tables[max_state+1];
+        template <class TransitionState>
+        static HandledEnum call_submachine(Fsm& fsm, int , int , Event const& evt)
+        {
+            return (fsm.template get_state<TransitionState&>()).process_any_event(evt);
+        }
+
+        using init_cell_value = init_cell_value<cell>;
+
+        template<size_t v1, cell v2>
+        using init_cell_constant = init_cell_constant<v1, cell, v2>;
+
+        template<cell v>
+        using cell_constant = std::integral_constant<cell, v>;
+
+        using cell_initializer = cell_initializer<favor_compile_time>;
+
+        // Helpers for state processing
+        template<typename SubFsm>
+        struct call_submachine_cell
+        {
+            using type = cell_constant<&call_submachine<SubFsm>>;
+        };
+        template<typename fsm>
+        using defer_transition_cell = cell_constant<&fsm::defer_transition>;
+        template <typename State>
+        using preprocess_state = init_cell_constant<
+            get_table_index<Fsm, State, Event>::value,
+            mp11::mp_eval_if_c<
+                has_state_delayed_event<State, Event>::type::value,
+                    mp11::mp_eval_if<
+                        // Boilerplate required to have both branches lazy evaluated.
+                        mp11::mp_not<typename has_state_delayed_event<State, Event>::type>,
+                        cell_constant<nullptr>,
+                        defer_transition_cell,
+                        Fsm
+                        >,
+                call_submachine_cell,
+                State
+                >::type::value
+            >;
+        template<typename State>
+        using state_filter_predicate = mp11::mp_or<
+            typename has_state_delayed_event<State, Event>::type,
+            mp11::mp_and<is_composite_state<State>, mp11::mp_not<is_same<State, Fsm>>>
+            >;
+
+        // Helpers for row processing
+        template<typename Transition>
+        using preprocess_row = init_cell_constant<
+            // Offset into the entries array
+            get_table_index<Fsm, typename Transition::current_state_type>::value,
+            // Address of the execute function
+            &Transition::execute
+            >;
+
+        // initialize the dispatch table for a given Event and Fsm
+        template<typename EventType = Event>
+        event_dispatch_table(typename enable_if<mp11::mp_set_contains<event_set, EventType>>::type* = 0)
+        {
+            // Fill in cells for matching transitions
+            typedef mp11::mp_transform<
+                preprocess_row,
+                get_rows_of_event<Stt, Event>
+                > preprocessed_rows;
+            cell_initializer::init(
+                entries,
+                get_init_cells<cell, preprocessed_rows>(),
+                mp11::mp_size<preprocessed_rows>::value
+                );
+
+            // Initialize cells that defer an event or call a submachine.
+            // This needs to happen last to make sure calling a submachine is handled before
+            // trying to call the transitions defined in this machine.
+            typedef mp11::mp_copy_if<
+                typename generate_state_set<Stt>::state_set_mp11,
+                state_filter_predicate
+                > filtered_states;
+            typedef mp11::mp_transform<
+                preprocess_state,
+                filtered_states
+                > preprocessed_states;
+            cell_initializer::init(
+                entries,
+                get_init_cells<cell, preprocessed_states>(),
+                mp11::mp_size<preprocessed_states>::value
+                );
+        }
+
+        // shortened version in case the stt doesn't contain the event,
+        // it can only be handled by a submachine
+        template<typename EventType = Event>
+        event_dispatch_table(typename disable_if<mp11::mp_set_contains<event_set, EventType>>::type* = 0)
+        {
+            // Initialize cells that defer an event or call a submachine.
+            typedef mp11::mp_copy_if<
+                typename generate_composite_state_set<Stt>::type,
+                state_filter_predicate
+                > filtered_states;
+            typedef mp11::mp_transform<
+                preprocess_state,
+                filtered_states
+                > preprocessed_states;
+            cell_initializer::init(
+                entries,
+                get_init_cells<cell, preprocessed_states>(),
+                mp11::mp_size<preprocessed_states>::value
+                );
+        }
+
+    public: // data members
+        chain_row entries[max_state+1];
+    };
 };
 
 }}} // boost::msm::back
