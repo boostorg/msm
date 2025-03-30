@@ -50,6 +50,9 @@ Challenges:
 
 
 Next steps:
-- Neglect the question how to serve multiple CUs or generate something deferred to later, first find out if a different dispatch table makes a noticeable difference
-- Start with a new dispatch_tables class for a SM, effectively some cascade of hash maps
-- Use the most possible simple example
+
+**Get rid of template instances for process_event, that are only required for forwarding to submachines**
+- Try to create a generic process_any_event function that can be used for call_submachine and which doesn't need O(n) order.
+
+**Choose what to generate for CU distribution**
+- the dispatch table of a FSM itself should be all that's needed then, process_event shouldn't need to be generated anymore.
