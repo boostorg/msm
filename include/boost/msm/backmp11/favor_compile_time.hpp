@@ -176,6 +176,11 @@ inline std::type_index to_type_index()
 {
     return std::type_index{typeid(Event)};
 }
+template<class Event>
+inline std::type_index to_type_index(const Event&)
+{
+    return std::type_index{typeid(Event)};
+}
 
 // Generates a singleton runtime lookup table that maps current state
 // to a function that makes the SM take its transition on the given
@@ -188,23 +193,26 @@ public:
     template<class Event>
     using cell = HandledEnum (*)(Fsm&, int,int,Event const&);
 
-    // Get the dispatch function from the table for a given event and state.
+    // Dispatch an event.
     template<class Event>
-    static const chain_row& get(size_t state_id)
+    static HandledEnum dispatch(Fsm& fsm, int region_id, int state_id, const Event& event)
     {
-        return get(state_id, to_type_index<Event>());
+        return instance().m_state_dispatch_tables[state_id+1].dispatch(fsm, region_id, state_id, event);
     }
 
-    // Get the dispatch function from the table for a given event and state
-    // (event already transformed to a type index).
-    static const chain_row& get(size_t state_id, const std::type_index& type_index)
+    // Dispatch an event to the FSM's internal table.
+    template<class Event>
+    static HandledEnum dispatch_internal(Fsm& fsm, int region_id, int state_id, const Event& event)
     {
-        return dispatch_table::instance().m_state_dispatch_tables[state_id].get(type_index);
+        return instance().m_state_dispatch_tables[0].dispatch(fsm, region_id, state_id, event);
     }
 
 private:
     dispatch_table()
     {
+        // TODO:
+        // Initialize internal dispatch table.
+
         mp11::mp_for_each<state_set_mp11>(
             [&](auto state)
             {
@@ -251,23 +259,35 @@ private:
 
             // TODO:
             // Fill in cells for calling a submachine.
-            // if constexpr (is_composite_state<State>::value)
-            // {
-
-            // }
+            // We also need to make sure conflicting transitions are handled correctly.
+            if constexpr (is_composite_state<State>::value)
+            {
+                m_call_submachine = [](Fsm& fsm, const boost::any& evt)
+                {
+                    return (fsm.template get_state<State&>()).process_any_event(evt);
+                };
+            }
         }
 
-        // Get the dispatch function for a given event.
-        const chain_row& get(std::type_index type_index) const
+        // Dispatch an event.
+        template<class Event>
+        HandledEnum dispatch(Fsm& fsm, int region_id, int state_id, const Event& event) const
         {
-            auto it = m_entries.find(type_index);
-            return (it != m_entries.end()) ? it->second : m_default_chain_row;
+            // TODO: Incorporate calling the submachine.
+            auto it = m_entries.find(to_type_index(event));
+            if (it != m_entries.end())
+            {
+                return (it->second)(fsm, region_id, state_id, event);
+            }
+            return HANDLED_FALSE;
         }
 
     private:
         std::unordered_map<std::type_index, chain_row> m_entries;
         // Special member returned for entries that are not found in the table.
         chain_row m_default_chain_row;
+        // Special member if the state is a composite
+        std::function<HandledEnum(Fsm&, const boost::any&)> m_call_submachine;
     };
 
     // Compute the maximum state value in the sm so we know how big

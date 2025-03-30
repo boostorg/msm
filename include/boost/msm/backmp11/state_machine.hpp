@@ -2075,7 +2075,7 @@ public:
             if (result != HANDLED_TRUE)
             {
                 typedef dispatch_table<library_sm,complete_table,CompilePolicy> table;
-                HandledEnum res_internal = table::template get<Event>(0)(*self_, 0, self_->m_states[0], evt);
+                HandledEnum res_internal = table::dispatch_internal(*self_, 0, self_->m_states[0], evt);
                 result = (HandledEnum)((int)result | (int)res_internal);
             }
         }
@@ -2097,9 +2097,7 @@ public:
         {
             // use this table as if it came directly from the user
             typedef dispatch_table<library_sm,complete_table,CompilePolicy> table;
-            // +1 because index 0 is reserved for this fsm
-            const auto& entry = table::template get<Event>(self->m_states[0]+1);
-            HandledEnum res = entry(*self, 0, self->m_states[0], evt);
+            HandledEnum res = table::dispatch(*self, 0, self->m_states[0], evt);
             result = (HandledEnum)((int)result | (int)res);
             // process the event in the internal table of this fsm if the event is processable (present in the table)
             process_fsm_internal_table<Event>::process(evt,self,result);
@@ -2122,9 +2120,7 @@ public:
             {
                 // use this table as if it came directly from the user
                 typedef dispatch_table<library_sm,complete_table,CompilePolicy> table;
-                // +1 because index 0 is reserved for this fsm
-                HandledEnum res =
-                    table::template get<Event>(self_->m_states[region_id::value]+1)(
+                HandledEnum res = table::dispatch(
                     *self_, region_id::value , self_->m_states[region_id::value], evt);
                 result_ = (HandledEnum)((int)result_ | (int)res);
                 In< ::boost::mpl::int_<region_id::value+1> >::process(evt,self_,result_);

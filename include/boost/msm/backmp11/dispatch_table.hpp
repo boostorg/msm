@@ -124,11 +124,18 @@ public:
     template<class Event>
     using cell = HandledEnum (*)(Fsm&, int,int,Event const&);
 
-    // Get a dispatch function from the table for a given event and state.
+    // Dispatch an event.
     template<class Event>
-    static cell<Event> get(size_t state_id)
+    static HandledEnum dispatch(Fsm& fsm, int region_id, int state_id, const Event& event)
     {
-        return event_dispatch_table<Event>::instance().entries[state_id];
+        return event_dispatch_table<Event>::instance().entries[state_id+1](fsm, region_id, state_id, event);
+    }
+
+    // Dispatch an event to the FSM's internal table.
+    template<class Event>
+    static HandledEnum dispatch_internal(Fsm& fsm, int region_id, int state_id, const Event& event)
+    {
+        return event_dispatch_table<Event>::instance().entries[0](fsm, region_id, state_id, event);
     }
 
 private:
