@@ -232,9 +232,6 @@ public:
 private:
     dispatch_table()
     {
-        // TODO:
-        // Initialize internal dispatch table.
-
         mp11::mp_for_each<state_set_mp11>(
             [&](auto state)
             {
