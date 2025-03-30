@@ -128,47 +128,69 @@ struct cell_initializer<favor_compile_time>
 };
 
 // split the stt into rows grouped by state
+// template<typename Stt>
+// struct group_rows_by_state
+// {
+//     typedef typename generate_state_set<Stt>::state_set_mp11 state_set_mp11;
+//     // Consider only real rows
+//     template<typename Transition>
+//     using is_real_row = mp11::mp_not<typename has_not_real_row_tag<Transition>::type>;
+//     typedef mp11::mp_copy_if<Stt, is_real_row> real_rows;
+//     // Go through each row and group transitions by state.
+//     template<typename Row, typename State>
+//     using has_state = std::is_same<typename Row::current_state_type, State>;
+//     template<typename V, typename State>
+//     using partition_by_state = mp11::mp_list<
+//         // From first element we remove the rows that we have grouped
+//         mp11::mp_remove_if_q<
+//             mp11::mp_first<V>,
+//             mp11::mp_bind_back<has_state, State>
+//             >,
+//         // To second element we append a group of rows that is handled by the state
+//         mp11::mp_push_back<
+//             mp11::mp_second<V>,
+//             mp11::mp_copy_if_q<
+//                 mp11::mp_first<V>,
+//                 mp11::mp_bind_back<has_state, State>
+//                 >
+//             >
+//         >;
+//     typedef mp11::mp_fold<
+//         state_set_mp11,
+//         mp11::mp_list<real_rows, mp11::mp_list<>>,
+//         partition_by_state
+//         > grouped_rows;
+//     // static_assert(mp11::mp_empty<mp11::mp_first<grouped_rows>>::value, "Internal error: Not all rows grouped");
+//     typedef mp11::mp_second<grouped_rows> type;
+// };
+
+// template<typename Stt, typename State>
+// using get_rows_of_state_t = mp11::mp_at_c<
+//     typename group_rows_by_state<Stt>::type,
+//     get_state_id<Stt, State>::value
+//     >;
+
 template<typename Stt>
-struct group_rows_by_state
+struct get_real_rows
 {
-    typedef typename generate_state_set<Stt>::state_set_mp11 state_set_mp11;
-    // Consider only real rows
     template<typename Transition>
     using is_real_row = mp11::mp_not<typename has_not_real_row_tag<Transition>::type>;
-    typedef mp11::mp_copy_if<Stt, is_real_row> real_rows;
-    // Go through each row and group transitions by state.
-    template<typename Row, typename State>
-    using has_state = std::is_same<typename Row::current_state_type, State>;
-    template<typename V, typename State>
-    using partition_by_state = mp11::mp_list<
-        // From first element we remove the rows that we have grouped
-        mp11::mp_remove_if_q<
-            mp11::mp_first<V>,
-            mp11::mp_bind_back<has_state, State>
-            >,
-        // To second element we append a group of rows that is handled by the state
-        mp11::mp_push_back<
-            mp11::mp_second<V>,
-            mp11::mp_copy_if_q<
-                mp11::mp_first<V>,
-                mp11::mp_bind_back<has_state, State>
-                >
-            >
-        >;
-    typedef mp11::mp_fold<
-        state_set_mp11,
-        mp11::mp_list<real_rows, mp11::mp_list<>>,
-        partition_by_state
-        > grouped_rows;
-    // static_assert(mp11::mp_empty<mp11::mp_first<grouped_rows>>::value, "Internal error: Not all rows grouped");
-    typedef mp11::mp_second<grouped_rows> type;
+    typedef mp11::mp_copy_if<Stt, is_real_row> type;
 };
 
 template<typename Stt, typename State>
-using get_rows_of_state = mp11::mp_at_c<
-    typename group_rows_by_state<Stt>::type,
-    get_state_id<Stt, State>::value
-    >;
+struct get_rows_of_state
+{
+    template<typename Row>
+    using has_state = std::is_same<typename Row::current_state_type, State>;    
+    using type = mp11::mp_copy_if<
+        typename get_real_rows<Stt>::type,
+        has_state
+        >;
+};
+template<typename Stt, typename State>
+using get_rows_of_state_t = typename get_rows_of_state<Stt, State>::type;
+
 
 // Convert an event to a type index.
 template<class Event>
@@ -238,7 +260,7 @@ private:
         void init()
         {
             // Fill in cells for all rows of the stt.
-            mp11::mp_for_each<get_rows_of_state<Stt, State>>(
+            mp11::mp_for_each<get_rows_of_state_t<Stt, State>>(
                 [&](auto row)
                 {
                     using Row = decltype(row);
@@ -273,13 +295,21 @@ private:
         template<class Event>
         HandledEnum dispatch(Fsm& fsm, int region_id, int state_id, const Event& event) const
         {
-            // TODO: Incorporate calling the submachine.
+            HandledEnum handled = HANDLED_FALSE;
+            if (m_call_submachine)
+            {
+                handled = m_call_submachine(fsm, event);
+                if (handled)
+                {
+                    return handled;
+                }
+            }
             auto it = m_entries.find(to_type_index(event));
             if (it != m_entries.end())
             {
-                return (it->second)(fsm, region_id, state_id, event);
+                handled = (it->second)(fsm, region_id, state_id, event);
             }
-            return HANDLED_FALSE;
+            return handled;
         }
 
     private:
