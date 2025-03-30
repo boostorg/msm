@@ -1288,9 +1288,7 @@ private:
     {
         while(!m_events_queue.m_events_queue.empty())
         {
-            transition_fct to_call = m_events_queue.m_events_queue.front();
-            m_events_queue.m_events_queue.pop_front();
-            to_call();
+            execute_single_queued_event_helper(::boost::mpl::false_{});
         }
     }
     void execute_queued_events_helper(::boost::mpl::true_ const &)
@@ -1829,9 +1827,7 @@ public:
         // non-default. Handle msg queue with higher prio than deferred queue
         if (!(EVENT_SOURCE_MSG_QUEUE & source))
         {
-            do_post_msg_queue_helper(
-                ::boost::mpl::bool_<
-                    is_no_message_queue<library_sm>::type::value>());
+            execute_queued_events();
             if (!(EVENT_SOURCE_DEFERRED & source))
             {
                 handle_defer_helper<library_sm> defer_helper(m_deferred_events_queue);
@@ -1851,9 +1847,7 @@ public:
             // we're not already processing from the message queue.
             if (!(EVENT_SOURCE_MSG_QUEUE & source))
             {
-                do_post_msg_queue_helper(
-                    ::boost::mpl::bool_<
-                        is_no_message_queue<library_sm>::type::value>());
+                execute_queued_events();
             }
         }
     }
@@ -1880,14 +1874,6 @@ public:
         // event can be handled, processing
         m_event_processing = true;
         return true;
-    }
-    void do_post_msg_queue_helper( ::boost::mpl::true_ const &)
-    {
-        // no message queue needed
-    }
-    void do_post_msg_queue_helper( ::boost::mpl::false_ const &)
-    {
-        process_message_queue(this);
     }
     void do_allow_event_processing_after_transition( ::boost::mpl::true_ const &)
     {
@@ -2790,7 +2776,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
         // look for deferred events waiting
         handle_defer_helper<library_sm> defer_helper(m_deferred_events_queue);
         defer_helper.do_handle_deferred(true);
-        process_message_queue(this);
+        execute_queued_events();
      }
      template <class Event,class FsmType>
      void do_exit(Event const& incomingEvent,FsmType& fsm)
@@ -2848,25 +2834,6 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
 #if defined (__IBMCPP__) || (defined(_MSC_VER) && (_MSC_VER < 1400))
      private:
 #endif
-    // removes one event from the message queue and processes it
-    template <class StateType>
-    void process_message_queue(StateType*,
-                               typename ::boost::disable_if<typename is_no_message_queue<StateType>::type,void >::type* = 0)
-    {
-        // Iteratively process all events from the message queue.
-        while (!m_events_queue.m_events_queue.empty())
-        {
-            transition_fct next = m_events_queue.m_events_queue.front();
-            m_events_queue.m_events_queue.pop_front();
-            next();
-        }
-    }
-    template <class StateType>
-    void process_message_queue(StateType*,
-                               typename ::boost::enable_if<typename is_no_message_queue<StateType>::type,void >::type* = 0)
-    {
-        // nothing to process
-    }
     // helper function. In cases where the event is wrapped (target is a direct entry states)
     // we want to send only the real event to on_entry, not the wrapper.
     template <class EventType>
