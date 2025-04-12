@@ -1217,6 +1217,8 @@ private:
     };
     // extend the table with tables from composite states
     typedef typename extend_table<library_sm>::type complete_table;
+    // define the dispatch table used for event dispatch
+    typedef dispatch_table<library_sm,complete_table,CompilePolicy> sm_dispatch_table;
      // build a sequence of regions
      typedef typename get_regions_as_sequence<typename Derived::initial_state>::type seq_initial_states;
     // Member functions
@@ -2147,7 +2149,10 @@ public:
     template<class Event, class Policy = CompilePolicy>
     typename enable_if<is_same<Policy, favor_compile_time>, execute_return>::type
     process_event_internal(Event const& evt,
-                           EventSource source = EVENT_SOURCE_DEFAULT);
+                           EventSource source = EVENT_SOURCE_DEFAULT)
+    {
+        return process_event_internal_impl(any(evt), source);
+    }
 
     // Main function used internally to make transitions
     // Can only be called for internally (for example in an action method) generated events.
@@ -2212,7 +2217,7 @@ public:
         // but let the containing sm handle the error, unless the event was generated in this fsm
         // (by calling process_event on this fsm object, is_direct_call == true)
         // completion events do not produce an error
-        if ( (!is_contained() || is_direct_call) && !handled && !is_completion_event<Event>::type::value)
+        if ( (!is_contained() || is_direct_call) && !handled && !is_completion_event<Event, CompilePolicy>::value(evt))
         {
             for (int i=0; i<nr_regions::value;++i)
             {

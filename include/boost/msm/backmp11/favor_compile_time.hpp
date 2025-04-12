@@ -28,60 +28,16 @@
 namespace boost { namespace msm { namespace back
 {
 
-template <class Fsm>
-struct process_any_event_helper
-{
-    process_any_event_helper(msm::back::HandledEnum& res_,Fsm* self_,::boost::any any_event_):
-    res(res_),self(self_),any_event(any_event_),finished(false){}
-    
-    static HandledEnum execute(Fsm* self, ::boost::any const& any_event)
-    {
-        typedef typename recursive_get_transition_table<Fsm>::type stt;
-        typedef typename generate_event_set<stt>::event_set_mp11 stt_events;
-        typedef typename recursive_get_internal_transition_table<Fsm, ::boost::mpl::true_>::type istt;
-        typedef typename generate_event_set<typename Fsm::template create_real_stt<Fsm, istt>::type>::event_set_mp11 istt_events;
-        typedef mp11::mp_set_union<stt_events, istt_events> all_events;
-        
-        HandledEnum res= HANDLED_FALSE;
-        mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, all_events>>(process_any_event_helper<Fsm>(res, self, any_event));
-        return res;
+// TODO:
+// Think about name BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE
+#define BOOST_MSM_BACKMP11_GENERATE_FSM(fsmname)                                \
+    template<>                                                                  \
+    const fsmname::sm_dispatch_table& fsmname::sm_dispatch_table::instance()    \
+    {                                                                           \
+        static dispatch_table table;                                            \
+        return table;                                                           \
     }
-    
-    template <class Event>
-    void operator()(mp11::mp_identity<Event> const&)
-    {
-        if (!finished && ::boost::any_cast<Event>(&any_event) != 0)
-        {
-            finished = true;
-            res = self->process_event_internal(::boost::any_cast<Event>(any_event));
-        }
-    }
-private:
-    msm::back::HandledEnum&     res;
-    Fsm*                        self;
-    ::boost::any                any_event;
-    bool                        finished;
-};
-
-#define BOOST_MSM_BACKMP11_GENERATE_PROCESS_EVENT(fsmname)                                          \
-    template<>                                                                                      \
-    ::boost::msm::back::HandledEnum fsmname::process_any_event( ::boost::any const& any_event)      \
-    {                                                                                               \
-        return ::boost::msm::back::process_any_event_helper<fsmname>::execute(this, any_event);     \
-    }                                                                                               \
-    template<>                                                                                      \
-    template<class Event, class Policy>                                                             \
-    typename ::boost::enable_if<                                                                    \
-        boost::is_same<Policy, boost::msm::back::favor_compile_time>,                               \
-        boost::msm::back::execute_return>::type                                                     \
-    BOOST_NOINLINE fsmname::process_event_internal(Event const& evt, EventSource source)            \
-    {                                                                                               \
-        return process_event_internal_impl(evt, source);                                            \
-    }
-
-#define BOOST_MSM_BACKMP11_GENERATE_FSM(fsmname)       \
-    BOOST_MSM_BACKMP11_GENERATE_PROCESS_EVENT(fsmname)
-
+#define BOOST_MSM_BACKMP11_GENERATE_PROCESS_EVENT(fsmname) BOOST_MSM_BACKMP11_GENERATE_FSM(fsmname)
 
 struct favor_compile_time
 {
@@ -91,10 +47,10 @@ struct favor_compile_time
 
 struct chain_row
 {
-    template<typename Fsm, typename Event>
-    HandledEnum operator()(Fsm& fsm, int region,int state,Event const& evt) const
+    template<typename Fsm>
+    HandledEnum operator()(Fsm& fsm, int region, int state, any const& evt) const
     {
-        typedef HandledEnum (*real_cell)(Fsm&, int,int,Event const&);
+        typedef HandledEnum (*real_cell)(Fsm&, int, int, any const&);
         HandledEnum res = HANDLED_FALSE;
         typename std::deque<generic_cell>::const_iterator it = one_state.begin();
         while (it != one_state.end() && (res != HANDLED_TRUE && res != HANDLED_DEFERRED ))
@@ -111,64 +67,10 @@ struct chain_row
         return res;
     }
     // Use a deque with a generic type to avoid unnecessary template instantiations.
+    // TODO: Use any_cell.
     std::deque<generic_cell> one_state;
 };
 
-template<>
-struct cell_initializer<favor_compile_time>
-{
-    static void init(chain_row* entries, const generic_init_cell_value* array, size_t size)
-    {
-        for (size_t i=0; i<size; i++)
-        {
-            const auto& item = array[i];
-            entries[item.index].one_state.push_front(item.address);
-        }
-    }
-};
-
-// split the stt into rows grouped by state
-// template<typename Stt>
-// struct group_rows_by_state
-// {
-//     typedef typename generate_state_set<Stt>::state_set_mp11 state_set_mp11;
-//     // Consider only real rows
-//     template<typename Transition>
-//     using is_real_row = mp11::mp_not<typename has_not_real_row_tag<Transition>::type>;
-//     typedef mp11::mp_copy_if<Stt, is_real_row> real_rows;
-//     // Go through each row and group transitions by state.
-//     template<typename Row, typename State>
-//     using has_state = std::is_same<typename Row::current_state_type, State>;
-//     template<typename V, typename State>
-//     using partition_by_state = mp11::mp_list<
-//         // From first element we remove the rows that we have grouped
-//         mp11::mp_remove_if_q<
-//             mp11::mp_first<V>,
-//             mp11::mp_bind_back<has_state, State>
-//             >,
-//         // To second element we append a group of rows that is handled by the state
-//         mp11::mp_push_back<
-//             mp11::mp_second<V>,
-//             mp11::mp_copy_if_q<
-//                 mp11::mp_first<V>,
-//                 mp11::mp_bind_back<has_state, State>
-//                 >
-//             >
-//         >;
-//     typedef mp11::mp_fold<
-//         state_set_mp11,
-//         mp11::mp_list<real_rows, mp11::mp_list<>>,
-//         partition_by_state
-//         > grouped_rows;
-//     // static_assert(mp11::mp_empty<mp11::mp_first<grouped_rows>>::value, "Internal error: Not all rows grouped");
-//     typedef mp11::mp_second<grouped_rows> type;
-// };
-
-// template<typename Stt, typename State>
-// using get_rows_of_state_t = mp11::mp_at_c<
-//     typename group_rows_by_state<Stt>::type,
-//     get_state_id<Stt, State>::value
-//     >;
 
 template<typename Stt>
 struct get_real_rows
@@ -177,7 +79,6 @@ struct get_real_rows
     using is_real_row = mp11::mp_not<typename has_not_real_row_tag<Transition>::type>;
     typedef mp11::mp_copy_if<Stt, is_real_row> type;
 };
-
 template<typename Stt, typename State>
 struct get_rows_of_state
 {
@@ -198,10 +99,12 @@ inline std::type_index to_type_index()
 {
     return std::type_index{typeid(Event)};
 }
-template<class Event>
-inline std::type_index to_type_index(const Event&)
+
+// Adapter for calling a row's execute function.
+template<typename Fsm, typename Event, typename Row>
+HandledEnum convert_and_execute(Fsm& fsm, int region_id, int state_id, const any& event)
 {
-    return std::type_index{typeid(Event)};
+    return Row::execute(fsm, region_id, state_id, *any_cast<Event>(&event));
 }
 
 // Generates a singleton runtime lookup table that maps current state
@@ -211,20 +114,14 @@ template<class Fsm, class Stt>
 struct dispatch_table<Fsm, Stt, back::favor_compile_time>
 {
 public:
-    // Dispatch function for a specific event.
-    template<class Event>
-    using cell = HandledEnum (*)(Fsm&, int,int,Event const&);
-
     // Dispatch an event.
-    template<class Event>
-    static HandledEnum dispatch(Fsm& fsm, int region_id, int state_id, const Event& event)
+    static HandledEnum dispatch(Fsm& fsm, int region_id, int state_id, const any& event)
     {
         return instance().m_state_dispatch_tables[state_id+1].dispatch(fsm, region_id, state_id, event);
     }
 
     // Dispatch an event to the FSM's internal table.
-    template<class Event>
-    static HandledEnum dispatch_internal(Fsm& fsm, int region_id, int state_id, const Event& event)
+    static HandledEnum dispatch_internal(Fsm& fsm, int region_id, int state_id, const any& event)
     {
         return instance().m_state_dispatch_tables[0].dispatch(fsm, region_id, state_id, event);
     }
@@ -242,11 +139,7 @@ private:
     }
 
     // The singleton instance.
-    static const dispatch_table& instance()
-    {
-        static dispatch_table table;
-        return table;
-    }
+    static const dispatch_table& instance();
 
     // Dispatch table for one state.
     class state_dispatch_table
@@ -261,8 +154,9 @@ private:
                 [&](auto row)
                 {
                     using Row = decltype(row);
-                    auto& chain_row = m_entries[to_type_index<typename Row::transition_event>()];
-                    chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&Row::execute));
+                    using Event = typename Row::transition_event;
+                    auto& chain_row = m_entries[to_type_index<Event>()];
+                    chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&convert_and_execute<Fsm, Event, Row>));
                 }
             );
 
@@ -272,25 +166,25 @@ private:
                 {
                     using Event = decltype(event);
                     auto& chain_row = m_entries[to_type_index<Event>()];
+                    // TODO:
+                    // Should also need some kind of conversion
                     chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&Fsm::template defer_transition<Event>));
                 }
             );
 
             // TODO:
-            // Fill in cells for calling a submachine.
             // We also need to make sure conflicting transitions are handled correctly.
             if constexpr (is_composite_state<State>::value)
             {
-                m_call_submachine = [](Fsm& fsm, const boost::any& evt)
+                m_call_submachine = [](Fsm& fsm, const any& evt)
                 {
-                    return (fsm.template get_state<State&>()).process_any_event(evt);
+                    return (fsm.template get_state<State&>()).process_event_internal(evt);
                 };
             }
         }
 
         // Dispatch an event.
-        template<class Event>
-        HandledEnum dispatch(Fsm& fsm, int region_id, int state_id, const Event& event) const
+        HandledEnum dispatch(Fsm& fsm, int region_id, int state_id, const any& event) const
         {
             HandledEnum handled = HANDLED_FALSE;
             if (m_call_submachine)
@@ -301,7 +195,7 @@ private:
                     return handled;
                 }
             }
-            auto it = m_entries.find(to_type_index(event));
+            auto it = m_entries.find(event.type());
             if (it != m_entries.end())
             {
                 handled = (it->second)(fsm, region_id, state_id, event);

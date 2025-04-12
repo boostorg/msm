@@ -11,8 +11,10 @@
 #ifndef BOOST_MSM_BACK_METAFUNCTIONS_H
 #define BOOST_MSM_BACK_METAFUNCTIONS_H
 
+#include "boost/msm/front/completion_event.hpp"
 #include <algorithm>
 
+#include <boost/any.hpp>
 #include <boost/mp11.hpp>
 #include <boost/mp11/mpl_list.hpp>
 #include <boost/mpl/set.hpp>
@@ -241,7 +243,8 @@ struct get_state_id
         typename generate_state_map<stt>::type,
         State
         >> type;
-    enum {value = type::value};
+    
+    static constexpr typename type::value_type value = type::value;
 };
 
 // iterates through the transition table and generate a mpl::set<> containing all the events
@@ -507,15 +510,34 @@ struct has_fsm_deferred_events
         > type;
 };
 
+struct favor_runtime_speed;
+struct favor_compile_time;
+
 // returns a mpl::bool_<true> if State has any delayed event
+template <class Event, class CompilePolicy>
+struct is_completion_event;
 template <class Event>
-struct is_completion_event  
+struct is_completion_event<Event, favor_runtime_speed>
 {
     typedef typename ::boost::mpl::if_<
         has_completion_event<Event>,
         ::boost::mpl::bool_<true>,
         ::boost::mpl::bool_<false> >::type type;
+
+    static constexpr bool value(const Event&)
+    {
+        return type::value;
+    }
 };
+template <>
+struct is_completion_event<any, favor_compile_time>
+{
+    static bool value(const any& event)
+    {
+        return (event.type() == boost::typeindex::type_id<front::none>());
+    }
+};
+
 // metafunction used to say if a SM has eventless transitions
 template <class Derived>
 struct has_fsm_eventless_transition 
