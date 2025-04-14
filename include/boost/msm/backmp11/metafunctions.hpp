@@ -90,12 +90,13 @@ struct to_mp_list
 {
     typedef typename mpl::copy<T, mpl::back_inserter<mp11::mp_list<>>>::type type;
 };
-
 template<typename ...T>
 struct to_mp_list<mp11::mp_list<T...>>
 {
     typedef mp11::mp_list<T...> type;
 };
+template<typename ...T>
+using to_mp_list_t = typename to_mp_list<T...>::type;
 
 template <class stt>
 struct generate_state_set;

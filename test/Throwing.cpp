@@ -138,4 +138,4 @@ namespace
 }
 
 using backmp11_fsm = boost::msm::back::state_machine<MyMachineFrontend, boost::msm::back::favor_compile_time>;
-BOOST_MSM_BACKMP11_GENERATE_PROCESS_EVENT(backmp11_fsm);
+BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_fsm);

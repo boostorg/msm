@@ -314,5 +314,5 @@ namespace
 
 using backmp11_0 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::Fsm;
 using backmp11_1 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::Fsm_::SubFsm2;
-BOOST_MSM_BACKMP11_GENERATE_FSM(backmp11_0);
-BOOST_MSM_BACKMP11_GENERATE_FSM(backmp11_1);
+BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_0);
+BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_1);

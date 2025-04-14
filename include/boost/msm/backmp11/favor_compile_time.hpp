@@ -11,13 +11,12 @@
 #ifndef BOOST_MSM_BACK_FAVOR_COMPILE_TIME_H
 #define BOOST_MSM_BACK_FAVOR_COMPILE_TIME_H
 
-#include <deque>
-// TODO: Remove
-#include <typeindex>
-#include <utility>
 #if __cplusplus >= 201703L
 #include <any>
 #endif
+#include <deque>
+#include <typeindex>
+#include <utility>
 
 #include <boost/mpl/filter_view.hpp>
 #include <boost/mpl/for_each.hpp>
@@ -31,16 +30,13 @@
 namespace boost { namespace msm { namespace back
 {
 
-// TODO:
-// Think about name BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE
-#define BOOST_MSM_BACKMP11_GENERATE_FSM(fsmname)                                \
+#define BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(fsmname)                     \
     template<>                                                                  \
     const fsmname::sm_dispatch_table& fsmname::sm_dispatch_table::instance()    \
     {                                                                           \
         static dispatch_table table;                                            \
         return table;                                                           \
     }
-#define BOOST_MSM_BACKMP11_GENERATE_PROCESS_EVENT(fsmname) BOOST_MSM_BACKMP11_GENERATE_FSM(fsmname)
 
 struct favor_compile_time
 {
@@ -61,33 +57,6 @@ struct is_completion_event<Event, favor_compile_time>
         return (event.type() == boost::typeindex::type_id<front::none>());
     }
 };
-
-struct chain_row
-{
-    template<typename Fsm>
-    HandledEnum operator()(Fsm& fsm, int region, int state, any const& evt) const
-    {
-        typedef HandledEnum (*real_cell)(Fsm&, int, int, any const&);
-        HandledEnum res = HANDLED_FALSE;
-        typename std::deque<generic_cell>::const_iterator it = one_state.begin();
-        while (it != one_state.end() && (res != HANDLED_TRUE && res != HANDLED_DEFERRED ))
-        {
-            auto fnc = reinterpret_cast<real_cell>(reinterpret_cast<void*>(*it));
-            HandledEnum handled = (*fnc)(fsm,region,state,evt);
-            // reject is considered as erasing an error (HANDLED_FALSE)
-            if ((HANDLED_FALSE==handled) && (HANDLED_GUARD_REJECT==res) )
-                res = HANDLED_GUARD_REJECT;
-            else
-                res = handled;
-            ++it;
-        }
-        return res;
-    }
-    // Use a deque with a generic type to avoid unnecessary template instantiations.
-    // TODO: Use any_cell.
-    std::deque<generic_cell> one_state;
-};
-
 
 template<typename Stt>
 struct get_real_rows
@@ -135,7 +104,7 @@ class end_interrupt_event_helper
         );
     }
 
-    bool is_end_interrupt_event(const any& event) const
+    bool is_end_interrupt_event(const favor_compile_time::any_event& event) const
     {
         auto it = m_is_flag_active_functions.find(event.type());
         if (it != m_is_flag_active_functions.end())
@@ -155,15 +124,16 @@ class end_interrupt_event_helper
 template<class Fsm, class Stt>
 struct dispatch_table<Fsm, Stt, back::favor_compile_time>
 {
+    using any_event = favor_compile_time::any_event;
 public:
     // Dispatch an event.
-    static HandledEnum dispatch(Fsm& fsm, int region_id, int state_id, const any& event)
+    static HandledEnum dispatch(Fsm& fsm, int region_id, int state_id, const any_event& event)
     {
         return instance().m_state_dispatch_tables[state_id+1].dispatch(fsm, region_id, state_id, event);
     }
 
     // Dispatch an event to the FSM's internal table.
-    static HandledEnum dispatch_internal(Fsm& fsm, int region_id, int state_id, const any& event)
+    static HandledEnum dispatch_internal(Fsm& fsm, int region_id, int state_id, const any_event& event)
     {
         return instance().m_state_dispatch_tables[0].dispatch(fsm, region_id, state_id, event);
     }
@@ -171,10 +141,10 @@ public:
 private:
     dispatch_table()
     {
-        mp11::mp_for_each<state_set_mp11>(
+        mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, state_set_mp11>>(
             [&](auto state)
             {
-                using State = decltype(state);
+                using State = typename decltype(state)::type;
                 m_state_dispatch_tables[get_state_id<Stt, State>::value+1].template init<State>();
             }
         );
@@ -185,10 +155,34 @@ private:
 
     // Adapter for calling a row's execute function.
     template<typename Event, typename Row>
-    static HandledEnum convert_and_execute(Fsm& fsm, int region_id, int state_id, const any& event)
+    static HandledEnum convert_and_execute(Fsm& fsm, int region_id, int state_id, const any_event& event)
     {
         return Row::execute(fsm, region_id, state_id, *any_cast<Event>(&event));
     }
+
+    struct chain_row
+    {
+        using any_cell = HandledEnum(*)(Fsm&, int, int, const any_event&);
+
+        HandledEnum operator()(Fsm& fsm, int region, int state, favor_compile_time::any_event const& evt) const
+        {
+            typedef HandledEnum (*real_cell)(Fsm&, int, int, favor_compile_time::any_event const&);
+            HandledEnum res = HANDLED_FALSE;
+            typename decltype(one_state)::const_iterator it = one_state.begin();
+            while (it != one_state.end() && (res != HANDLED_TRUE && res != HANDLED_DEFERRED ))
+            {
+                HandledEnum handled = (*it)(fsm,region,state,evt);
+                // reject is considered as erasing an error (HANDLED_FALSE)
+                if ((HANDLED_FALSE==handled) && (HANDLED_GUARD_REJECT==res) )
+                    res = HANDLED_GUARD_REJECT;
+                else
+                    res = handled;
+                ++it;
+            }
+            return res;
+        }
+        std::deque<any_cell> one_state;
+    };
 
     // Dispatch table for one state.
     class state_dispatch_table
@@ -205,23 +199,23 @@ private:
                     using Row = decltype(row);
                     using Event = typename Row::transition_event;
                     auto& chain_row = m_entries[to_type_index<Event>()];
-                    chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&convert_and_execute<Event, Row>));
+                    chain_row.one_state.push_front(&convert_and_execute<Event, Row>);
                 }
             );
 
             // Fill in cells for deferred events.
-            mp11::mp_for_each<typename to_mp_list<typename State::deferred_events>::type>(
+            mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, to_mp_list_t<typename State::deferred_events>>>(
                 [&](auto event)
                 {
-                    using Event = decltype(event);
+                    using Event = typename decltype(event)::type;
                     auto& chain_row = m_entries[to_type_index<Event>()];
-                    chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&Fsm::template defer_transition<any>));
+                    chain_row.one_state.push_front(&Fsm::template defer_transition<any_event>);
                 }
             );
 
             if constexpr (is_composite_state<State>::value)
             {
-                m_call_submachine = [](Fsm& fsm, const any& evt)
+                m_call_submachine = [](Fsm& fsm, const any_event& evt)
                 {
                     return (fsm.template get_state<State&>()).process_event_internal(evt);
                 };
@@ -229,7 +223,7 @@ private:
         }
 
         // Dispatch an event.
-        HandledEnum dispatch(Fsm& fsm, int region_id, int state_id, const any& event) const
+        HandledEnum dispatch(Fsm& fsm, int region_id, int state_id, const any_event& event) const
         {
             HandledEnum handled = HANDLED_FALSE;
             if (m_call_submachine)
@@ -249,11 +243,9 @@ private:
         }
 
     private:
-        // TODO:
-        // Replace with boost type index.
         std::unordered_map<std::type_index, chain_row> m_entries;
         // Special functor if the state is a composite
-        std::function<HandledEnum(Fsm&, const favor_compile_time::any_event&)> m_call_submachine;
+        std::function<HandledEnum(Fsm&, const any_event&)> m_call_submachine;
     };
 
     // Compute the maximum state value in the sm so we know how big

@@ -182,4 +182,4 @@ namespace
 }
 
 using backmp11_fsm = boost::msm::back::state_machine<my_machine_, boost::msm::back::favor_compile_time>;
-BOOST_MSM_BACKMP11_GENERATE_FSM(backmp11_fsm);
+BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_fsm);

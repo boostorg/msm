@@ -13,7 +13,8 @@ Major improvements:
   - dispatch table is a hash table with type_id as key
   - each dispatch table only has to cover the events it's handling, no template instantiations for forwarding events needed
 - ~~favor_compile_time: Optimized algorithm for transition table processing to process each row only once (see group_rows_by_event)~~ didn't help
- 
+ - favor_compile_time: Use std::any if C++17 is available (up to ~30% runtime impact because of small value optimization in std::any)
+
 
 ## TODOs:
 
