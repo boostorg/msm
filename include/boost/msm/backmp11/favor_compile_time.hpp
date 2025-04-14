@@ -118,6 +118,33 @@ class end_interrupt_event_helper
     std::unordered_map<std::type_index, std::function<bool()>> m_is_flag_active_functions;
 };
 
+struct chain_row
+{
+    using any_event = favor_compile_time::any_event;
+
+    template<typename Fsm>
+    HandledEnum operator()(Fsm& fsm, int region, int state, any_event const& evt) const
+    {
+        typedef HandledEnum (*real_cell)(Fsm&, int, int, any_event const&);
+        HandledEnum res = HANDLED_FALSE;
+        typename std::deque<generic_cell>::const_iterator it = one_state.begin();
+        while (it != one_state.end() && (res != HANDLED_TRUE && res != HANDLED_DEFERRED ))
+        {
+            auto fnc = reinterpret_cast<real_cell>(reinterpret_cast<void*>(*it));
+            HandledEnum handled = (*fnc)(fsm,region,state,evt);
+            // reject is considered as erasing an error (HANDLED_FALSE)
+            if ((HANDLED_FALSE==handled) && (HANDLED_GUARD_REJECT==res) )
+                res = HANDLED_GUARD_REJECT;
+            else
+                res = handled;
+            ++it;
+        }
+        return res;
+    }
+    // Use a deque with a generic type to avoid unnecessary template instantiations.
+    std::deque<generic_cell> one_state;
+};
+
 // Generates a singleton runtime lookup table that maps current state
 // to a function that makes the SM take its transition on the given
 // Event type.
@@ -160,30 +187,6 @@ private:
         return Row::execute(fsm, region_id, state_id, *any_cast<Event>(&event));
     }
 
-    struct chain_row
-    {
-        using any_cell = HandledEnum(*)(Fsm&, int, int, const any_event&);
-
-        HandledEnum operator()(Fsm& fsm, int region, int state, favor_compile_time::any_event const& evt) const
-        {
-            typedef HandledEnum (*real_cell)(Fsm&, int, int, favor_compile_time::any_event const&);
-            HandledEnum res = HANDLED_FALSE;
-            typename decltype(one_state)::const_iterator it = one_state.begin();
-            while (it != one_state.end() && (res != HANDLED_TRUE && res != HANDLED_DEFERRED ))
-            {
-                HandledEnum handled = (*it)(fsm,region,state,evt);
-                // reject is considered as erasing an error (HANDLED_FALSE)
-                if ((HANDLED_FALSE==handled) && (HANDLED_GUARD_REJECT==res) )
-                    res = HANDLED_GUARD_REJECT;
-                else
-                    res = handled;
-                ++it;
-            }
-            return res;
-        }
-        std::deque<any_cell> one_state;
-    };
-
     // Dispatch table for one state.
     class state_dispatch_table
     {
@@ -199,7 +202,7 @@ private:
                     using Row = decltype(row);
                     using Event = typename Row::transition_event;
                     auto& chain_row = m_entries[to_type_index<Event>()];
-                    chain_row.one_state.push_front(&convert_and_execute<Event, Row>);
+                    chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&convert_and_execute<Event, Row>));
                 }
             );
 
@@ -209,7 +212,7 @@ private:
                 {
                     using Event = typename decltype(event)::type;
                     auto& chain_row = m_entries[to_type_index<Event>()];
-                    chain_row.one_state.push_front(&Fsm::template defer_transition<any_event>);
+                    chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&Fsm::template defer_transition<any_event>));
                 }
             );
 
