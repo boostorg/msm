@@ -169,6 +169,19 @@ public:
 private:
     dispatch_table()
     {
+        // Execute row-specific initializations.
+        mp11::mp_for_each<typename get_real_rows<Stt>::type>(
+            [&](auto row)
+            {
+                using Row = decltype(row);
+                using Event = typename Row::transition_event;
+                using StateId = get_state_id<Stt, typename Row::current_state_type>;
+                auto& chain_row = m_state_dispatch_tables[StateId::value].template get_chain_row<Event>();
+                chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&convert_and_execute<Event, Row>));
+            }
+        );
+
+        // Execute state-specific initializations.
         mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, state_set_mp11>>(
             [&](auto state)
             {
@@ -196,17 +209,6 @@ private:
         template<typename State>
         void init()
         {
-            // Fill in cells for all rows of the stt.
-            mp11::mp_for_each<get_rows_of_state_t<Stt, State>>(
-                [&](auto row)
-                {
-                    using Row = decltype(row);
-                    using Event = typename Row::transition_event;
-                    auto& chain_row = m_entries[to_type_index<Event>()];
-                    chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&convert_and_execute<Event, Row>));
-                }
-            );
-
             // Fill in cells for deferred events.
             mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, to_mp_list_t<typename State::deferred_events>>>(
                 [&](auto event)
@@ -224,6 +226,12 @@ private:
                     return (fsm.template get_state<State&>()).process_event_internal(evt);
                 };
             }
+        }
+
+        template<typename Event>
+        chain_row& get_chain_row()
+        {
+            return m_entries[to_type_index<Event>()];
         }
 
         // Dispatch an event.
