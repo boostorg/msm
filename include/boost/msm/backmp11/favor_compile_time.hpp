@@ -12,6 +12,7 @@
 #define BOOST_MSM_BACK_FAVOR_COMPILE_TIME_H
 
 #include <deque>
+// TODO: Remove
 #include <typeindex>
 #include <utility>
 
@@ -83,7 +84,7 @@ template<typename Stt, typename State>
 struct get_rows_of_state
 {
     template<typename Row>
-    using has_state = std::is_same<typename Row::current_state_type, State>;    
+    using has_state = std::is_same<typename Row::current_state_type, State>;
     using type = mp11::mp_copy_if<
         typename get_real_rows<Stt>::type,
         has_state
@@ -100,12 +101,39 @@ inline std::type_index to_type_index()
     return std::type_index{typeid(Event)};
 }
 
-// Adapter for calling a row's execute function.
-template<typename Fsm, typename Event, typename Row>
-HandledEnum convert_and_execute(Fsm& fsm, int region_id, int state_id, const any& event)
+// Helper class to manage end interrupt events.
+class end_interrupt_event_helper
 {
-    return Row::execute(fsm, region_id, state_id, *any_cast<Event>(&event));
-}
+ public:
+    template<class Fsm>
+    end_interrupt_event_helper(const Fsm& fsm)
+    {
+        // TODO:
+        // Filter for end interrupt events only.
+        mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, typename Fsm::event_set_mp11>>(
+            [&](auto event)
+            {
+                using Event = typename decltype(event)::type;
+                using Flag = EndInterruptFlag<Event>;
+                is_flag_active_functions[to_type_index<Event>()] =
+                    [&](){return fsm.template is_flag_active<Flag>();};
+            }
+        );
+    }
+
+    bool is_end_interrupt_event(const any& event) const
+    {
+        auto it = is_flag_active_functions.find(event.type());
+        if (it != is_flag_active_functions.end())
+        {
+            return (it->second)();
+        }
+        return false;
+    }
+
+ private:
+    std::unordered_map<std::type_index, std::function<bool()>> is_flag_active_functions;
+};
 
 // Generates a singleton runtime lookup table that maps current state
 // to a function that makes the SM take its transition on the given
@@ -141,6 +169,13 @@ private:
     // The singleton instance.
     static const dispatch_table& instance();
 
+    // Adapter for calling a row's execute function.
+    template<typename Event, typename Row>
+    static HandledEnum convert_and_execute(Fsm& fsm, int region_id, int state_id, const any& event)
+    {
+        return Row::execute(fsm, region_id, state_id, *any_cast<Event>(&event));
+    }
+
     // Dispatch table for one state.
     class state_dispatch_table
     {
@@ -156,7 +191,7 @@ private:
                     using Row = decltype(row);
                     using Event = typename Row::transition_event;
                     auto& chain_row = m_entries[to_type_index<Event>()];
-                    chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&convert_and_execute<Fsm, Event, Row>));
+                    chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&convert_and_execute<Event, Row>));
                 }
             );
 
@@ -166,14 +201,10 @@ private:
                 {
                     using Event = decltype(event);
                     auto& chain_row = m_entries[to_type_index<Event>()];
-                    // TODO:
-                    // Should also need some kind of conversion
-                    chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&Fsm::template defer_transition<Event>));
+                    chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&Fsm::template defer_transition<any>));
                 }
             );
 
-            // TODO:
-            // We also need to make sure conflicting transitions are handled correctly.
             if constexpr (is_composite_state<State>::value)
             {
                 m_call_submachine = [](Fsm& fsm, const any& evt)
@@ -204,10 +235,10 @@ private:
         }
 
     private:
+        // TODO:
+        // Replace with boost type index.
         std::unordered_map<std::type_index, chain_row> m_entries;
-        // Special member returned for entries that are not found in the table.
-        chain_row m_default_chain_row;
-        // Special member if the state is a composite
+        // Special functor if the state is a composite
         std::function<HandledEnum(Fsm&, const boost::any&)> m_call_submachine;
     };
 

@@ -11,7 +11,9 @@
 #include <boost/mpl/vector.hpp>
 #include <boost/mpl/copy.hpp>
 #include <boost/mpl/for_each.hpp>
-
+#include <boost/any.hpp>
+#include <boost/msm/front/completion_event.hpp>
+#include <iostream>
 
 namespace mpl = boost::mpl;
 namespace mp11 = boost::mp11;
@@ -29,6 +31,10 @@ using test = mp11::mp_append<mp11::mp_list<int>, mp11::mp_list<>>;
 
 
 int main() {
+
+    boost::any event{boost::msm::front::none{}};
+    std::cout << event.type().name() << std::endl;
+
     // auto array = create_array_cpp17<table_initializer>();
     // test1();
     // test2();

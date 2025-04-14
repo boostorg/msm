@@ -14,6 +14,7 @@
 // TODO: Clean up
 #include <boost/msm/backmp11/metafunctions.hpp>
 #include <boost/msm/backmp11/dispatch_table.hpp>
+#include <boost/msm/backmp11/favor_compile_time.hpp>
 
 #include <exception>
 #include <vector>
@@ -1171,6 +1172,7 @@ private:
     typedef typename generate_state_set<stt>::type state_list;
     typedef typename generate_state_set<stt>::state_set_mp11 state_set_mp11;
     typedef typename generate_state_map<stt>::type state_map_mp11;
+    typedef typename generate_event_set<stt>::event_set_mp11 event_set_mp11;
     typedef typename HistoryPolicy::template apply<nr_regions::value>::type concrete_history;
 
     typedef mp11::mp_rename<state_set_mp11, std::tuple> substate_list;
@@ -1460,6 +1462,7 @@ private:
     {
         return m_history;
     }
+
     // get a state (const version)
     // as a pointer
     template <class State>
@@ -1496,6 +1499,7 @@ private:
     {
         return std::get<get_state_id<stt, typename ::boost::remove_reference<State>::type>::value>(m_substate_list);
     }
+
     // checks if a flag is active using the BinaryOp as folding function
     template <class Flag,class BinaryOp>
     bool is_flag_active() const
@@ -1514,6 +1518,22 @@ private:
     {
         return FlagHelper<Flag,(nr_regions::value>1)>::helper(*this,get_entries_for_flag<Flag>());
     }
+
+    // Checks if an event is an end interrupt event.
+    template <class Event, class Policy = CompilePolicy>
+    typename std::enable_if<std::is_same<Policy, favor_runtime_speed>::value, bool>::type
+    is_end_interrupt_event(const Event&)
+    {
+        return is_flag_active<EndInterruptFlag<Event>>();
+    }
+    template <class Policy = CompilePolicy>
+    typename std::enable_if<std::is_same<Policy, favor_compile_time>::value, bool>::type
+    is_end_interrupt_event(const any& event)
+    {
+        static end_interrupt_event_helper helper{*this};
+        return helper.is_end_interrupt_event(event);
+    }
+
     // visit the currently active states (if these are defined as visitable
     // by implementing accept)
     void visit_current_states()
@@ -1538,8 +1558,13 @@ private:
 #undef MSM_VISIT_STATE_SUB
 
     // puts the given event into the deferred queue
-    template <class Event>
-    typename::boost::disable_if< typename ::boost::msm::is_kleene_event<Event>::type, void>::type
+    template <class Event, class Policy = CompilePolicy>
+    typename::boost::disable_if<
+        mp11::mp_and<
+            typename ::boost::msm::is_kleene_event<Event>::type,
+            std::is_same<Policy, favor_runtime_speed>
+            >,
+        void>::type
     defer_event(Event const& e)
     {
         // to call this function, you need either a state with a deferred_events typedef
@@ -1592,8 +1617,13 @@ protected:
     };
 
 public:
-    template <class Event>
-    typename::boost::enable_if< typename ::boost::msm::is_kleene_event<Event>::type, void>::type
+    template <class Event, class Policy=CompilePolicy>
+    typename::boost::enable_if<
+        mp11::mp_and<
+            typename ::boost::msm::is_kleene_event<Event>::type,
+            std::is_same<Policy, favor_runtime_speed>
+            >,
+        void>::type
     defer_event(Event const& e)
     {
         typedef typename generate_event_set<stt>::event_set_mp11 event_list;
@@ -1805,7 +1835,7 @@ public:
     // the following 2 functions handle the terminate/interrupt states handling
     // if one of these states is found, the first one is used
     template <class Event>
-    bool is_event_handling_blocked_helper( ::boost::mpl::true_ const &)
+    bool is_event_handling_blocked_helper(const Event& event, mp11::mp_true)
     {
         // if the state machine is terminated, do not handle any event
         if (is_flag_active< ::boost::msm::TerminateFlag>())
@@ -1813,13 +1843,13 @@ public:
         // if the state machine is interrupted, do not handle any event
         // unless the event is the end interrupt event
         if ( is_flag_active< ::boost::msm::InterruptedFlag>() &&
-            !is_flag_active< ::boost::msm::EndInterruptFlag<Event> >())
+            !is_end_interrupt_event(event))
             return true;
         return false;
     }
     // otherwise simple handling, no flag => continue
     template <class Event>
-    bool is_event_handling_blocked_helper( ::boost::mpl::false_ const &)
+    bool is_event_handling_blocked_helper(const Event& event, mp11::mp_false)
     {
         // no terminate/interrupt states detected
         return false;
@@ -2160,8 +2190,8 @@ public:
     execute_return process_event_internal_impl(Event const& evt, EventSource source)
     {
         // if the state machine has terminate or interrupt flags, check them, otherwise skip
-        if (is_event_handling_blocked_helper<Event>
-                ( ::boost::mpl::bool_<has_fsm_blocking_states<library_sm>::type::value>() ) )
+        if (is_event_handling_blocked_helper
+                (evt, typename has_fsm_blocking_states<library_sm>::type()))
         {
             return HANDLED_TRUE;
         }
@@ -2957,6 +2987,8 @@ private:
 
     template<class Fsm, class Stt, class Compile>
     friend class dispatch_table;
+
+    friend class end_interrupt_event_helper;
 
     // data members
     int                             m_states[nr_regions::value];
