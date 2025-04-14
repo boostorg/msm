@@ -2181,7 +2181,7 @@ public:
     process_event_internal(Event const& evt,
                            EventSource source = EVENT_SOURCE_DEFAULT)
     {
-        return process_event_internal_impl(any(evt), source);
+        return process_event_internal_impl(favor_compile_time::any_event(evt), source);
     }
 
     // Main function used internally to make transitions
@@ -2262,10 +2262,6 @@ public:
     bool no_guard(Event const&){return true;}
     template <class Event>
     void no_action(Event const&){}
-
-#ifndef BOOST_NO_RTTI
-    HandledEnum process_any_event( ::boost::any const& evt);
-#endif
 
 private:
     // composite accept implementation. First calls accept on the composite, then accept on all its active states.

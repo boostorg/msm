@@ -15,11 +15,13 @@
 // TODO: Remove
 #include <typeindex>
 #include <utility>
+#if __cplusplus >= 201703L
+#include <any>
+#endif
 
 #include <boost/mpl/filter_view.hpp>
 #include <boost/mpl/for_each.hpp>
 #include <boost/mpl/bool.hpp>
-#include <boost/any.hpp>
 
 #include <boost/msm/common.hpp>
 #include <boost/msm/backmp11/metafunctions.hpp>
@@ -44,6 +46,20 @@ struct favor_compile_time
 {
     typedef int compile_policy;
     typedef ::boost::mpl::false_ add_forwarding_rows;
+#if __cplusplus >= 201703L
+    typedef std::any any_event;
+#else
+    typedef boost::any any_event;
+#endif
+};
+
+template <class Event>
+struct is_completion_event<Event, favor_compile_time>
+{
+    static bool value(const Event& event)
+    {
+        return (event.type() == boost::typeindex::type_id<front::none>());
+    }
 };
 
 struct chain_row
@@ -237,7 +253,7 @@ private:
         // Replace with boost type index.
         std::unordered_map<std::type_index, chain_row> m_entries;
         // Special functor if the state is a composite
-        std::function<HandledEnum(Fsm&, const boost::any&)> m_call_submachine;
+        std::function<HandledEnum(Fsm&, const favor_compile_time::any_event&)> m_call_submachine;
     };
 
     // Compute the maximum state value in the sm so we know how big

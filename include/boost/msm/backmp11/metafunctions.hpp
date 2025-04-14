@@ -14,7 +14,6 @@
 #include "boost/msm/front/completion_event.hpp"
 #include <algorithm>
 
-#include <boost/any.hpp>
 #include <boost/mp11.hpp>
 #include <boost/mp11/mpl_list.hpp>
 #include <boost/mpl/set.hpp>
@@ -527,14 +526,6 @@ struct is_completion_event<Event, favor_runtime_speed>
     static constexpr bool value(const Event&)
     {
         return type::value;
-    }
-};
-template <>
-struct is_completion_event<any, favor_compile_time>
-{
-    static bool value(const any& event)
-    {
-        return (event.type() == boost::typeindex::type_id<front::none>());
     }
 };
 
