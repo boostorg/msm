@@ -176,7 +176,7 @@ private:
                 using Row = decltype(row);
                 using Event = typename Row::transition_event;
                 using StateId = get_state_id<Stt, typename Row::current_state_type>;
-                auto& chain_row = m_state_dispatch_tables[StateId::value].template get_chain_row<Event>();
+                auto& chain_row = m_state_dispatch_tables[StateId::value+1].template get_chain_row<Event>();
                 chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&convert_and_execute<Event, Row>));
             }
         );
