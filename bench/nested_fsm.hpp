@@ -106,13 +106,6 @@ struct state_tpl: msm::front::state<>
     {
         fsm.process_event(internal_transition_event{});
     }
-
-    // Don't trigger an additional event processing when we exit a fsm, forces
-    // the dispatch tables of the sub-fsms to be created in all CUs.
-    template<class Fsm>
-    void on_exit(const exit_sub_fsm_event& event, Fsm& fsm)
-    {
-    }
 };
 
 

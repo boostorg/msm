@@ -16,6 +16,7 @@
 #endif
 #include <deque>
 #include <typeindex>
+#include <unordered_map>
 #include <utility>
 
 #include <boost/mpl/filter_view.hpp>
@@ -216,7 +217,7 @@ private:
                 }
             );
 
-            if constexpr (is_composite_state<State>::value)
+            BOOST_IF_CONSTEXPR (is_composite_state<State>::value)
             {
                 m_call_submachine = [](Fsm& fsm, const any_event& evt)
                 {
