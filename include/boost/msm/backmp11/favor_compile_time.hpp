@@ -108,14 +108,12 @@ class end_interrupt_event_helper
     template<class Fsm>
     end_interrupt_event_helper(const Fsm& fsm)
     {
-        // TODO:
-        // Filter for end interrupt events only.
         mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, typename Fsm::event_set_mp11>>(
             [&](auto event)
             {
                 using Event = typename decltype(event)::type;
                 using Flag = EndInterruptFlag<Event>;
-                is_flag_active_functions[to_type_index<Event>()] =
+                m_is_flag_active_functions[to_type_index<Event>()] =
                     [&](){return fsm.template is_flag_active<Flag>();};
             }
         );
@@ -123,8 +121,8 @@ class end_interrupt_event_helper
 
     bool is_end_interrupt_event(const any& event) const
     {
-        auto it = is_flag_active_functions.find(event.type());
-        if (it != is_flag_active_functions.end())
+        auto it = m_is_flag_active_functions.find(event.type());
+        if (it != m_is_flag_active_functions.end())
         {
             return (it->second)();
         }
@@ -132,7 +130,7 @@ class end_interrupt_event_helper
     }
 
  private:
-    std::unordered_map<std::type_index, std::function<bool()>> is_flag_active_functions;
+    std::unordered_map<std::type_index, std::function<bool()>> m_is_flag_active_functions;
 };
 
 // Generates a singleton runtime lookup table that maps current state
