@@ -248,12 +248,7 @@ namespace
     typedef Back<player_, Policy> player;
     };
     // Pick a back-end
-    // typedef msm::back::state_machine<player_> player;
-    typedef boost::mpl::vector<
-        hierarchical_state_machine<boost::msm::back::state_machine>,
-        hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>,
-        hierarchical_state_machine<boost::msm::back11::state_machine>
-        > test_machines;
+    typedef get_hierarchical_test_machines<hierarchical_state_machine> test_machines;
 
 
     BOOST_AUTO_TEST_CASE_TEMPLATE( test_constructor, test_machine, test_machines )

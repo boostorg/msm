@@ -134,11 +134,7 @@ namespace
     typedef Back<Fsm_, Policy> Fsm;
     };
     // typedef msm::back11::state_machine<Fsm_> Fsm;
-    typedef boost::mpl::vector<
-        hierarchical_state_machine<boost::msm::back::state_machine>,
-        hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>,
-        hierarchical_state_machine<boost::msm::back11::state_machine>
-        > test_machines;
+    typedef get_hierarchical_test_machines<hierarchical_state_machine> test_machines;
 
 
     BOOST_AUTO_TEST_CASE_TEMPLATE(set_states_test, test_machine, test_machines)
@@ -166,3 +162,8 @@ using back0 = hierarchical_state_machine<boost::msm::back::state_machine, boost:
 using back1 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::SubFsm;
 BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back0);
 BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back1);
+
+using backmp11_0 = hierarchical_state_machine<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>::Fsm;
+BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_0);
+using backmp11_1 = hierarchical_state_machine<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>::SubFsm;
+BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_1);

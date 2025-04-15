@@ -129,9 +129,9 @@ namespace
         struct TestFct 
         {
             template <class EVT,class FSM,class SourceState,class TargetState>
-            void operator()(EVT& e, FSM& fsm,SourceState& ,TargetState& )
+            void operator()(EVT const& e, FSM& fsm,SourceState& ,TargetState& )
             {
-                ++e.cpt_;
+                ++(*const_cast<EVT*>(&e)).cpt_;
                 ++fsm.test_fct_counter;
             }
         };
@@ -182,9 +182,9 @@ namespace
         struct resume_playback 
         {
             template <class EVT,class FSM,class SourceState,class TargetState>
-            void operator()(EVT& e,FSM& ,SourceState& ,TargetState& )
+            void operator()(EVT const& e,FSM& ,SourceState& ,TargetState& )
             {
-                ++e.cpt_;
+                ++(*const_cast<EVT*>(&e)).cpt_;
             }
         };
         struct stop_and_open 
@@ -363,3 +363,5 @@ namespace
     }
 }
 
+using backmp11_fsm = boost::msm::backmp11::state_machine<player_, boost::msm::backmp11::favor_compile_time>;
+BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_fsm);
