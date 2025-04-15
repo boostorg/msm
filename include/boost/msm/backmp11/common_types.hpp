@@ -14,7 +14,7 @@
 
 #include <boost/msm/back/common_types.hpp>
 
-namespace boost::msm::backmp11
+namespace boost { namespace msm { namespace backmp11
 {
 
 using back::HandledEnum;
@@ -32,7 +32,7 @@ using back::EVENT_SOURCE_MSG_QUEUE;
 
 using back::EventSource;
 
-}
+}}} // namespace boost::msm::backmp11
 
 
 #endif // BOOST_MSM_BACKMP11_COMMON_TYPES_H

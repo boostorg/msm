@@ -61,7 +61,7 @@
 #include <boost/msm/back/traits.hpp>
 #include <boost/msm/back/default_compile_policy.hpp>
 
-namespace boost::msm::backmp11
+namespace boost { namespace msm { namespace backmp11
 {
 
 using back::favor_runtime_speed;
@@ -946,6 +946,6 @@ struct build_interrupt_state_flag_list
     >::type type;
 };
 
-} // boost::msm::backmp11
+}}} // boost::msm::backmp11
 
 #endif // BOOST_MSM_BACKMP11_METAFUNCTIONS_H

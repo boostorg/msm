@@ -14,7 +14,7 @@
 
 #include <boost/msm/backmp11/metafunctions.hpp>
 
-namespace boost::msm::backmp11
+namespace boost { namespace msm { namespace backmp11
 {
 
 // policy classes
@@ -201,6 +201,6 @@ struct ShallowHistory
     };
 };
 
-} //boost::msm::backmp11
+}}} // boost::msm::backmp11
 
 #endif //BOOST_MSM_BACKMP11_HISTORY_POLICIES_H

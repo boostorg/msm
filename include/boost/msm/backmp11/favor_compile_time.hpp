@@ -29,7 +29,7 @@
 #include <boost/msm/back/common_types.hpp>
 #include <boost/msm/backmp11/dispatch_table.hpp>
 
-namespace boost::msm::backmp11
+namespace boost { namespace msm { namespace backmp11
 {
 
 #define BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(fsmname)                     \
@@ -96,14 +96,7 @@ class end_interrupt_event_helper
     end_interrupt_event_helper(const Fsm& fsm)
     {
         mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, typename Fsm::event_set_mp11>>(
-            [&](auto event)
-            {
-                using Event = typename decltype(event)::type;
-                using Flag = EndInterruptFlag<Event>;
-                m_is_flag_active_functions[to_type_index<Event>()] =
-                    [&](){return fsm.template is_flag_active<Flag>();};
-            }
-        );
+            init_helper<Fsm>{fsm, m_is_flag_active_functions});
     }
 
     bool is_end_interrupt_event(const favor_compile_time::any_event& event) const
@@ -117,7 +110,29 @@ class end_interrupt_event_helper
     }
 
  private:
-    std::unordered_map<std::type_index, std::function<bool()>> m_is_flag_active_functions;
+    using map = std::unordered_map<std::type_index, std::function<bool()>>;
+
+    template<typename Fsm>
+    class init_helper
+    {
+     public:
+        init_helper(Fsm& fsm, map& is_flag_active_functions)
+            : m_fsm(fsm), m_is_flag_active_functions(is_flag_active_functions) {}
+
+        template<typename Event>
+        void operator()(mp11::mp_identity<Event>)
+        {
+            using Flag = EndInterruptFlag<Event>;
+            m_is_flag_active_functions[to_type_index<Event>()] =
+                [&](){return m_fsm.template is_flag_active<Flag>();};
+        }
+     
+     private:
+        Fsm& m_fsm;
+        map& m_is_flag_active_functions;
+    };
+
+    map m_is_flag_active_functions;
 };
 
 struct chain_row
@@ -168,42 +183,6 @@ public:
     }
 
 private:
-    // Filter a state to check whether state-specific initialization
-    // needs to be performed.
-    template<typename State>
-    using state_filter_predicate = mp11::mp_or<
-        mp11::mp_not<mp11::mp_empty<to_mp_list_t<typename State::deferred_events>>>,
-        is_composite_state<State>
-        >;
-
-    dispatch_table()
-    {
-        // Execute row-specific initializations.
-        mp11::mp_for_each<typename get_real_rows<Stt>::type>(
-            [&](auto row)
-            {
-                using Row = decltype(row);
-                using Event = typename Row::transition_event;
-                using StateId = get_state_id<Stt, typename Row::current_state_type>;
-                auto& chain_row = m_state_dispatch_tables[StateId::value+1].template get_chain_row<Event>();
-                chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&convert_and_execute<Event, Row>));
-            }
-        );
-
-        // Execute state-specific initializations.
-        using filtered_states = mp11::mp_copy_if<state_set_mp11, state_filter_predicate>;
-        mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, filtered_states>>(
-            [&](auto state)
-            {
-                using State = typename decltype(state)::type;
-                m_state_dispatch_tables[get_state_id<Stt, State>::value+1].template init<State>();
-            }
-        );
-    }
-
-    // The singleton instance.
-    static const dispatch_table& instance();
-
     // Adapter for calling a row's execute function.
     template<typename Event, typename Row>
     static HandledEnum convert_and_execute(Fsm& fsm, int region_id, int state_id, const any_event& event)
@@ -221,13 +200,7 @@ private:
         {
             // Fill in cells for deferred events.
             mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, to_mp_list_t<typename State::deferred_events>>>(
-                [&](auto event)
-                {
-                    using Event = typename decltype(event)::type;
-                    auto& chain_row = m_entries[to_type_index<Event>()];
-                    chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&Fsm::template defer_transition<any_event>));
-                }
-            );
+                deferred_event_init_helper{m_entries});
 
             BOOST_IF_CONSTEXPR (is_composite_state<State>::value)
             {
@@ -265,10 +238,85 @@ private:
         }
 
     private:
+        class deferred_event_init_helper
+        {
+         public:
+            deferred_event_init_helper(std::unordered_map<std::type_index, chain_row>& entries)
+                : m_entries(entries) {}
+
+            template<typename Event>
+            void operator()(mp11::mp_identity<Event>)
+            {
+                auto& chain_row = m_entries[to_type_index<Event>()];
+                chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&Fsm::template defer_transition<any_event>));
+            }
+
+         private:
+            std::unordered_map<std::type_index, chain_row>& m_entries;
+        };
+
         std::unordered_map<std::type_index, chain_row> m_entries;
         // Special functor if the state is a composite
         std::function<HandledEnum(Fsm&, const any_event&)> m_call_submachine;
     };
+
+    class row_init_helper
+    {
+     public:
+        row_init_helper(state_dispatch_table* state_dispatch_tables)
+            : m_state_dispatch_tables(state_dispatch_tables) {}
+
+        template<typename Row>
+        void operator()(Row)
+        {
+            using Event = typename Row::transition_event;
+            using StateId = get_state_id<Stt, typename Row::current_state_type>;
+            auto& chain_row = m_state_dispatch_tables[StateId::value+1].template get_chain_row<Event>();
+            chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&convert_and_execute<Event, Row>));
+        }
+
+     private:
+        state_dispatch_table* m_state_dispatch_tables;
+    };
+
+    class state_init_helper
+    {
+     public:
+        state_init_helper(state_dispatch_table* state_dispatch_tables)
+            : m_state_dispatch_tables(state_dispatch_tables) {}
+
+        template<typename State>
+        void operator()(mp11::mp_identity<State>)
+        {
+            m_state_dispatch_tables[get_state_id<Stt, State>::value+1].template init<State>();
+        }
+
+     private:
+        state_dispatch_table* m_state_dispatch_tables;
+    };
+
+    // Filter a state to check whether state-specific initialization
+    // needs to be performed.
+    template<typename State>
+    using state_filter_predicate = mp11::mp_or<
+        mp11::mp_not<mp11::mp_empty<to_mp_list_t<typename State::deferred_events>>>,
+        is_composite_state<State>
+        >;
+
+    dispatch_table()
+    {
+        // Execute row-specific initializations.
+        mp11::mp_for_each<typename get_real_rows<Stt>::type>(
+            row_init_helper(m_state_dispatch_tables));
+
+        // Execute state-specific initializations.
+        using filtered_states = mp11::mp_copy_if<state_set_mp11, state_filter_predicate>;
+        mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, filtered_states>>(
+            state_init_helper(m_state_dispatch_tables));
+    }
+
+    // The singleton instance.
+    static const dispatch_table& instance();
 
     // Compute the maximum state value in the sm so we know how big
     // to make the table
@@ -277,6 +325,6 @@ private:
     state_dispatch_table m_state_dispatch_tables[max_state+1];
 };
 
-} // boost::msm::backmp11
+}}} // boost::msm::backmp11
 
 #endif //BOOST_MSM_BACKMP11_FAVOR_COMPILE_TIME_H

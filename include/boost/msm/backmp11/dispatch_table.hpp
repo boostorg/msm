@@ -33,7 +33,7 @@
 #include <boost/msm/backmp11/metafunctions.hpp>
 #include <boost/msm/backmp11/common_types.hpp>
 
-namespace boost::msm::backmp11
+namespace boost { namespace msm { namespace backmp11
 {
 
 // Value used to initialize a cell of the dispatch table
@@ -406,7 +406,7 @@ private:
     };
 };
 
-} // boost::msm::backmp11
+}}} // boost::msm::backmp11
 
 
 #endif //BOOST_MSM_BACKMP11_DISPATCH_TABLE_H

@@ -12,11 +12,6 @@
 #ifndef BOOST_MSM_BACKMP11_STATEMACHINE_H
 #define BOOST_MSM_BACKMP11_STATEMACHINE_H
 
-// TODO: Clean up
-#include <boost/msm/backmp11/metafunctions.hpp>
-#include <boost/msm/backmp11/dispatch_table.hpp>
-#include <boost/msm/backmp11/favor_compile_time.hpp>
-
 #include <exception>
 #include <vector>
 #include <functional>
@@ -66,6 +61,7 @@
 #include <boost/msm/msm_grammar.hpp>
 #include <boost/msm/back/traits.hpp>
 #include <boost/msm/back/fold_to_list.hpp>
+#include <boost/msm/backmp11/favor_compile_time.hpp>
 #include <boost/msm/backmp11/metafunctions.hpp>
 #include <boost/msm/backmp11/history_policies.hpp>
 #include <boost/msm/backmp11/common_types.hpp>
@@ -78,7 +74,7 @@
 #define BOOST_MSM_CONSTRUCTOR_ARG_SIZE 5 // default max number of arguments for constructors
 #endif
 
-namespace boost::msm::backmp11
+namespace boost { namespace msm { namespace backmp11
 {
 
 using back::no_fsm_check;
@@ -3011,6 +3007,6 @@ private:
 
 };
 
-} // boost::msm::backmp11
+}}} // boost::msm::backmp11
 
 #endif //BOOST_MSM_BACKMP11_STATEMACHINE_H
