@@ -167,6 +167,14 @@ public:
     }
 
 private:
+    // Filter a state to check whether state-specific initialization
+    // needs to be performed.
+    template<typename State>
+    using state_filter_predicate = mp11::mp_or<
+        mp11::mp_not<mp11::mp_empty<to_mp_list_t<typename State::deferred_events>>>,
+        is_composite_state<State>
+        >;
+
     dispatch_table()
     {
         // Execute row-specific initializations.
@@ -182,7 +190,8 @@ private:
         );
 
         // Execute state-specific initializations.
-        mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, state_set_mp11>>(
+        using filtered_states = mp11::mp_copy_if<state_set_mp11, state_filter_predicate>;
+        mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, filtered_states>>(
             [&](auto state)
             {
                 using State = typename decltype(state)::type;

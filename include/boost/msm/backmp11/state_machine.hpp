@@ -1528,7 +1528,7 @@ private:
     }
     template <class Policy = CompilePolicy>
     typename std::enable_if<std::is_same<Policy, favor_compile_time>::value, bool>::type
-    is_end_interrupt_event(const any& event)
+    is_end_interrupt_event(const favor_compile_time::any_event& event)
     {
         static end_interrupt_event_helper helper{*this};
         return helper.is_end_interrupt_event(event);
@@ -2182,6 +2182,14 @@ public:
                            EventSource source = EVENT_SOURCE_DEFAULT)
     {
         return process_event_internal_impl(favor_compile_time::any_event(evt), source);
+    }
+
+    template<class Policy = CompilePolicy>
+    typename enable_if<is_same<Policy, favor_compile_time>, execute_return>::type
+    process_event_internal(favor_compile_time::any_event const& evt,
+                           EventSource source = EVENT_SOURCE_DEFAULT)
+    {
+        return process_event_internal_impl(evt, source);
     }
 
     // Main function used internally to make transitions
