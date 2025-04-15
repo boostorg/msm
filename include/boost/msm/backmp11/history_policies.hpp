@@ -1,3 +1,4 @@
+// Copyright 2025 Christian Granzin
 // Copyright 2008 Christophe Henry
 // henry UNDERSCORE christophe AT hotmail DOT com
 // This is an extended version of the state machine available in the boost::mpl library
@@ -8,12 +9,12 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef BOOST_MSM_BACK_HISTORY_POLICIES_H
-#define BOOST_MSM_BACK_HISTORY_POLICIES_H
+#ifndef BOOST_MSM_BACKMP11_HISTORY_POLICIES_H
+#define BOOST_MSM_BACKMP11_HISTORY_POLICIES_H
 
 #include <boost/msm/backmp11/metafunctions.hpp>
 
-namespace boost { namespace msm { namespace back
+namespace boost::msm::backmp11
 {
 
 // policy classes
@@ -199,5 +200,7 @@ struct ShallowHistory
         typedef ShallowHistoryImpl<Events,NumberOfRegions> type;
     };
 };
-} } }//boost::msm::back
-#endif //BOOST_MSM_BACK_HISTORY_POLICIES_H
+
+} //boost::msm::backmp11
+
+#endif //BOOST_MSM_BACKMP11_HISTORY_POLICIES_H

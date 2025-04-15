@@ -1,3 +1,4 @@
+// Copyright 2025 Christian Granzin
 // Copyright 2008 Christophe Henry
 // henry UNDERSCORE christophe AT hotmail DOT com
 // This is an extended version of the state machine available in the boost::mpl library
@@ -8,8 +9,8 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef BOOST_MSM_BACK_DISPATCH_TABLE_H
-#define BOOST_MSM_BACK_DISPATCH_TABLE_H
+#ifndef BOOST_MSM_BACKMP11_DISPATCH_TABLE_H
+#define BOOST_MSM_BACKMP11_DISPATCH_TABLE_H
 
 #include <cstdint>
 #include <utility>
@@ -30,9 +31,9 @@
 #include <boost/msm/back/traits.hpp>
 #include <boost/msm/back/default_compile_policy.hpp>
 #include <boost/msm/backmp11/metafunctions.hpp>
-#include <boost/msm/back/common_types.hpp>
+#include <boost/msm/backmp11/common_types.hpp>
 
-namespace boost { namespace msm { namespace back 
+namespace boost::msm::backmp11
 {
 
 // Value used to initialize a cell of the dispatch table
@@ -405,8 +406,8 @@ private:
     };
 };
 
-}}} // boost::msm::back
+} // boost::msm::backmp11
 
 
-#endif //BOOST_MSM_BACK_DISPATCH_TABLE_H
+#endif //BOOST_MSM_BACKMP11_DISPATCH_TABLE_H
 

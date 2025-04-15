@@ -4,9 +4,9 @@
 #include "nested_fsm.hpp"
 #include <boost/msm/backmp11/state_machine.hpp>
 
-using fsm2 = msm::back::state_machine<fsm_<PROBLEM_SIZE/2>>;
-using fsm1 = msm::back::state_machine<fsm_<PROBLEM_SIZE/3, fsm2>>;
-using fsm0 = msm::back::state_machine<fsm_<0, fsm1>>;
+using fsm2 = msm::backmp11::state_machine<fsm_<PROBLEM_SIZE/2>>;
+using fsm1 = msm::backmp11::state_machine<fsm_<PROBLEM_SIZE/3, fsm2>>;
+using fsm0 = msm::backmp11::state_machine<fsm_<0, fsm1>>;
 
 int main()
 {

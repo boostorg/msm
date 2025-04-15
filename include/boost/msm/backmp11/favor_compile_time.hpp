@@ -1,3 +1,4 @@
+// Copyright 2025 Christian Granzin
 // Copyright 2008 Christophe Henry
 // henry UNDERSCORE christophe AT hotmail DOT com
 // This is an extended version of the state machine available in the boost::mpl library
@@ -8,8 +9,8 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef BOOST_MSM_BACK_FAVOR_COMPILE_TIME_H
-#define BOOST_MSM_BACK_FAVOR_COMPILE_TIME_H
+#ifndef BOOST_MSM_BACKMP11_FAVOR_COMPILE_TIME_H
+#define BOOST_MSM_BACKMP11_FAVOR_COMPILE_TIME_H
 
 #if __cplusplus >= 201703L
 #include <any>
@@ -28,7 +29,7 @@
 #include <boost/msm/back/common_types.hpp>
 #include <boost/msm/backmp11/dispatch_table.hpp>
 
-namespace boost { namespace msm { namespace back
+namespace boost::msm::backmp11
 {
 
 #define BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(fsmname)                     \
@@ -150,7 +151,7 @@ struct chain_row
 // to a function that makes the SM take its transition on the given
 // Event type.
 template<class Fsm, class Stt>
-struct dispatch_table<Fsm, Stt, back::favor_compile_time>
+struct dispatch_table<Fsm, Stt, favor_compile_time>
 {
     using any_event = favor_compile_time::any_event;
 public:
@@ -276,6 +277,6 @@ private:
     state_dispatch_table m_state_dispatch_tables[max_state+1];
 };
 
-}}} // boost::msm::back
+} // boost::msm::backmp11
 
-#endif //BOOST_MSM_BACK_FAVOR_COMPILE_TIME_H
+#endif //BOOST_MSM_BACKMP11_FAVOR_COMPILE_TIME_H

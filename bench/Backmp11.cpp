@@ -3,7 +3,7 @@
 #include "common.hpp"
 #include <boost/msm/backmp11/state_machine.hpp>
 
-using fsm0 = msm::back::state_machine<fsm_>;
+using fsm0 = msm::backmp11::state_machine<fsm_>;
 
 int main()
 {

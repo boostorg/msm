@@ -150,5 +150,5 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(transition_skipping_test, top, tops)
 
 }
 
-using backmp11_fsm = boost::msm::back::state_machine<top_, boost::msm::back::favor_compile_time>;
+using backmp11_fsm = boost::msm::backmp11::state_machine<top_, boost::msm::backmp11::favor_compile_time>;
 BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_fsm);

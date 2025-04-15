@@ -226,11 +226,8 @@ namespace
     };
     typedef Back<Fsm_, Policy> Fsm;
     };
-    typedef boost::mpl::vector<
-        hierarchical_state_machine<boost::msm::back::state_machine>,
-        hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>,
-        hierarchical_state_machine<boost::msm::back11::state_machine>
-        > test_machines;
+
+    typedef get_hierarchical_test_machines<hierarchical_state_machine> test_machines;
 //    static char const* const state_names[] = { "State1", "SubFsm2","State2"  };
 
 
@@ -307,12 +304,12 @@ namespace
     }
 }
 
-// using back0 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::Fsm;
-// using back1 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::Fsm_::SubFsm2;
-// BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back0);
-// BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back1);
+using back0 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::Fsm;
+using back1 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::Fsm_::SubFsm2;
+BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back0);
+BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back1);
 
-using backmp11_0 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::Fsm;
-using backmp11_1 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::Fsm_::SubFsm2;
+using backmp11_0 = hierarchical_state_machine<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>::Fsm;
+using backmp11_1 = hierarchical_state_machine<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>::Fsm_::SubFsm2;
 BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_0);
 BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_1);

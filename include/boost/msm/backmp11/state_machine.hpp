@@ -1,3 +1,4 @@
+// Copyright 2025 Christian Granzin
 // Copyright 2008 Christophe Henry
 // henry UNDERSCORE christophe AT hotmail DOT com
 // This is an extended version of the state machine available in the boost::mpl library
@@ -8,8 +9,8 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef BOOST_MSM_BACK_STATEMACHINE_H
-#define BOOST_MSM_BACK_STATEMACHINE_H
+#ifndef BOOST_MSM_BACKMP11_STATEMACHINE_H
+#define BOOST_MSM_BACKMP11_STATEMACHINE_H
 
 // TODO: Clean up
 #include <boost/msm/backmp11/metafunctions.hpp>
@@ -67,7 +68,7 @@
 #include <boost/msm/back/fold_to_list.hpp>
 #include <boost/msm/backmp11/metafunctions.hpp>
 #include <boost/msm/backmp11/history_policies.hpp>
-#include <boost/msm/back/common_types.hpp>
+#include <boost/msm/backmp11/common_types.hpp>
 #include <boost/msm/back/args.hpp>
 #include <boost/msm/backmp11/dispatch_table.hpp>
 #include <boost/msm/back/no_fsm_check.hpp>
@@ -77,10 +78,13 @@
 #define BOOST_MSM_CONSTRUCTOR_ARG_SIZE 5 // default max number of arguments for constructors
 #endif
 
-namespace boost { namespace msm { namespace back
+namespace boost::msm::backmp11
 {
 
-struct favor_compile_time;
+using back::no_fsm_check;
+using back::queue_container_deque;
+using back::FoldToList;
+
 
 // event used internally for wrapping a direct entry
 template <class StateType,class Event>
@@ -101,18 +105,18 @@ BOOST_PARAMETER_TEMPLATE_KEYWORD(fsm_check_policy)
 BOOST_PARAMETER_TEMPLATE_KEYWORD(queue_container_policy)
 
 typedef ::boost::parameter::parameters<
-    ::boost::parameter::required< ::boost::msm::back::tag::front_end >
+    ::boost::parameter::required< tag::front_end >
   , ::boost::parameter::optional<
-        ::boost::parameter::deduced< ::boost::msm::back::tag::history_policy>, has_history_policy< ::boost::mpl::_ >
+        ::boost::parameter::deduced< tag::history_policy>, has_history_policy< ::boost::mpl::_ >
     >
   , ::boost::parameter::optional<
-        ::boost::parameter::deduced< ::boost::msm::back::tag::compile_policy>, has_compile_policy< ::boost::mpl::_ >
+        ::boost::parameter::deduced< tag::compile_policy>, has_compile_policy< ::boost::mpl::_ >
     >
   , ::boost::parameter::optional<
-        ::boost::parameter::deduced< ::boost::msm::back::tag::fsm_check_policy>, has_fsm_check< ::boost::mpl::_ >
+        ::boost::parameter::deduced< tag::fsm_check_policy>, has_fsm_check< ::boost::mpl::_ >
     >
   , ::boost::parameter::optional<
-        ::boost::parameter::deduced< ::boost::msm::back::tag::queue_container_policy>,
+        ::boost::parameter::deduced< tag::queue_container_policy>,
         has_queue_container_policy< ::boost::mpl::_ >
     >
 > state_machine_signature;
@@ -140,11 +144,11 @@ template <
 >
 class state_machine : //public Derived
     public ::boost::parameter::binding<
-            typename state_machine_signature::bind<A0,A1,A2,A3,A4>::type, ::boost::msm::back::tag::front_end
+            typename state_machine_signature::bind<A0,A1,A2,A3,A4>::type, tag::front_end
     >::type
     , public make_euml_terminal<state_machine<A0,A1,A2,A3,A4>,
                          typename ::boost::parameter::binding<
-                                    typename state_machine_signature::bind<A0,A1,A2,A3,A4>::type, ::boost::msm::back::tag::front_end
+                                    typename state_machine_signature::bind<A0,A1,A2,A3,A4>::type, tag::front_end
                          >::type
       >
 {
@@ -156,24 +160,24 @@ public:
 
     // Extract first logical parameter.
     typedef typename ::boost::parameter::binding<
-        state_machine_args, ::boost::msm::back::tag::front_end>::type Derived;
+        state_machine_args, tag::front_end>::type Derived;
 
     typedef typename ::boost::parameter::binding<
-        state_machine_args, ::boost::msm::back::tag::history_policy, NoHistory >::type              HistoryPolicy;
+        state_machine_args, tag::history_policy, NoHistory >::type              HistoryPolicy;
 
     typedef typename ::boost::parameter::binding<
-        state_machine_args, ::boost::msm::back::tag::compile_policy, favor_runtime_speed >::type    CompilePolicy;
+        state_machine_args, tag::compile_policy, favor_runtime_speed >::type    CompilePolicy;
 
     typedef typename ::boost::parameter::binding<
-        state_machine_args, ::boost::msm::back::tag::fsm_check_policy, no_fsm_check >::type         FsmCheckPolicy;
+        state_machine_args, tag::fsm_check_policy, no_fsm_check >::type         FsmCheckPolicy;
 
     typedef typename ::boost::parameter::binding<
-        state_machine_args, ::boost::msm::back::tag::queue_container_policy,
-        queue_container_deque >::type                                                               QueueContainerPolicy;
+        state_machine_args, tag::queue_container_policy,
+        queue_container_deque >::type                                           QueueContainerPolicy;
 
 private:
 
-    typedef boost::msm::back::state_machine<
+    typedef state_machine<
         A0,A1,A2,A3,A4>                             library_sm;
 
     typedef ::std::function<
@@ -197,7 +201,7 @@ private:
 
     // all state machines are friend with each other to allow embedding any of them in another fsm
     template <class ,class , class, class, class
-    > friend class boost::msm::back::state_machine;
+    > friend class state_machine;
 
     // helper to add, if needed, visitors to all states
     // version without visitors
@@ -264,7 +268,7 @@ private:
     template <class StateType>
     struct deferred_msg_queue_helper<StateType,
         typename ::boost::enable_if<
-            typename ::boost::msm::back::has_fsm_deferred_events<StateType>::type,int >::type>
+            typename has_fsm_deferred_events<StateType>::type,int >::type>
     {
     public:
         deferred_msg_queue_helper():m_deferred_events_queue(),m_cur_seq(0){}
@@ -439,7 +443,7 @@ private:
             BOOST_ASSERT(state == (current_state));
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
             if (has_pseudo_exit<T1>::type::value &&
-                !is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
+                !backmp11::is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
             {
                 return HANDLED_FALSE;
             }
@@ -519,7 +523,7 @@ private:
             BOOST_ASSERT(state == (current_state));
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
             if (has_pseudo_exit<T1>::type::value &&
-                !is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
+                !backmp11::is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
             {
                 return HANDLED_FALSE;
             }
@@ -584,7 +588,7 @@ private:
 
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
             if (has_pseudo_exit<T1>::type::value &&
-                !is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
+                !backmp11::is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
             {
                 return HANDLED_FALSE;
             }
@@ -651,7 +655,7 @@ private:
 
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
             if (has_pseudo_exit<T1>::type::value &&
-                !is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
+                !backmp11::is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
             {
                 return HANDLED_FALSE;
             }
@@ -1176,7 +1180,7 @@ private:
     typedef typename HistoryPolicy::template apply<nr_regions::value>::type concrete_history;
 
     typedef mp11::mp_rename<state_set_mp11, std::tuple> substate_list;
-    typedef typename ::boost::msm::back::generate_event_set<
+    typedef typename generate_event_set<
         typename create_real_stt<library_sm, typename library_sm::internal_transition_table >::type
     >::type processable_events_internal_table;
 
@@ -1954,7 +1958,7 @@ public:
     // otherwise the standard version handling the deferred events
     template <class StateType>
     struct handle_defer_helper
-        <StateType, typename enable_if< typename ::boost::msm::back::has_fsm_deferred_events<StateType>::type,int >::type>
+        <StateType, typename enable_if< typename has_fsm_deferred_events<StateType>::type,int >::type>
     {
         struct sort_greater
         {
@@ -2052,7 +2056,7 @@ public:
     // otherwise
     template <class StateType>
     struct handle_eventless_transitions_helper
-        <StateType, typename enable_if< typename ::boost::msm::back::has_fsm_eventless_transition<StateType>::type >::type>
+        <StateType, typename enable_if< typename has_fsm_eventless_transition<StateType>::type >::type>
     {
         handle_eventless_transitions_helper(library_sm* self_, bool handled_):self(self_),handled(handled_){}
         void process_completion_event(EventSource source = EVENT_SOURCE_DEFAULT)
@@ -2957,7 +2961,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
     convert_event_and_execute_entry(StateType& astate,EventType const& evt, FsmType& fsm, ::boost::msm::back::dummy<0> = 0)
     {
         // for the direct entry, pack the event in a wrapper so that we handle it differently during fsm entry
-        execute_entry(astate,msm::back::direct_entry_event<TargetType,EventType>(evt),fsm);
+        execute_entry(astate,direct_entry_event<TargetType,EventType>(evt),fsm);
     }
 
     // creates all the states
@@ -3008,5 +3012,6 @@ private:
 
 };
 
-} } }// boost::msm::back
-#endif //BOOST_MSM_BACK_STATEMACHINE_H
+} // boost::msm::backmp11
+
+#endif //BOOST_MSM_BACKMP11_STATEMACHINE_H

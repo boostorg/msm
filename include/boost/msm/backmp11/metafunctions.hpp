@@ -1,3 +1,4 @@
+// Copyright 2025 Christian Granzin
 // Copyright 2008 Christophe Henry
 // henry UNDERSCORE christophe AT hotmail DOT com
 // This is an extended version of the state machine available in the boost::mpl library
@@ -8,8 +9,8 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef BOOST_MSM_BACK_METAFUNCTIONS_H
-#define BOOST_MSM_BACK_METAFUNCTIONS_H
+#ifndef BOOST_MSM_BACKMP11_METAFUNCTIONS_H
+#define BOOST_MSM_BACKMP11_METAFUNCTIONS_H
 
 #include "boost/msm/front/completion_event.hpp"
 #include <algorithm>
@@ -58,9 +59,13 @@
 #include <boost/msm/mpl_graph/depth_first_search.hpp>
 
 #include <boost/msm/back/traits.hpp>
+#include <boost/msm/back/default_compile_policy.hpp>
 
-namespace boost { namespace msm { namespace back
+namespace boost::msm::backmp11
 {
+
+using back::favor_runtime_speed;
+
 template <typename Sequence, typename Range>
 struct set_insert_range
 {
@@ -510,7 +515,6 @@ struct has_fsm_deferred_events
         > type;
 };
 
-struct favor_runtime_speed;
 struct favor_compile_time;
 
 // returns a mpl::bool_<true> if State has any delayed event
@@ -942,7 +946,7 @@ struct get_interrupt_events
 {
     typedef typename ::boost::mpl::eval_if<
         ::boost::mpl::is_sequence<Event>,
-        boost::msm::back::apply_end_interrupt_flag<Event>,
+        apply_end_interrupt_flag<Event>,
         boost::mpl::vector1<boost::msm::EndInterruptFlag<Event> > >::type type;
 };
 
@@ -957,7 +961,6 @@ struct build_interrupt_state_flag_list
     >::type type;
 };
 
-} } }//boost::msm::back
+} // boost::msm::backmp11
 
-#endif // BOOST_MSM_BACK_METAFUNCTIONS_H
-
+#endif // BOOST_MSM_BACKMP11_METAFUNCTIONS_H
