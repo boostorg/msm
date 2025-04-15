@@ -211,7 +211,6 @@ struct generate_state_set
         source_state_set_mp11,
         set_push_target_state
         > state_set_mp11;
-    typedef mp11::mp_apply<mpl::set, state_set_mp11> type;
 };
 
 // extends a state set to a map with key=state and value=id
@@ -252,7 +251,7 @@ struct get_state_id
     static constexpr typename type::value_type value = type::value;
 };
 
-// iterates through the transition table and generate a mpl::set<> containing all the events
+// iterates through the transition table and generate a set containing all the events
 template <class stt>
 struct generate_event_set
 {
@@ -267,7 +266,6 @@ struct generate_event_set
         mp11::mp_list<>,
         event_set_pusher
         > event_set_mp11;
-    typedef mp11::mp_apply<mpl::set, event_set_mp11> type;
 };
 
 // extends an event set to a map with key=event and value=id
@@ -763,28 +761,15 @@ struct build_one_orthogonal_region
 template <class Fsm>
 struct find_entry_states 
 {
-    typedef typename ::boost::mpl::copy<
+    typedef mp11::mp_copy_if<
         typename Fsm::substate_list,
-        ::boost::mpl::inserter< 
-            ::boost::mpl::set0<>,
-            ::boost::mpl::if_<
-                has_explicit_entry_state< ::boost::mpl::placeholders::_2 >,
-                ::boost::mpl::insert< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2>,
-                ::boost::mpl::placeholders::_1
-            >
-        >
-    >::type type;
+        has_explicit_entry_state
+        > type;
 };
 
 template <class Set1, class Set2>
 struct is_common_element 
 {
-    // TODO:
-    // Not sure if code is correct.
-    // typedef typename mp11::mp_set_contains<
-    //     typename to_mp_list<Set1>::type,
-    //     typename to_mp_list<Set2>::type
-    //     > type;
     typedef typename ::boost::mpl::fold<
         Set1, ::boost::mpl::false_,
         ::boost::mpl::if_<

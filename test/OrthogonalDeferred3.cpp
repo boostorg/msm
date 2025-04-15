@@ -343,6 +343,7 @@ namespace
     // Pick a back-end
     typedef boost::mpl::vector<
         hierarchical_state_machine<boost::msm::back::state_machine>,
+        hierarchical_state_machine<boost::msm::backmp11::state_machine>,
         hierarchical_state_machine<boost::msm::back11::state_machine>
         > test_machines;
 

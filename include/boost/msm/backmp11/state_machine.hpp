@@ -1173,7 +1173,6 @@ private:
     typedef typename create_real_stt<Derived>::type real_transition_table;
     typedef typename create_stt<library_sm>::type stt;
     typedef typename get_initial_states<typename Derived::initial_state>::type initial_states;
-    typedef typename generate_state_set<stt>::type state_list;
     typedef typename generate_state_set<stt>::state_set_mp11 state_set_mp11;
     typedef typename generate_state_map<stt>::type state_map_mp11;
     typedef typename generate_event_set<stt>::event_set_mp11 event_set_mp11;
@@ -1182,7 +1181,7 @@ private:
     typedef mp11::mp_rename<state_set_mp11, std::tuple> substate_list;
     typedef typename generate_event_set<
         typename create_real_stt<library_sm, typename library_sm::internal_transition_table >::type
-    >::type processable_events_internal_table;
+    >::event_set_mp11 processable_events_internal_table;
 
     // extends the transition table with rows from composite states
     template <class Composite>
@@ -1441,14 +1440,14 @@ private:
     BaseState* get_state_by_id(int id)
     {
         const BaseState*  result_state=0;
-        ::boost::mpl::for_each<state_list,
+        ::boost::mpl::for_each<state_set_mp11,
             ::boost::msm::wrap< ::boost::mpl::placeholders::_1> > (get_state_id_helper(id,&result_state,this));
         return const_cast<BaseState*>(result_state);
     }
     const BaseState* get_state_by_id(int id) const
     {
         const BaseState*  result_state=0;
-        ::boost::mpl::for_each<state_list,
+        ::boost::mpl::for_each<state_set_mp11,
             ::boost::msm::wrap< ::boost::mpl::placeholders::_1> > (get_state_id_helper(id,&result_state,this));
         return result_state;
     }
@@ -2083,7 +2082,7 @@ public:
     template<class Event>
     struct process_fsm_internal_table
     {
-        typedef typename ::boost::mpl::has_key<processable_events_internal_table,Event>::type is_event_processable;
+        typedef mp11::mp_set_contains<processable_events_internal_table,Event> is_event_processable;
 
         // forward to the correct do_process
         static void process(Event const& evt,library_sm* self_,HandledEnum& result)
@@ -2092,7 +2091,7 @@ public:
         }
     private:
         // the event is processable, let's try!
-        static void do_process(Event const& evt,library_sm* self_,HandledEnum& result, ::boost::mpl::true_)
+        static void do_process(Event const& evt,library_sm* self_,HandledEnum& result, mp11::mp_true)
         {
             if (result != HANDLED_TRUE)
             {
@@ -2102,7 +2101,7 @@ public:
             }
         }
         // version doing nothing if the event is not in the internal stt and we can save ourselves the time trying to process
-        static void do_process(Event const& ,library_sm* ,HandledEnum& , ::boost::mpl::false_)
+        static void do_process(Event const& ,library_sm* ,HandledEnum& , mp11::mp_false)
         {
             // do nothing
         }
@@ -2374,12 +2373,12 @@ private:
             : entries(entries_)
         {}
 
-        // Flags initializer function object, used with mpl::for_each
+        // Flags initializer function object, used with for_each
         template <class StateType>
-        void operator()( ::boost::msm::wrap<StateType> const& )
+        void operator()( mp11::mp_identity<StateType> const& )
         {
             typedef typename get_flag_list<StateType>::type flags;
-            typedef typename ::boost::mpl::contains<flags,Flag >::type found;
+            typedef mp11::mp_contains<flags,Flag > found;
 
             BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,StateType>::type::value));
             if (found::type::value)
@@ -2408,7 +2407,7 @@ private:
         static flag_handler flags_entries[max_state];
         // build a state list, but only once
         static flag_handler* flags_entries_ptr =
-            (::boost::mpl::for_each<state_list, boost::msm::wrap< ::boost::mpl::placeholders::_1> >
+            (mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, state_set_mp11>>
                             (init_flags<Flag>(flags_entries)),
             flags_entries);
         return flags_entries_ptr;
@@ -2614,7 +2613,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          m_substate_list = rhs.m_substate_list;
          // except for the states themselves, which get duplicated
 
-         ::boost::mpl::for_each<state_list, ::boost::msm::wrap< ::boost::mpl::placeholders::_1> >
+         ::boost::mpl::for_each<state_set_mp11, ::boost::msm::wrap< ::boost::mpl::placeholders::_1> >
                         (copy_helper(this));
      }
 

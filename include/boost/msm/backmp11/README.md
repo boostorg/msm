@@ -7,18 +7,15 @@ Major improvements:
 - favor_runtime_speed: Optimized cell initialization with initializer arrays (to reduce template instantiations)
   - check again if this was really helpful
 - favor_runtime_speed: Default-initialized everything and afterwards only defer transition cells
-- favor_compile_time: Default-initialized only defer transition & call submachine cells
-- favor_compile_time: Use one dispatch table per state to reduce compiler processing
+- favor_compile_time: Use one dispatch table per state to reduce compiler processing time
 - favor_compile_time: Apply type erasure with boost::any as early as possible and do further processing only with any events
-  - dispatch table is a hash table with type_id as key
-  - each dispatch table only has to cover the events it's handling, no template instantiations for forwarding events needed
-- ~~favor_compile_time: Optimized algorithm for transition table processing to process each row only once (see group_rows_by_event)~~ didn't help
- - favor_compile_time: Use std::any if C++17 is available (up to ~30% runtime impact because of small value optimization in std::any)
+  - dispatch tables are a hash tables with type_id as key
+  - each dispatch table only has to cover the events it's handling, no template instantiations for forwarding events required
+ - favor_compile_time: Use std::any if C++17 is available (up to 30% runtime impact because of small value optimization in std::any)
 
 
 ## TODOs:
 
-- clean up namespace
 - Consider trying out the tuple impl from SML
 - Understand the background of region_start_helper
 
