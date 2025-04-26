@@ -44,7 +44,7 @@ namespace
     // front-end: define the FSM structure 
     struct player_ : public msm::front::state_machine_def<player_>
     {
-        BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(player_);
+        BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(player_)
 
         unsigned int start_playback_counter;
         unsigned int can_close_drawer_counter;
@@ -86,7 +86,7 @@ namespace
 
         struct Playing_ : public msm::front::state_machine_def<Playing_>
         {
-            BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(Playing_);
+            BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(Playing_)
 
             template <class Event,class FSM>
             void on_entry(Event const&,FSM& ) {++entry_counter;}

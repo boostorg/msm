@@ -58,7 +58,7 @@ namespace
     // front-end: define the FSM structure 
     struct player_ : public msm::front::state_machine_def<player_>
     {
-        BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(player_);
+        BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(player_)
 
         // we want deferred events and no state requires deferred events (only the fsm in the
         // transition table), so the fsm does.
@@ -114,7 +114,7 @@ namespace
         // by another team in another module. For simplicity I just declare it inside player
         struct Playing_ : public msm::front::state_machine_def<Playing_>
         {
-            BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(Playing_);
+            BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(Playing_)
 
             // when playing, the CD is loaded and we are in either pause or playing (duh)
             typedef mpl::vector2<PlayingPaused,CDLoaded>        flag_list;

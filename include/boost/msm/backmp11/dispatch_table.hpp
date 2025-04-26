@@ -13,7 +13,6 @@
 #define BOOST_MSM_BACKMP11_DISPATCH_TABLE_H
 
 #include <cstdint>
-#include <utility>
 
 #include <boost/mp11.hpp>
 #include <boost/mp11/mpl_list.hpp>
@@ -50,7 +49,7 @@ struct init_cell_constant
 };
 
 // Type-punned init cell value to suppress redundant template instantiations
-typedef HandledEnum (*generic_cell)();
+typedef std::uintptr_t generic_cell; 
 struct generic_init_cell_value
 {
     size_t index;
@@ -59,13 +58,18 @@ struct generic_init_cell_value
 
 // Helper to create an array of init cell values for table initialization
 template<typename Cell, typename InitCellConstants, std::size_t... I>
-static const init_cell_value<Cell>* const get_init_cells_impl(mp11::index_sequence<I...>)
+static const init_cell_value<Cell>* get_init_cells_impl(mp11::index_sequence<I...>)
 {
     static constexpr init_cell_value<Cell> values[] {mp11::mp_at_c<InitCellConstants, I>::value...};
     return values;
 }
 template<typename Cell, typename InitCellConstants>
-static const generic_init_cell_value* const get_init_cells()
+static const init_cell_value<Cell>* get_init_cells_impl(mp11::index_sequence<>)
+{
+    return nullptr;
+}
+template<typename Cell, typename InitCellConstants>
+static const generic_init_cell_value* get_init_cells()
 {
     return reinterpret_cast<const generic_init_cell_value*>(
         get_init_cells_impl<Cell, InitCellConstants>(mp11::make_index_sequence<mp11::mp_size<InitCellConstants>::value>{}));
@@ -150,7 +154,7 @@ private:
     class event_dispatch_table
     {
     public:
-        using cell = cell<Event>;
+        using event_cell = cell<Event>;
 
         // The singleton instance.
         static const event_dispatch_table& instance() {
@@ -176,9 +180,9 @@ private:
                 preprocess_state,
                 filtered_states
                 > preprocessed_states;
-            cell_initializer::init(
+            event_cell_initializer::init(
                 reinterpret_cast<generic_cell*>(entries),
-                get_init_cells<cell, preprocessed_states>(),
+                get_init_cells<event_cell, preprocessed_states>(),
                 mp11::mp_size<preprocessed_states>::value
                 );
             
@@ -203,9 +207,9 @@ private:
                 chained_rows
                 > chained_and_preprocessed_rows;
             // Go back and fill in cells for matching transitions.
-            cell_initializer::init(
+            event_cell_initializer::init(
                 reinterpret_cast<generic_cell*>(entries),
-                get_init_cells<cell, chained_and_preprocessed_rows>(),
+                get_init_cells<event_cell, chained_and_preprocessed_rows>(),
                 mp11::mp_size<chained_and_preprocessed_rows>::value
                 );
         }
@@ -321,15 +325,15 @@ private:
             }
         };
 
-        using init_cell_value = init_cell_value<cell>;
+        using event_init_cell_value = init_cell_value<event_cell>;
 
-        template<size_t v1, cell v2>
-        using init_cell_constant = init_cell_constant<v1, cell, v2>;
+        template<size_t v1, event_cell v2>
+        using init_cell_constant = init_cell_constant<v1, event_cell, v2>;
 
-        template<cell v>
-        using cell_constant = std::integral_constant<cell, v>;
+        template<event_cell v>
+        using cell_constant = std::integral_constant<event_cell, v>;
 
-        using cell_initializer = cell_initializer<favor_runtime_speed>;
+        using event_cell_initializer = cell_initializer<favor_runtime_speed>;
 
         // Helpers for state processing
         template<typename State>
@@ -402,7 +406,7 @@ private:
     // data members
     public: 
         // max_state+1, because 0 is reserved for this fsm (internal transitions)
-        cell entries[max_state+1];
+        event_cell entries[max_state+1];
     };
 };
 

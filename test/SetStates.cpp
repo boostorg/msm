@@ -21,7 +21,6 @@
 
 namespace msm = boost::msm;
 namespace mpl = boost::mpl;
-namespace fusion = boost::fusion;
 using namespace msm::front;
 
 namespace
@@ -37,13 +36,13 @@ namespace
     struct State : public boost::msm::front::state<>
     {
         template <class Event, class FSM>
-        void on_entry(Event const& e, FSM& fsm)
+        void on_entry(Event const&, FSM&)
         {
             std::cout << "State - on_entry" << "\n";
         };
 
         template <class Event, class FSM>
-        void on_exit(Event const& e, FSM& fsm)
+        void on_exit(Event const&, FSM&)
         {
             std::cout << "State - on_exit" << "\n";
         }
@@ -52,13 +51,13 @@ namespace
     struct TerminateState : public boost::msm::front::terminate_state<>
     {
         template <class Event, class FSM>
-        void on_entry(Event const& e, FSM& fsm)
+        void on_entry(Event const&, FSM&)
         {
             std::cout << "TerminateState - on_entry" << "\n";
         };
 
         template <class Event, class FSM>
-        void on_exit(Event const& e, FSM& fsm)
+        void on_exit(Event const&, FSM&)
         {
             std::cout << "TerminateState - on_exit" << "\n";
         }
@@ -73,16 +72,16 @@ namespace
     {
     struct SubFsm_ : public msm::front::state_machine_def<SubFsm_>
     {
-        BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(SubFsm_);
+        BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(SubFsm_)
 
         template <class Event, class FSM>
-        void on_entry(Event const& e, FSM& fsm)
+        void on_entry(Event const&, FSM&)
         {
             std::cout << "SubFsm - on_entry" << "\n";
         };
 
         template <class Event, class FSM>
-        void on_exit(Event const& e, FSM& fsm)
+        void on_exit(Event const&, FSM&)
         {
             std::cout << "SubFsm - on_exit" << "\n";
         }
@@ -104,16 +103,16 @@ namespace
 
     struct Fsm_ : public msm::front::state_machine_def<Fsm_>
     {
-        BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(Fsm_);
+        BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(Fsm_)
 
         template <class Event, class FSM>
-        void on_entry(Event const& e, FSM& fsm)
+        void on_entry(Event const&, FSM&)
         {
             std::cout << "Fsm - on_entry" << "\n";
         };
 
         template <class Event, class FSM>
-        void on_exit(Event const& e, FSM& fsm)
+        void on_exit(Event const&, FSM&)
         {
             std::cout << "Fsm - on_exit" << "\n";
         }

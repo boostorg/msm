@@ -61,7 +61,7 @@ namespace
     // front-end: define the FSM structure 
     struct player_ : public msm::front::state_machine_def<player_>
     {
-        BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(player_);
+        BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(player_)
 
         player_(SomeExternalContext& context,int someint)
             :context_(context)
@@ -113,7 +113,7 @@ namespace
 
         struct Playing_ : public msm::front::state_machine_def<Playing_>
         {
-            BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(Playing_);
+            BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(Playing_)
 
             // when playing, the CD is loaded and we are in either pause or playing (duh)
             template <class Event,class FSM>

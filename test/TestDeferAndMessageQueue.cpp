@@ -68,7 +68,7 @@ namespace
         struct unexpected_action
         {
             template <class EVT,class FSM,class SourceState,class TargetState>
-            void operator()(EVT const& ,FSM& fsm,SourceState& ,TargetState& )
+            void operator()(EVT const& ,FSM& ,SourceState& ,TargetState& )
             {
                 std::cout << "unexpected action called" << std::endl;
             }

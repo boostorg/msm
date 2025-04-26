@@ -15,7 +15,6 @@
 #include <exception>
 #include <vector>
 #include <functional>
-#include <numeric>
 #include <utility>
 
 #include <boost/core/no_exceptions_support.hpp>
@@ -1848,7 +1847,7 @@ public:
     }
     // otherwise simple handling, no flag => continue
     template <class Event>
-    bool is_event_handling_blocked_helper(const Event& event, mp11::mp_false)
+    bool is_event_handling_blocked_helper(const Event&, mp11::mp_false)
     {
         // no terminate/interrupt states detected
         return false;
@@ -2838,7 +2837,8 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
      }
 
     // the IBM and VC<8 compilers seem to have problems with the friend declaration of dispatch_table
-#if defined (__IBMCPP__) || (defined(_MSC_VER) && (_MSC_VER < 1400))
+    // also clang seems to have a problem with the defer_transition indirection in preprocess_state
+#if defined (__IBMCPP__) || (defined(_MSC_VER) && (_MSC_VER < 1400) || defined(__clang__ ))
      public:
 #endif
     // no transition for event.
@@ -2869,7 +2869,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
     {
         return HANDLED_FALSE;
     }
-#if defined (__IBMCPP__) || (defined(_MSC_VER) && (_MSC_VER < 1400))
+#if defined (__IBMCPP__) || (defined(_MSC_VER) && (_MSC_VER < 1400) || defined(__clang__ ))
      private:
 #endif
     // helper function. In cases where the event is wrapped (target is a direct entry states)

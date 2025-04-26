@@ -18,7 +18,6 @@
 #include <deque>
 #include <typeindex>
 #include <unordered_map>
-#include <utility>
 
 #include <boost/mpl/filter_view.hpp>
 #include <boost/mpl/for_each.hpp>
@@ -135,7 +134,7 @@ struct chain_row
         typename std::deque<generic_cell>::const_iterator it = one_state.begin();
         while (it != one_state.end() && (res != HANDLED_TRUE && res != HANDLED_DEFERRED ))
         {
-            auto fnc = reinterpret_cast<real_cell>(reinterpret_cast<void*>(*it));
+            auto fnc = reinterpret_cast<real_cell>(*it);
             HandledEnum handled = (*fnc)(fsm,region,state,evt);
             // reject is considered as erasing an error (HANDLED_FALSE)
             if ((HANDLED_FALSE==handled) && (HANDLED_GUARD_REJECT==res) )
@@ -154,7 +153,7 @@ struct chain_row
 // to a function that makes the SM take its transition on the given
 // Event type.
 template<class Fsm, class Stt>
-struct dispatch_table<Fsm, Stt, favor_compile_time>
+class dispatch_table<Fsm, Stt, favor_compile_time>
 {
     using any_event = favor_compile_time::any_event;
 public:

@@ -40,7 +40,7 @@ namespace
     // front-end: define the FSM structure 
     struct Fsm_ : public msm::front::state_machine_def<Fsm_>
     {
-        BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(Fsm_);
+        BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(Fsm_)
 
         // The list of FSM states
         struct State1 : public msm::front::state<> 
@@ -63,7 +63,7 @@ namespace
         };
         struct SubFsm2_ : public msm::front::state_machine_def<SubFsm2_>
         {
-            BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(SubFsm2_);
+            BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(SubFsm2_)
             typedef Back<SubFsm2_, Policy> SubFsm2;
 
             unsigned int entry_action_counter;
