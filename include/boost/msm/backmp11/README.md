@@ -30,7 +30,6 @@ When using the `favor_compile_time` policy, a different macro to generate missin
 
 Summary:
 - Optimized cell initialization with initializer arrays (to reduce template instantiations)
-  - TODO: double-check optimization
 - Default-initialized everything and afterwards only defer transition cells
 
 
@@ -56,8 +55,3 @@ Summary:
 
 - If only a subset needs to be processed, prefer copy_if & transform over fold
 - Selecting a template-based function overload in Mp11 seems more efficient than using enable_if/disable_if
-
-
-## TODOs:
-
-- Consider trying out the tuple impl from SML

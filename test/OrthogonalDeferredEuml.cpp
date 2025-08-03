@@ -168,7 +168,6 @@ namespace
     BOOST_AUTO_TEST_CASE_TEMPLATE(orthogonal_deferred_euml_test, test_machine, test_machines)
     {
         typename test_machine::player p;
-        typedef typename test_machine::player_ player_;
         typedef typename test_machine::Playing_type Playing_type;
 
         // needed to start the highest-level SM. This will call on_entry and mark the start of the SM
@@ -375,7 +374,6 @@ namespace
 
 using back0 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::player;
 using back1 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::Playing_type;
-BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back0);
 BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back1);
 
 using backmp11_0 = hierarchical_state_machine<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>::player;

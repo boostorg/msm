@@ -163,6 +163,34 @@ private:
         }
 
     private:
+        // A function object for use with mp11::mp_for_each that stuffs transitions into cells.
+        // Only used when C++20 is not available.
+        class row_init_helper
+        {
+        public:
+            row_init_helper(event_cell* entries)
+                : m_entries(entries) {}
+
+            template<typename Row>
+            typename ::boost::disable_if<typename is_kleene_event<typename Row::transition_event>::type, void>::type
+                operator()(Row)
+            {
+                m_entries[get_table_index<Fsm, typename Row::current_state_type>::value] =
+                    &Row::execute;
+            }
+
+            template<typename Row>
+            typename ::boost::enable_if<typename is_kleene_event<typename Row::transition_event>::type, void>::type
+                operator()(Row)
+            {
+                m_entries[get_table_index<Fsm, typename Row::current_state_type>::value] =
+                    &convert_event_and_forward<Row>::execute;
+            }
+
+        private:
+            event_cell* m_entries;
+        };
+
         // initialize the dispatch table for a given Event and Fsm
         event_dispatch_table()
         {
@@ -202,18 +230,23 @@ private:
                 row_chainer,
                 map_of_row_seq
                 > chained_rows;
+
+            // Go back and fill in cells for matching transitions.
+#if __cplusplus >= 202002L
             typedef mp11::mp_transform<
                 preprocess_row,
                 chained_rows
                 > chained_and_preprocessed_rows;
-            // Go back and fill in cells for matching transitions.
             event_cell_initializer::init(
                 reinterpret_cast<generic_cell*>(entries),
                 get_init_cells<event_cell, chained_and_preprocessed_rows>(),
                 mp11::mp_size<chained_and_preprocessed_rows>::value
                 );
+#else
+            mp11::mp_for_each<chained_rows>(row_init_helper{entries});
+#endif
         }
-
+        
         // class used to build a chain (or sequence) of transitions for a given event and start state
         // (like an UML diamond). Allows transition conflicts.
         template< typename Seq,typename AnEvent,typename State >
@@ -315,13 +348,13 @@ private:
             >::type type;
         };
 
-        template <class Transition>
+        template <class Row>
         struct convert_event_and_forward
         {
             static HandledEnum execute(Fsm& fsm, int region_index, int state, Event const& evt)
             {
-                typename Transition::transition_event forwarded(evt);
-                return Transition::execute(fsm,region_index,state,forwarded);
+                typename Row::transition_event forwarded(evt);
+                return Row::execute(fsm,region_index,state,forwarded);
             }
         };
 
@@ -386,25 +419,25 @@ private:
             // just one row, no chaining, we rebuild the row like it was before
             mp11::mp_front<mp11::mp_second<T>>
             >;
-        template<typename Transition>
-        using preprocess_row_helper = cell_constant<&Transition::execute>;
-        template<typename Transition>
+        template<typename Row>
+        using preprocess_row_helper = cell_constant<&Row::execute>;
+        template<typename Row>
         using preprocess_row = init_cell_constant<
             // Offset into the entries array
-            get_table_index<Fsm, typename Transition::current_state_type>::value,
+            get_table_index<Fsm, typename Row::current_state_type>::value,
             // Address of the execute function
             mp11::mp_eval_if_c<
-                is_kleene_event<typename Transition::transition_event>::type::value,
+                is_kleene_event<typename Row::transition_event>::type::value,
                 cell_constant<
-                    &convert_event_and_forward<Transition>::execute
+                    &convert_event_and_forward<Row>::execute
                     >,
                 preprocess_row_helper,
-                Transition
+                Row
                 >::value
             >;
 
     // data members
-    public: 
+    public:
         // max_state+1, because 0 is reserved for this fsm (internal transitions)
         event_cell entries[max_state+1];
     };

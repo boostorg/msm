@@ -6,12 +6,6 @@
 cmake_minimum_required(VERSION 3.5...3.16)
 
 project(boost_msm VERSION "${BOOST_SUPERPROJECT_VERSION}" LANGUAGES CXX)
-# Temporary settings for development, need to be cleaned up later.
-# Required for testing puml frontend
-# set(CMAKE_CXX_STANDARD 20)
-# Required due to bug in clang19
-# add_compile_options("-Wno-missing-template-arg-list-after-template-kw")
-# add_compile_options("-ftime-trace")
 
 add_library(boost_msm INTERFACE)
 add_library(Boost::msm ALIAS boost_msm)
@@ -28,6 +22,7 @@ target_link_libraries(boost_msm
     Boost::core
     Boost::function
     Boost::fusion
+    Boost::mp11
     Boost::mpl
     Boost::parameter
     Boost::phoenix

@@ -306,7 +306,6 @@ namespace
 
 using back0 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::Fsm;
 using back1 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::Fsm_::SubFsm2;
-BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back0);
 BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back1);
 
 using backmp11_0 = hierarchical_state_machine<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>::Fsm;

@@ -22,6 +22,7 @@
 #define BOOST_TEST_MODULE test_constructor_movable_only_types
 #endif
 #include <boost/test/unit_test.hpp>
+#include <boost/make_unique.hpp>
 
 namespace msm = boost::msm;
 namespace mpl = boost::mpl;
@@ -98,7 +99,7 @@ namespace
 
     BOOST_AUTO_TEST_CASE_TEMPLATE(test_constructor_movable_only_types, bistable_switch, bistable_switches)
     {
-        auto bulp = std::make_unique<Lightbulp>(3);
+        auto bulp = boost::make_unique<Lightbulp>(3);
 
         bistable_switch bs(std::move(bulp), 5);
         BOOST_CHECK_MESSAGE(bs.bulp_->current == 10, "Wrong returned current value");
