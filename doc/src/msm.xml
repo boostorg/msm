@@ -8644,7 +8644,7 @@ msm::back::ShallowHistory&lt;mpl::vector&lt;BOOST_MSM_EUML_EVENT_NAME(end_pause)
                             behaviors.</para>
                         <para>There are several possibilities for the expression syntax:<itemizedlist>
                                 <listitem>
-                                    <para>(forwarded_event):exit pseudo-state without entry or exit
+                                    <para>(forwarded_event): exit pseudo-state without entry or exit
                                         action.</para>
                                 </listitem>
                                 <listitem>
@@ -8797,7 +8797,7 @@ msm::back::ShallowHistory&lt;mpl::vector&lt;BOOST_MSM_EUML_EVENT_NAME(end_pause)
                             table-instance-name)</title>
                         <para>This macro declares a transition table type and also declares a const
                             instance of the table which can then be used in a state machine
-                            declaration (see BOOST_MSM_EUML_DECLARE_STATE_MACHINE).The expression
+                            declaration (see BOOST_MSM_EUML_DECLARE_STATE_MACHINE). The expression
                             must follow the <command xlink:href="#reference-stt-grammar">transition
                                 table grammar</command>.</para>
                     </refsect3>
@@ -8810,7 +8810,7 @@ msm::back::ShallowHistory&lt;mpl::vector&lt;BOOST_MSM_EUML_EVENT_NAME(end_pause)
                         <title>BOOST_MSM_EUML_INTERNAL_TRANSITION_TABLE(expression,
                             table-instance-name)</title>
                         <para>This macro declares a transition table type and also declares a const
-                            instance of the table.The expression must follow the <command xlink:href="#reference-stt-grammar">transition table
+                            instance of the table. The expression must follow the <command xlink:href="#reference-stt-grammar">transition table
                                 grammar</command>. For the moment, this macro is not used.</para>
                     </refsect3>
                     <refsect3>
