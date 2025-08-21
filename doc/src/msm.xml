@@ -7390,7 +7390,7 @@ std::cout &lt;&lt; "typeid-generated name Open is: " &lt;&lt;  name_of_open &lt;
                     </refsect3>
                     <refsect3>
                         <title>entry_pseudo_state</title>
-                        <para>Basic type for entry pseudo states. Entry pseudo states are an
+                        <para>Basic type for entry pseudo states. Entry pseudo states are a
                             predefined entry into a submachine and connect two transitions. The
                             first argument is the id of the region entered by this state (regions
                             are numbered in the order of the <code>initial_state</code> typedef).
@@ -7412,7 +7412,7 @@ std::cout &lt;&lt; "typeid-generated name Open is: " &lt;&lt;  name_of_open &lt;
                     </refsect3>
                     <refsect3>
                         <title>exit_pseudo_state</title>
-                        <para>Basic type for exit pseudo states. Exit pseudo states are an
+                        <para>Basic type for exit pseudo states. Exit pseudo states are a
                             predefined exit from a submachine and connect two transitions. The first
                             argument is the name of the event which will be "thrown" out of the exit
                             point. This event does not need to be the same as the one sent by the
@@ -7451,29 +7451,29 @@ std::cout &lt;&lt; "typeid-generated name Open is: " &lt;&lt;  name_of_open &lt;
             </refsect1>
             <refsect1>
                 <title>msm/front/euml/iteration.hpp</title>
-                <para>This header includes iteration functors for STL support in eUML. This <command xlink:href="#eUML-STL-iteration">tables</command> shows a full
+                <para>This header includes iteration functors for STL support in eUML. This <command xlink:href="#eUML-STL-iteration">table</command> shows a full
                     description.</para>
             </refsect1>
             <refsect1>
                 <title>msm/front/euml/querying.hpp</title>
-                <para>This header includes querying functors for STL support in eUML. This <command xlink:href="#eUML-STL-querying">tables</command> shows a full
+                <para>This header includes querying functors for STL support in eUML. This <command xlink:href="#eUML-STL-querying">table</command> shows a full
                     description.</para>
             </refsect1>
             <refsect1>
                 <title>msm/front/euml/transformation.hpp</title>
                 <para>This header includes transformation functors for STL support in eUML. This
-                        <command xlink:href="#eUML-STL-transformation">tables</command> shows a full
+                        <command xlink:href="#eUML-STL-transformation">table</command> shows a full
                     description.</para>
             </refsect1>
             <refsect1>
                 <title>msm/front/euml/container.hpp</title>
                 <para>This header includes container functors for STL support in eUML (functors
-                    calling container methods). This <command xlink:href="#eUML-STL-container">tables</command> shows a full description. It also provides npos for
+                    calling container methods). This <command xlink:href="#eUML-STL-container">table</command> shows a full description. It also provides npos for
                     strings.</para>
                 <refsect2>
                     <title>Npos_&lt;container type></title>
                     <para>Functor returning npos for transition or state behaviors. Like all
-                        constants, only the functor form exists, so parenthesis are necessary.
+                        constants, only the functor form exists, so parentheses are necessary.
                         Example:</para>
                     <para><code>string_find_(event_(m_song),Char_&lt;'S'>(),Size_t_&lt;0>()) !=
                             Npos_&lt;string>() // compare result of string::find with
@@ -7488,7 +7488,7 @@ std::cout &lt;&lt; "typeid-generated name Open is: " &lt;&lt;  name_of_open &lt;
                     <title>functions</title>
                     <refsect3>
                         <title>build_stt</title>
-                        <para>The function build_stt evaluates the grammar-conform expression as
+                        <para>The function build_stt evaluates the grammar-conforming expression as
                             parameter. It returns a transition table, which is a mpl::vector of
                             transitions (rows) or, if the expression is ill-formed (does not match
                             the grammar), the type <code>invalid_type</code>, which will lead to a
@@ -7504,7 +7504,7 @@ std::cout &lt;&lt; "typeid-generated name Open is: " &lt;&lt;  name_of_open &lt;
                     </refsect3>
                     <refsect3>
                         <title>build_internal_stt</title>
-                        <para>The function build_internal_stt evaluates the grammar-conform
+                        <para>The function build_internal_stt evaluates the grammar-conforming
                             expression as parameter. It returns a transition table, which is a
                             mpl::vector of transitions (rows) or, if the expression is ill-formed
                             (does not match the grammar), the type <code>invalid_type</code>, which
@@ -8089,7 +8089,7 @@ ActionSequence := Action | (Action ',' Action)</programlisting>
                                 </listitem>
                                 <listitem>
                                     <para>no_msg_queue: disable message queue. The message queue
-                                        allows you to send an event for procesing while in an event
+                                        allows you to send an event for processing while in an event
                                         processing.</para>
                                 </listitem>
                                 <listitem>
@@ -8234,7 +8234,7 @@ ActionSequence := Action | (Action ',' Action)</programlisting>
                     <refsect3>
                         <title>True_</title>
                         <para>Functor returning true for transition or state behaviors. Like all
-                            constants, only the functor form exists, so parenthesis are necessary.
+                            constants, only the functor form exists, so parentheses are necessary.
                             Example:</para>
                         <para>
                             <programlisting>if_then_(True_(),/* some action always called*/)</programlisting>
@@ -8243,7 +8243,7 @@ ActionSequence := Action | (Action ',' Action)</programlisting>
                     <refsect3>
                         <title>False_</title>
                         <para>Functor returning false for transition or state behaviors. Like all
-                            constants, only the functor form exists, so parenthesis are necessary.
+                            constants, only the functor form exists, so parentheses are necessary.
                             Example:</para>
                         <para>
                             <programlisting>if_then_(False_(),/* some action never called */)</programlisting>
@@ -8252,7 +8252,7 @@ ActionSequence := Action | (Action ',' Action)</programlisting>
                     <refsect3>
                         <title>Int_&lt;int value></title>
                         <para>Functor returning an integer value for transition or state behaviors.
-                            Like all constants, only the functor form exists, so parenthesis are
+                            Like all constants, only the functor form exists, so parentheses are
                             necessary. Example:</para>
                         <para>
                             <programlisting>target_(m_ringing_cpt) = Int_&lt;RINGING_TIME>() // RINGING_TIME is a constant</programlisting>
@@ -8261,7 +8261,7 @@ ActionSequence := Action | (Action ',' Action)</programlisting>
                     <refsect3>
                         <title>Char_&lt;char value></title>
                         <para>Functor returning a char value for transition or state behaviors. Like
-                            all constants, only the functor form exists, so parenthesis are
+                            all constants, only the functor form exists, so parentheses are
                             necessary. Example:</para>
                         <para>
                             <programlisting>// look for 'S' in event.m_song
@@ -8271,7 +8271,7 @@ ActionSequence := Action | (Action ',' Action)</programlisting>
                     <refsect3>
                         <title>Size_t_&lt;size_t value></title>
                         <para>Functor returning a size_t value for transition or state behaviors.
-                            Like all constants, only the functor form exists, so parenthesis are
+                            Like all constants, only the functor form exists, so parentheses are
                             necessary. Example:</para>
                         <para>
                             <programlisting>substr_(event_(m_song),Size_t_&lt;1>()) // returns a substring of event.m_song</programlisting>
@@ -8280,7 +8280,7 @@ ActionSequence := Action | (Action ',' Action)</programlisting>
                     <refsect3>
                         <title>String_ &lt; mpl::string ></title>
                         <para>Functor returning a string for transition or state behaviors. Like all
-                            constants, only the functor form exists, so parenthesis are necessary.
+                            constants, only the functor form exists, so parentheses are necessary.
                             Requires boost >= 1.40 for mpl::string.</para>
                         <para>Example:</para>
                         <para>
@@ -8350,8 +8350,8 @@ NotFound (const string&amp; data) // copy-constructor of NotFound</programlistin
                                         state machine.</para>
                                 </listitem>
                                 <listitem>
-                                    <para><code>is_flag_(some_flag, some_fsm)</code> :calls
-                                            <code>is_flag_active</code> on the state machine.passed
+                                    <para><code>is_flag_(some_flag, some_fsm)</code> : calls
+                                            <code>is_flag_active</code> on the state machine passed
                                         as argument.</para>
                                 </listitem>
                             </itemizedlist></para>
@@ -8386,7 +8386,7 @@ NotFound (const string&amp; data) // copy-constructor of NotFound</programlistin
                     </refsect3>
                     <refsect3>
                         <title>MSM_EUML_FUNCTION</title>
-                        <para>This macro creates a eUML function and a functor for use with the
+                        <para>This macro creates an eUML function and a functor for use with the
                             functor front-end, based on a free function:<itemizedlist>
                                 <listitem>
                                     <para>first parameter: the name of the functor</para>
@@ -8418,7 +8418,7 @@ NotFound (const string&amp; data) // copy-constructor of NotFound</programlistin
                     </refsect3>
                     <refsect3>
                         <title>MSM_EUML_METHOD</title>
-                        <para>This macro creates a eUML function and a functor for use with the
+                        <para>This macro creates an eUML function and a functor for use with the
                             functor front-end, based on a method:<itemizedlist>
                                 <listitem>
                                     <para>first parameter: the name of the functor</para>
