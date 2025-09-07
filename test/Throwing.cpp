@@ -9,7 +9,7 @@
 // http://www.boost.org/LICENSE_1_0.txt)
 
 // back-end
-#include <boost/msm/back11/state_machine.hpp>
+#include "BackCommon.hpp"
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
@@ -17,7 +17,7 @@
 #include <iostream>
 
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE Back11ThrowingTest
+#define BOOST_TEST_MODULE throwing_test
 #endif
 #include <boost/test/unit_test.hpp>
 
@@ -113,23 +113,23 @@ namespace
         }
     };
 
-    using MyMachine = boost::msm::back11::state_machine<MyMachineFrontend>;
+    using MyMachines = get_test_machines<MyMachineFrontend>;
 
 
-    BOOST_AUTO_TEST_CASE(Back11ThrowingTest)
+    BOOST_AUTO_TEST_CASE_TEMPLATE(throwing_test, MyMachine, MyMachines)
     {
         MyMachine m;
         m.start();
 
-        BOOST_CHECK_MESSAGE(m.get_state<Init&>().entry_counter == 1, "Init entry not called correctly");
-        BOOST_CHECK_MESSAGE(m.get_state<Init&>().exit_counter == 1, "Init exit not called correctly");
-        BOOST_CHECK_MESSAGE(m.get_state<Intermediate&>().entry_counter == 0, "Intermediate entry not called correctly");
-        BOOST_CHECK_MESSAGE(m.get_state<Intermediate&>().exit_counter == 0, "Intermediate exit not called correctly");
+        BOOST_CHECK_MESSAGE(m.template get_state<Init&>().entry_counter == 1, "Init entry not called correctly");
+        BOOST_CHECK_MESSAGE(m.template get_state<Init&>().exit_counter == 1, "Init exit not called correctly");
+        BOOST_CHECK_MESSAGE(m.template get_state<Intermediate&>().entry_counter == 0, "Intermediate entry not called correctly");
+        BOOST_CHECK_MESSAGE(m.template get_state<Intermediate&>().exit_counter == 0, "Intermediate exit not called correctly");
 
-        BOOST_CHECK_MESSAGE(m.get_state<WaitingForException&>().entry_counter == 1, "WaitingForException entry not called correctly");
-        BOOST_CHECK_MESSAGE(m.get_state<WaitingForException&>().exit_counter == 1, "WaitingForException exit not called correctly");
-        BOOST_CHECK_MESSAGE(m.get_state<End&>().entry_counter == 1, "End entry not called correctly");
-        BOOST_CHECK_MESSAGE(m.get_state<End&>().exit_counter == 0, "End exit not called correctly");
+        BOOST_CHECK_MESSAGE(m.template get_state<WaitingForException&>().entry_counter == 1, "WaitingForException entry not called correctly");
+        BOOST_CHECK_MESSAGE(m.template get_state<WaitingForException&>().exit_counter == 1, "WaitingForException exit not called correctly");
+        BOOST_CHECK_MESSAGE(m.template get_state<End&>().entry_counter == 1, "End entry not called correctly");
+        BOOST_CHECK_MESSAGE(m.template get_state<End&>().exit_counter == 0, "End exit not called correctly");
 
 
         BOOST_CHECK_MESSAGE(m.current_state()[0] == 0, "Init should be active");
@@ -137,4 +137,5 @@ namespace
     }
 }
 
-
+using backmp11_fsm = boost::msm::backmp11::state_machine<MyMachineFrontend, boost::msm::backmp11::favor_compile_time>;
+BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_fsm);

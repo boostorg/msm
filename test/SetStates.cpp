@@ -9,19 +9,18 @@
 // http://www.boost.org/LICENSE_1_0.txt)
 
 // back-end
-#include <boost/msm/back11/state_machine.hpp>
+#include "BackCommon.hpp"
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
 
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE back11_set_states_test
+#define BOOST_TEST_MODULE set_states_test
 #endif
 #include <boost/test/unit_test.hpp>
 
 namespace msm = boost::msm;
 namespace mpl = boost::mpl;
-namespace fusion = boost::fusion;
 using namespace msm::front;
 
 namespace
@@ -37,13 +36,13 @@ namespace
     struct State : public boost::msm::front::state<>
     {
         template <class Event, class FSM>
-        void on_entry(Event const& e, FSM& fsm)
+        void on_entry(Event const&, FSM&)
         {
             std::cout << "State - on_entry" << "\n";
         };
 
         template <class Event, class FSM>
-        void on_exit(Event const& e, FSM& fsm)
+        void on_exit(Event const&, FSM&)
         {
             std::cout << "State - on_exit" << "\n";
         }
@@ -52,13 +51,13 @@ namespace
     struct TerminateState : public boost::msm::front::terminate_state<>
     {
         template <class Event, class FSM>
-        void on_entry(Event const& e, FSM& fsm)
+        void on_entry(Event const&, FSM&)
         {
             std::cout << "TerminateState - on_entry" << "\n";
         };
 
         template <class Event, class FSM>
-        void on_exit(Event const& e, FSM& fsm)
+        void on_exit(Event const&, FSM&)
         {
             std::cout << "TerminateState - on_exit" << "\n";
         }
@@ -68,16 +67,21 @@ namespace
     {
     };
 
+    template<template <typename...> class Back, typename Policy = void>
+    struct hierarchical_state_machine
+    {
     struct SubFsm_ : public msm::front::state_machine_def<SubFsm_>
     {
+        BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(SubFsm_)
+
         template <class Event, class FSM>
-        void on_entry(Event const& e, FSM& fsm)
+        void on_entry(Event const&, FSM&)
         {
             std::cout << "SubFsm - on_entry" << "\n";
         };
 
         template <class Event, class FSM>
-        void on_exit(Event const& e, FSM& fsm)
+        void on_exit(Event const&, FSM&)
         {
             std::cout << "SubFsm - on_exit" << "\n";
         }
@@ -95,18 +99,20 @@ namespace
                 << " on event " << typeid(e).name() << std::endl;
         }
     };
-    typedef msm::back11::state_machine<SubFsm_> SubFsm;
+    typedef Back<SubFsm_, Policy> SubFsm;
 
     struct Fsm_ : public msm::front::state_machine_def<Fsm_>
     {
+        BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(Fsm_)
+
         template <class Event, class FSM>
-        void on_entry(Event const& e, FSM& fsm)
+        void on_entry(Event const&, FSM&)
         {
             std::cout << "Fsm - on_entry" << "\n";
         };
 
         template <class Event, class FSM>
-        void on_exit(Event const& e, FSM& fsm)
+        void on_exit(Event const&, FSM&)
         {
             std::cout << "Fsm - on_exit" << "\n";
         }
@@ -114,7 +120,7 @@ namespace
         typedef SubFsm initial_state;
 
         struct transition_table : mpl::vector<
-            Row< SubFsm::exit_pt<PseudoExitState>, ExitEvent, TerminateState, none, none >
+            Row< typename SubFsm::template exit_pt<PseudoExitState>, ExitEvent, TerminateState, none, none >
         > {};
 
         template <class FSM, class Event>
@@ -124,12 +130,17 @@ namespace
                 << " on event " << typeid(e).name() << std::endl;
         }
     };
-    typedef msm::back11::state_machine<Fsm_> Fsm;
+    typedef Back<Fsm_, Policy> Fsm;
+    };
+    // typedef msm::back11::state_machine<Fsm_> Fsm;
+    typedef get_hierarchical_test_machines<hierarchical_state_machine> test_machines;
 
 
-    BOOST_AUTO_TEST_CASE(back11_set_states_test)
+    BOOST_AUTO_TEST_CASE_TEMPLATE(set_states_test, test_machine, test_machines)
     {     
         InputEvent input_event;
+        typedef typename test_machine::Fsm Fsm;
+        typedef typename test_machine::SubFsm SubFsm;
 
         std::cout << "\nSubFsms created in constructor\n";
         Fsm fsm_subfsms_created_in_constructor(boost::msm::back::states_
@@ -146,3 +157,11 @@ namespace
     }
 }
 
+using back0 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::Fsm;
+using back1 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::SubFsm;
+BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back1);
+
+using backmp11_0 = hierarchical_state_machine<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>::Fsm;
+BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_0);
+using backmp11_1 = hierarchical_state_machine<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>::SubFsm;
+BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_1);

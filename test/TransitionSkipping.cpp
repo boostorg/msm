@@ -11,20 +11,11 @@
 #include <iostream>
 
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE back11_transition_skipping
+#define BOOST_TEST_MODULE transition_skipping_test
 #endif
 #include <boost/test/unit_test.hpp>
 #include <boost/core/demangle.hpp>
-//#define USE_PRE11_MSM_BACKEND   // <- toggle this to switch between back vs back11
-
-// back-end
-#if defined(USE_PRE11_MSM_BACKEND)
-#include <boost/msm/back/state_machine.hpp>
-namespace msm_back = boost::msm::back;
-#else
-#include <boost/msm/back11/state_machine.hpp>
-namespace msm_back = boost::msm::back11;
-#endif
+#include "BackCommon.hpp"
 
 // front-end
 #include <boost/fusion/include/insert_range.hpp>
@@ -135,26 +126,29 @@ struct top_ : public msmf::state_machine_def<top_> {
     >;
 };
 
-using top = msm_back::state_machine<top_>;
+using tops = get_test_machines<top_>;
    
 
-BOOST_AUTO_TEST_CASE(back11_transition_skipping)
+BOOST_AUTO_TEST_CASE_TEMPLATE(transition_skipping_test, top, tops)
 {
     top msm;
     msm.start();
     BOOST_CHECK_MESSAGE(msm.count_guard_true == 1, "guard_true should be called once");
     BOOST_CHECK_MESSAGE(msm.count_guard_false == 2, "guard_false should be called once");
 
-    BOOST_CHECK_MESSAGE(msm.get_state<top_::nested&>().exit_counter == 1, "nested exit not called correctly");
-    BOOST_CHECK_MESSAGE(msm.get_state<top_::nested&>().entry_counter == 1, "nested entry not called correctly");
-    BOOST_CHECK_MESSAGE(msm.get_state<top_::other2&>().exit_counter == 0, "other2 exit not called correctly");
-    BOOST_CHECK_MESSAGE(msm.get_state<top_::other2&>().entry_counter == 1, "other2 entry not called correctly");
-    BOOST_CHECK_MESSAGE(msm.get_state<top_::other1&>().exit_counter == 0, "other1 exit not called correctly");
-    BOOST_CHECK_MESSAGE(msm.get_state<top_::other1&>().entry_counter == 0, "other1 entry not called correctly");
-    BOOST_CHECK_MESSAGE(msm.get_state<top_::other3&>().exit_counter == 0, "other3 exit not called correctly");
-    BOOST_CHECK_MESSAGE(msm.get_state<top_::other3&>().entry_counter == 0, "other3 entry not called correctly");
-    BOOST_CHECK_MESSAGE(msm.get_state<top_::other4&>().exit_counter == 0, "other4 exit not called correctly");
-    BOOST_CHECK_MESSAGE(msm.get_state<top_::other4&>().entry_counter == 0, "other4 entry not called correctly");
+    BOOST_CHECK_MESSAGE(msm.template get_state<top_::nested&>().exit_counter == 1, "nested exit not called correctly");
+    BOOST_CHECK_MESSAGE(msm.template get_state<top_::nested&>().entry_counter == 1, "nested entry not called correctly");
+    BOOST_CHECK_MESSAGE(msm.template get_state<top_::other2&>().exit_counter == 0, "other2 exit not called correctly");
+    BOOST_CHECK_MESSAGE(msm.template get_state<top_::other2&>().entry_counter == 1, "other2 entry not called correctly");
+    BOOST_CHECK_MESSAGE(msm.template get_state<top_::other1&>().exit_counter == 0, "other1 exit not called correctly");
+    BOOST_CHECK_MESSAGE(msm.template get_state<top_::other1&>().entry_counter == 0, "other1 entry not called correctly");
+    BOOST_CHECK_MESSAGE(msm.template get_state<top_::other3&>().exit_counter == 0, "other3 exit not called correctly");
+    BOOST_CHECK_MESSAGE(msm.template get_state<top_::other3&>().entry_counter == 0, "other3 entry not called correctly");
+    BOOST_CHECK_MESSAGE(msm.template get_state<top_::other4&>().exit_counter == 0, "other4 exit not called correctly");
+    BOOST_CHECK_MESSAGE(msm.template get_state<top_::other4&>().entry_counter == 0, "other4 entry not called correctly");
     BOOST_CHECK_MESSAGE(msm.current_state()[0] == 2, "other2 should be active"); //Open
 
 }
+
+using backmp11_fsm = boost::msm::backmp11::state_machine<top_, boost::msm::backmp11::favor_compile_time>;
+BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_fsm);

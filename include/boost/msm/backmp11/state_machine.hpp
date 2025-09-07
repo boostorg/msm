@@ -1,3 +1,4 @@
+// Copyright 2025 Christian Granzin
 // Copyright 2008 Christophe Henry
 // henry UNDERSCORE christophe AT hotmail DOT com
 // This is an extended version of the state machine available in the boost::mpl library
@@ -8,19 +9,19 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef BOOST_MSM_BACK_STATEMACHINE_H
-#define BOOST_MSM_BACK_STATEMACHINE_H
+#ifndef BOOST_MSM_BACKMP11_STATEMACHINE_H
+#define BOOST_MSM_BACKMP11_STATEMACHINE_H
 
 #include <exception>
 #include <vector>
 #include <functional>
-#include <numeric>
 #include <utility>
-#include <algorithm>
 
 #include <boost/core/no_exceptions_support.hpp>
 
 #include <boost/core/ignore_unused.hpp>
+#include <boost/mp11.hpp>
+#include <boost/mp11/mpl_list.hpp>
 #include <boost/mpl/contains.hpp>
 #include <boost/mpl/deref.hpp>
 #include <boost/mpl/assert.hpp>
@@ -39,7 +40,7 @@
 
 #include <boost/assert.hpp>
 #include <boost/ref.hpp>
-#include <boost/type_traits.hpp>
+#include <boost/type_traits/remove_pointer.hpp>
 #include <boost/utility/enable_if.hpp>
 #include <boost/type_traits/is_convertible.hpp>
 
@@ -51,6 +52,7 @@
 
 #include <boost/serialization/base_object.hpp>
 
+#define BOOST_PARAMETER_CAN_USE_MP11
 #include <boost/parameter.hpp>
 
 #include <boost/msm/active_state_switching_policies.hpp>
@@ -58,12 +60,12 @@
 #include <boost/msm/msm_grammar.hpp>
 #include <boost/msm/back/traits.hpp>
 #include <boost/msm/back/fold_to_list.hpp>
-#include <boost/msm/back/metafunctions.hpp>
-#include <boost/msm/back/history_policies.hpp>
-#include <boost/msm/back/common_types.hpp>
+#include <boost/msm/backmp11/favor_compile_time.hpp>
+#include <boost/msm/backmp11/metafunctions.hpp>
+#include <boost/msm/backmp11/history_policies.hpp>
+#include <boost/msm/backmp11/common_types.hpp>
 #include <boost/msm/back/args.hpp>
-#include <boost/msm/back/default_compile_policy.hpp>
-#include <boost/msm/back/dispatch_table.hpp>
+#include <boost/msm/backmp11/dispatch_table.hpp>
 #include <boost/msm/back/no_fsm_check.hpp>
 #include <boost/msm/back/queue_container_deque.hpp>
 
@@ -71,8 +73,14 @@
 #define BOOST_MSM_CONSTRUCTOR_ARG_SIZE 5 // default max number of arguments for constructors
 #endif
 
-namespace boost { namespace msm { namespace back
+namespace boost { namespace msm { namespace backmp11
 {
+
+using back::no_fsm_check;
+using back::queue_container_deque;
+using back::FoldToList;
+
+
 // event used internally for wrapping a direct entry
 template <class StateType,class Event>
 struct direct_entry_event
@@ -92,18 +100,18 @@ BOOST_PARAMETER_TEMPLATE_KEYWORD(fsm_check_policy)
 BOOST_PARAMETER_TEMPLATE_KEYWORD(queue_container_policy)
 
 typedef ::boost::parameter::parameters<
-    ::boost::parameter::required< ::boost::msm::back::tag::front_end >
+    ::boost::parameter::required< tag::front_end >
   , ::boost::parameter::optional<
-        ::boost::parameter::deduced< ::boost::msm::back::tag::history_policy>, has_history_policy< ::boost::mpl::_ >
+        ::boost::parameter::deduced< tag::history_policy>, has_history_policy< ::boost::mpl::_ >
     >
   , ::boost::parameter::optional<
-        ::boost::parameter::deduced< ::boost::msm::back::tag::compile_policy>, has_compile_policy< ::boost::mpl::_ >
+        ::boost::parameter::deduced< tag::compile_policy>, has_compile_policy< ::boost::mpl::_ >
     >
   , ::boost::parameter::optional<
-        ::boost::parameter::deduced< ::boost::msm::back::tag::fsm_check_policy>, has_fsm_check< ::boost::mpl::_ >
+        ::boost::parameter::deduced< tag::fsm_check_policy>, has_fsm_check< ::boost::mpl::_ >
     >
   , ::boost::parameter::optional<
-        ::boost::parameter::deduced< ::boost::msm::back::tag::queue_container_policy>,
+        ::boost::parameter::deduced< tag::queue_container_policy>,
         has_queue_container_policy< ::boost::mpl::_ >
     >
 > state_machine_signature;
@@ -131,11 +139,11 @@ template <
 >
 class state_machine : //public Derived
     public ::boost::parameter::binding<
-            typename state_machine_signature::bind<A0,A1,A2,A3,A4>::type, ::boost::msm::back::tag::front_end
+            typename state_machine_signature::bind<A0,A1,A2,A3,A4>::type, tag::front_end
     >::type
     , public make_euml_terminal<state_machine<A0,A1,A2,A3,A4>,
                          typename ::boost::parameter::binding<
-                                    typename state_machine_signature::bind<A0,A1,A2,A3,A4>::type, ::boost::msm::back::tag::front_end
+                                    typename state_machine_signature::bind<A0,A1,A2,A3,A4>::type, tag::front_end
                          >::type
       >
 {
@@ -147,29 +155,29 @@ public:
 
     // Extract first logical parameter.
     typedef typename ::boost::parameter::binding<
-        state_machine_args, ::boost::msm::back::tag::front_end>::type Derived;
+        state_machine_args, tag::front_end>::type Derived;
 
     typedef typename ::boost::parameter::binding<
-        state_machine_args, ::boost::msm::back::tag::history_policy, NoHistory >::type              HistoryPolicy;
+        state_machine_args, tag::history_policy, NoHistory >::type              HistoryPolicy;
 
     typedef typename ::boost::parameter::binding<
-        state_machine_args, ::boost::msm::back::tag::compile_policy, favor_runtime_speed >::type    CompilePolicy;
+        state_machine_args, tag::compile_policy, favor_runtime_speed >::type    CompilePolicy;
 
     typedef typename ::boost::parameter::binding<
-        state_machine_args, ::boost::msm::back::tag::fsm_check_policy, no_fsm_check >::type         FsmCheckPolicy;
+        state_machine_args, tag::fsm_check_policy, no_fsm_check >::type         FsmCheckPolicy;
 
     typedef typename ::boost::parameter::binding<
-        state_machine_args, ::boost::msm::back::tag::queue_container_policy,
-        queue_container_deque >::type                                                               QueueContainerPolicy;
+        state_machine_args, tag::queue_container_policy,
+        queue_container_deque >::type                                           QueueContainerPolicy;
 
 private:
 
-    typedef boost::msm::back::state_machine<
+    typedef state_machine<
         A0,A1,A2,A3,A4>                             library_sm;
 
-    typedef ::boost::function<
+    typedef ::std::function<
         execute_return ()>                          transition_fct;
-    typedef ::boost::function<
+    typedef ::std::function<
         execute_return () >                         deferred_fct;
     typedef typename QueueContainerPolicy::
         template In<
@@ -188,7 +196,7 @@ private:
 
     // all state machines are friend with each other to allow embedding any of them in another fsm
     template <class ,class , class, class, class
-    > friend class boost::msm::back::state_machine;
+    > friend class state_machine;
 
     // helper to add, if needed, visitors to all states
     // version without visitors
@@ -255,7 +263,7 @@ private:
     template <class StateType>
     struct deferred_msg_queue_helper<StateType,
         typename ::boost::enable_if<
-            typename ::boost::msm::back::has_fsm_deferred_events<StateType>::type,int >::type>
+            typename has_fsm_deferred_events<StateType>::type,int >::type>
     {
     public:
         deferred_msg_queue_helper():m_deferred_events_queue(),m_cur_seq(0){}
@@ -414,14 +422,14 @@ private:
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
-                                 ::boost::fusion::at_key<current_state_type>(fsm.m_substate_list),
-                                 ::boost::fusion::at_key<next_state_type>(fsm.m_substate_list),
+                                 std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
+                                 std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
                                  fsm.m_substate_list ) )
                 return true;
             return false;
         }
         // Take the transition action and return the next state.
-        static HandledEnum execute(library_sm& fsm, int region_index, int state, transition_event& evt)
+        static HandledEnum execute(library_sm& fsm, int region_index, int state, transition_event const& evt)
         {
 
             BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<stt,current_state_type>::type::value));
@@ -430,7 +438,7 @@ private:
             BOOST_ASSERT(state == (current_state));
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
             if (has_pseudo_exit<T1>::type::value &&
-                !is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
+                !backmp11::is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
             {
                 return HANDLED_FALSE;
             }
@@ -443,19 +451,19 @@ private:
 
             // the guard condition has already been checked
             execute_exit<current_state_type>
-                (::boost::fusion::at_key<current_state_type>(fsm.m_substate_list),evt,fsm);
+                (std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_exit(current_state,next_state);
 
             // then call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
-                             ::boost::fusion::at_key<current_state_type>(fsm.m_substate_list),
-                             ::boost::fusion::at_key<next_state_type>(fsm.m_substate_list),
+                             std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
+                             std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
                              fsm.m_substate_list);
             fsm.m_states[region_index] = active_state_switching::after_action(current_state,next_state);
 
             // and finally the entry method of the new current state
             convert_event_and_execute_entry<next_state_type,T2>
-                (::boost::fusion::at_key<next_state_type>(fsm.m_substate_list),evt,fsm);
+                (std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_entry(current_state,next_state);
             return res;
         }
@@ -495,8 +503,8 @@ private:
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
-                                 ::boost::fusion::at_key<current_state_type>(fsm.m_substate_list),
-                                 ::boost::fusion::at_key<next_state_type>(fsm.m_substate_list),
+                                 std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
+                                 std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
                                  fsm.m_substate_list ))
                 return true;
             return false;
@@ -510,7 +518,7 @@ private:
             BOOST_ASSERT(state == (current_state));
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
             if (has_pseudo_exit<T1>::type::value &&
-                !is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
+                !backmp11::is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
             {
                 return HANDLED_FALSE;
             }
@@ -523,13 +531,13 @@ private:
 
             // the guard condition has already been checked
             execute_exit<current_state_type>
-                (::boost::fusion::at_key<current_state_type>(fsm.m_substate_list),evt,fsm);
+                (std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_exit(current_state,next_state);
             fsm.m_states[region_index] = active_state_switching::after_action(current_state,next_state);
 
             // and finally the entry method of the new current state
             convert_event_and_execute_entry<next_state_type,T2>
-                (::boost::fusion::at_key<next_state_type>(fsm.m_substate_list),evt,fsm);
+                (std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_entry(current_state,next_state);
             return HANDLED_TRUE;
         }
@@ -566,7 +574,7 @@ private:
         >::type next_state_type;
 
         // Take the transition action and return the next state.
-        static HandledEnum execute(library_sm& fsm, int region_index, int state, transition_event& evt)
+        static HandledEnum execute(library_sm& fsm, int region_index, int state, transition_event const& evt)
         {
             BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<stt,current_state_type>::type::value));
             BOOST_STATIC_CONSTANT(int, next_state = (get_state_id<stt,next_state_type>::type::value));
@@ -575,7 +583,7 @@ private:
 
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
             if (has_pseudo_exit<T1>::type::value &&
-                !is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
+                !backmp11::is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
             {
                 return HANDLED_FALSE;
             }
@@ -584,19 +592,19 @@ private:
             // no need to check the guard condition
             // first call the exit method of the current state
             execute_exit<current_state_type>
-                (::boost::fusion::at_key<current_state_type>(fsm.m_substate_list),evt,fsm);
+                (std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_exit(current_state,next_state);
 
             // then call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
-                            ::boost::fusion::at_key<current_state_type>(fsm.m_substate_list),
-                            ::boost::fusion::at_key<next_state_type>(fsm.m_substate_list),
+                            std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
+                            std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
                             fsm.m_substate_list);
             fsm.m_states[region_index] = active_state_switching::after_action(current_state,next_state);
 
             // and finally the entry method of the new current state
             convert_event_and_execute_entry<next_state_type,T2>
-                (::boost::fusion::at_key<next_state_type>(fsm.m_substate_list),evt,fsm);
+                (std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_entry(current_state,next_state);
             return res;
         }
@@ -642,7 +650,7 @@ private:
 
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
             if (has_pseudo_exit<T1>::type::value &&
-                !is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
+                !backmp11::is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
             {
                 return HANDLED_FALSE;
             }
@@ -650,14 +658,14 @@ private:
 
             // first call the exit method of the current state
             execute_exit<current_state_type>
-                (::boost::fusion::at_key<current_state_type>(fsm.m_substate_list),evt,fsm);
+                (std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_exit(current_state,next_state);
             fsm.m_states[region_index] = active_state_switching::after_action(current_state,next_state);
 
 
             // and finally the entry method of the new current state
             convert_event_and_execute_entry<next_state_type,T2>
-                (::boost::fusion::at_key<next_state_type>(fsm.m_substate_list),evt,fsm);
+                (std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_entry(current_state,next_state);
             return HANDLED_TRUE;
         }
@@ -678,8 +686,8 @@ private:
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
-                                 ::boost::fusion::at_key<current_state_type>(fsm.m_substate_list),
-                                 ::boost::fusion::at_key<next_state_type>(fsm.m_substate_list),
+                                 std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
+                                 std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
                                  fsm.m_substate_list))
                 return true;
             return false;
@@ -699,8 +707,8 @@ private:
 
             // call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
-                             ::boost::fusion::at_key<current_state_type>(fsm.m_substate_list),
-                             ::boost::fusion::at_key<next_state_type>(fsm.m_substate_list),
+                             std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
+                             std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
                              fsm.m_substate_list);
             return res;
         }
@@ -722,8 +730,8 @@ private:
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
-                                 ::boost::fusion::at_key<current_state_type>(fsm.m_substate_list),
-                                 ::boost::fusion::at_key<next_state_type>(fsm.m_substate_list),
+                                 std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
+                                 std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
                                  fsm.m_substate_list) )
                 return true;
             return false;
@@ -765,8 +773,8 @@ private:
 
             // call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
-                            ::boost::fusion::at_key<current_state_type>(fsm.m_substate_list),
-                            ::boost::fusion::at_key<next_state_type>(fsm.m_substate_list),
+                            std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
+                            std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
                             fsm.m_substate_list);
 
             return res;
@@ -808,8 +816,8 @@ private:
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
-                ::boost::fusion::at_key<StateType>(fsm.m_substate_list),
-                ::boost::fusion::at_key<StateType>(fsm.m_substate_list),
+                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
+                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
                 fsm.m_substate_list) )
                 return true;
             return false;
@@ -825,8 +833,8 @@ private:
 
             // then call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
-                ::boost::fusion::at_key<StateType>(fsm.m_substate_list),
-                ::boost::fusion::at_key<StateType>(fsm.m_substate_list),
+                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
+                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
                 fsm.m_substate_list);
             return res;
         }
@@ -883,8 +891,8 @@ private:
         {
             // then call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
-                ::boost::fusion::at_key<StateType>(fsm.m_substate_list),
-                ::boost::fusion::at_key<StateType>(fsm.m_substate_list),
+                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
+                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
                 fsm.m_substate_list);
             return res;
         }
@@ -923,8 +931,8 @@ private:
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
-                ::boost::fusion::at_key<StateType>(fsm.m_substate_list),
-                ::boost::fusion::at_key<StateType>(fsm.m_substate_list),
+                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
+                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
                 fsm.m_substate_list) )
                 return true;
             return false;
@@ -1015,7 +1023,7 @@ private:
         {
             // false as second parameter because this event is forwarded from outer fsm
             execute_return res =
-                (::boost::fusion::at_key<current_state_type>(fsm.m_substate_list)).process_event_internal(evt);
+                (std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list)).process_event_internal(evt);
             fsm.m_states[region_index]=get_state_id<stt,T1>::type::value;
             return res;
         }
@@ -1104,21 +1112,25 @@ private:
     struct create_real_stt
     {
         //typedef typename BaseType::transition_table stt_simulated;
-        typedef typename ::boost::mpl::fold<
-            stt_simulated,mpl::vector0<>,
-            ::boost::mpl::push_back< ::boost::mpl::placeholders::_1,
-                                     make_row_tag< ::boost::mpl::placeholders::_2 , BaseType > >
-        >::type type;
+        template<typename T>
+        using make_row_tag_base_type = typename make_row_tag<T, BaseType>::type;
+        typedef typename boost::mp11::mp_transform<
+            make_row_tag_base_type,
+            typename to_mp_list<stt_simulated>::type
+        > type;
     };
 
     template <class Table,class Intermediate,class StateType>
     struct add_forwarding_row_helper
     {
-        typedef typename generate_event_set<Table>::type all_events;
-        typedef typename ::boost::mpl::fold<
-            all_events, Intermediate,
-            ::boost::mpl::push_back< ::boost::mpl::placeholders::_1,
-            frow<StateType, ::boost::mpl::placeholders::_2> > >::type type;
+        typedef typename generate_event_set<Table>::event_set_mp11 all_events;
+
+        template<typename T>
+        using frow_state_type = frow<StateType, T>;
+        typedef mp11::mp_append<
+            typename to_mp_list<Intermediate>::type,
+            mp11::mp_transform<frow_state_type, all_events>
+            > type;
     };
     // gets the transition table from a composite and make from it a forwarding row
     template <class StateType,class IsComposite>
@@ -1131,20 +1143,20 @@ private:
         // the internal ones are searched recursively in sub-sub... states
         // we go recursively because our states can also have internal tables or substates etc.
         typedef typename recursive_get_internal_transition_table<StateType, ::boost::mpl::true_>::type recursive_istt;
-        typedef typename ::boost::mpl::fold<
-                    recursive_istt,::boost::mpl::vector0<>,
-                    ::boost::mpl::push_back< ::boost::mpl::placeholders::_1,
-                                             make_row_tag< ::boost::mpl::placeholders::_2 , StateType> >
-                >::type recursive_istt_with_tag;
+        template<typename T>
+        using make_row_tag_state_type = typename make_row_tag<T, StateType>::type;
+        typedef boost::mp11::mp_transform<
+            make_row_tag_state_type,
+            typename to_mp_list<recursive_istt>::type
+        > recursive_istt_with_tag;
 
-        typedef typename ::boost::mpl::insert_range< original_table, typename ::boost::mpl::end<original_table>::type,
-                                                     recursive_istt_with_tag>::type table_with_all_events;
+        typedef boost::mp11::mp_append<original_table, recursive_istt_with_tag> table_with_all_events;
 
         // and add for every event a forwarding row
         typedef typename ::boost::mpl::eval_if<
                 typename CompilePolicy::add_forwarding_rows,
-                add_forwarding_row_helper<table_with_all_events,::boost::mpl::vector0<>,StateType>,
-                ::boost::mpl::identity< ::boost::mpl::vector0<> >
+                add_forwarding_row_helper<table_with_all_events,mp11::mp_list<>,StateType>,
+                ::boost::mpl::identity< mp11::mp_list<> >
         >::type type;
     };
     template <class StateType>
@@ -1156,13 +1168,15 @@ private:
     typedef typename create_real_stt<Derived>::type real_transition_table;
     typedef typename create_stt<library_sm>::type stt;
     typedef typename get_initial_states<typename Derived::initial_state>::type initial_states;
-    typedef typename generate_state_set<stt>::type state_list;
+    typedef typename generate_state_set<stt>::state_set_mp11 state_set_mp11;
+    typedef typename generate_state_map<stt>::type state_map_mp11;
+    typedef typename generate_event_set<stt>::event_set_mp11 event_set_mp11;
     typedef typename HistoryPolicy::template apply<nr_regions::value>::type concrete_history;
 
-    typedef typename ::boost::fusion::result_of::as_set<state_list>::type substate_list;
-    typedef typename ::boost::msm::back::generate_event_set<
+    typedef mp11::mp_rename<state_set_mp11, std::tuple> substate_list;
+    typedef typename generate_event_set<
         typename create_real_stt<library_sm, typename library_sm::internal_transition_table >::type
-    >::type processable_events_internal_table;
+    >::event_set_mp11 processable_events_internal_table;
 
     // extends the transition table with rows from composite states
     template <class Composite>
@@ -1176,32 +1190,35 @@ private:
         // Note: these are added first because they must have a lesser prio
         // than the deeper transitions in the sub regions
         // table made of a stt + internal transitions of composite
-        typedef typename ::boost::mpl::fold<
-            typename Composite::internal_transition_table,::boost::mpl::vector0<>,
-            ::boost::mpl::push_back< ::boost::mpl::placeholders::_1,
-                                     make_row_tag< ::boost::mpl::placeholders::_2 , Composite> >
-        >::type internal_stt;
+        template<typename T>
+        using make_row_tag_composite = typename make_row_tag<T, Composite>::type;
+        typedef typename boost::mp11::mp_transform<
+            make_row_tag_composite,
+            typename to_mp_list<typename Composite::internal_transition_table>::type
+        > internal_stt;
 
-        typedef typename ::boost::mpl::insert_range<
-            Stt,
-            typename ::boost::mpl::end<Stt>::type,
+        typedef boost::mp11::mp_append<
+            typename to_mp_list<Stt>::type,
             internal_stt
-            //typename get_internal_transition_table<Composite, ::boost::mpl::true_ >::type
-        >::type stt_plus_internal;
+        > stt_plus_internal;
 
         // for every state, add its transition table (if any)
         // transformed as frow
-        typedef typename ::boost::mpl::fold<state_list,stt_plus_internal,
-                ::boost::mpl::insert_range<
-                        ::boost::mpl::placeholders::_1,
-                        ::boost::mpl::end< ::boost::mpl::placeholders::_1>,
-                        get_internal_transition_table<
-                                ::boost::mpl::placeholders::_2,
-                                is_composite_state< ::boost::mpl::placeholders::_2> > >
-        >::type type;
+        template<typename V, typename T>
+        using F = boost::mp11::mp_append<
+            V,
+            typename get_internal_transition_table<T, typename is_composite_state<T>::type>::type
+            >;
+        typedef boost::mp11::mp_fold<
+            state_set_mp11,
+            stt_plus_internal,
+            F
+        > type;
     };
     // extend the table with tables from composite states
     typedef typename extend_table<library_sm>::type complete_table;
+    // define the dispatch table used for event dispatch
+    typedef dispatch_table<library_sm,complete_table,CompilePolicy> sm_dispatch_table;
      // build a sequence of regions
      typedef typename get_regions_as_sequence<typename Derived::initial_state>::type seq_initial_states;
     // Member functions
@@ -1260,13 +1277,8 @@ private:
     template <class EventType>
     void enqueue_event_helper(EventType const& evt, ::boost::mpl::false_ const &)
     {
-        execute_return (library_sm::*pf) (EventType const&, EventSource) =
-            &library_sm::process_event_internal;
-
         m_events_queue.m_events_queue.push_back(
-            ::boost::bind(
-                pf, this, evt,
-                static_cast<EventSource>(EVENT_SOURCE_MSG_QUEUE)));
+            [this, evt] {return process_event_internal(evt, static_cast<EventSource>(EVENT_SOURCE_MSG_QUEUE));});
     }
     template <class EventType>
     void enqueue_event_helper(EventType const& , ::boost::mpl::true_ const &)
@@ -1278,9 +1290,7 @@ private:
     {
         while(!m_events_queue.m_events_queue.empty())
         {
-            transition_fct to_call = m_events_queue.m_events_queue.front();
-            m_events_queue.m_events_queue.pop_front();
-            to_call();
+            execute_single_queued_event_helper(::boost::mpl::false_{});
         }
     }
     void execute_queued_events_helper(::boost::mpl::true_ const &)
@@ -1396,7 +1406,7 @@ private:
         ar & m_event_processing;
         ar & m_is_included;
         // visitors cannot be serialized => skip
-        ::boost::fusion::for_each(m_substate_list, serialize_state<Archive>(ar));
+        mp11::tuple_for_each(m_substate_list, serialize_state<Archive>(ar));
     }
 
     // linearly search for the state with the given id
@@ -1412,7 +1422,7 @@ private:
             BOOST_STATIC_CONSTANT(int, id = (get_state_id<stt,StateType>::value));
             if (!*result_state && (id == searched_id))
             {
-                *result_state = &::boost::fusion::at_key<StateType>(self->m_substate_list);
+                *result_state = &std::get<get_state_id<stt, StateType>::value>(self->m_substate_list);
             }
         }
         const BaseState**  result_state;
@@ -1425,14 +1435,14 @@ private:
     BaseState* get_state_by_id(int id)
     {
         const BaseState*  result_state=0;
-        ::boost::mpl::for_each<state_list,
+        ::boost::mpl::for_each<state_set_mp11,
             ::boost::msm::wrap< ::boost::mpl::placeholders::_1> > (get_state_id_helper(id,&result_state,this));
         return const_cast<BaseState*>(result_state);
     }
     const BaseState* get_state_by_id(int id) const
     {
         const BaseState*  result_state=0;
-        ::boost::mpl::for_each<state_list,
+        ::boost::mpl::for_each<state_set_mp11,
             ::boost::msm::wrap< ::boost::mpl::placeholders::_1> > (get_state_id_helper(id,&result_state,this));
         return result_state;
     }
@@ -1450,6 +1460,7 @@ private:
     {
         return m_history;
     }
+
     // get a state (const version)
     // as a pointer
     template <class State>
@@ -1458,8 +1469,8 @@ private:
     {
         return const_cast<State >
             (&
-                (::boost::fusion::at_key<
-                    typename ::boost::remove_const<typename ::boost::remove_pointer<State>::type>::type>(m_substate_list)));
+                (std::get<get_state_id<stt,
+                    typename ::boost::remove_const<typename ::boost::remove_pointer<State>::type>::type>::value>(m_substate_list)));
     }
     // as a reference
     template <class State>
@@ -1467,8 +1478,8 @@ private:
     get_state(::boost::msm::back::dummy<1> = 0) const
     {
         return const_cast<State >
-            ( ::boost::fusion::at_key<
-                typename ::boost::remove_const<typename ::boost::remove_reference<State>::type>::type>(m_substate_list) );
+            ( std::get<get_state_id<stt,
+                typename ::boost::remove_const<typename ::boost::remove_reference<State>::type>::type>::value>(m_substate_list) );
     }
     // get a state (non const version)
     // as a pointer
@@ -1477,15 +1488,16 @@ private:
     get_state(::boost::msm::back::dummy<0> = 0)
     {
         return &(static_cast<typename boost::add_reference<typename ::boost::remove_pointer<State>::type>::type >
-        (::boost::fusion::at_key<typename ::boost::remove_pointer<State>::type>(m_substate_list)));
+        (std::get<get_state_id<stt, typename ::boost::remove_pointer<State>::type>::value>(m_substate_list)));
     }
     // as a reference
     template <class State>
     typename ::boost::enable_if<typename ::boost::is_reference<State>::type,State >::type
     get_state(::boost::msm::back::dummy<1> = 0)
     {
-        return ::boost::fusion::at_key<typename ::boost::remove_reference<State>::type>(m_substate_list);
+        return std::get<get_state_id<stt, typename ::boost::remove_reference<State>::type>::value>(m_substate_list);
     }
+
     // checks if a flag is active using the BinaryOp as folding function
     template <class Flag,class BinaryOp>
     bool is_flag_active() const
@@ -1504,6 +1516,22 @@ private:
     {
         return FlagHelper<Flag,(nr_regions::value>1)>::helper(*this,get_entries_for_flag<Flag>());
     }
+
+    // Checks if an event is an end interrupt event.
+    template <class Event, class Policy = CompilePolicy>
+    typename std::enable_if<std::is_same<Policy, favor_runtime_speed>::value, bool>::type
+    is_end_interrupt_event(const Event&)
+    {
+        return is_flag_active<EndInterruptFlag<Event>>();
+    }
+    template <class Policy = CompilePolicy>
+    typename std::enable_if<std::is_same<Policy, favor_compile_time>::value, bool>::type
+    is_end_interrupt_event(const favor_compile_time::any_event& event)
+    {
+        static end_interrupt_event_helper helper{*this};
+        return helper.is_end_interrupt_event(event);
+    }
+
     // visit the currently active states (if these are defined as visitable
     // by implementing accept)
     void visit_current_states()
@@ -1528,23 +1556,25 @@ private:
 #undef MSM_VISIT_STATE_SUB
 
     // puts the given event into the deferred queue
-    template <class Event>
-    typename::boost::disable_if< typename ::boost::msm::is_kleene_event<Event>::type, void>::type
+    template <class Event, class Policy = CompilePolicy>
+    typename::boost::disable_if<
+        mp11::mp_and<
+            typename ::boost::msm::is_kleene_event<Event>::type,
+            std::is_same<Policy, favor_runtime_speed>
+            >,
+        void>::type
     defer_event(Event const& e)
     {
         // to call this function, you need either a state with a deferred_events typedef
         // or that the fsm provides the activate_deferred_events typedef
         BOOST_MPL_ASSERT(( has_fsm_deferred_events<library_sm> ));
-        execute_return (library_sm::*pf) (Event const&, EventSource) =
-            &library_sm::process_event_internal;
 
         // Deferred events are added with a correlation sequence that helps to
         // identify when an event was added - This is typically to distinguish
         // between events deferred in this processing versus previous.
         m_deferred_events_queue.m_deferred_events_queue.push_back(
             std::make_pair(
-                ::boost::bind(
-                    pf, this, e, static_cast<EventSource>(EVENT_SOURCE_DIRECT|EVENT_SOURCE_DEFERRED)),
+                [this, e] { return process_event_internal(e, static_cast<EventSource>(EVENT_SOURCE_DIRECT|EVENT_SOURCE_DEFERRED));},
                 static_cast<char>(m_deferred_events_queue.m_cur_seq+1)));
     }
 protected:
@@ -1564,16 +1594,18 @@ protected:
                 // to call this function, you need either a state with a deferred_events typedef
                 // or that the fsm provides the activate_deferred_events typedef
                 BOOST_MPL_ASSERT((has_fsm_deferred_events<library_sm>));
-                ::boost::msm::back::execute_return(library_sm:: * pf) (Event const&, ::boost::msm::back::EventSource) =
-                    &library_sm::process_event_internal;
 
                 // Deferred events are added with a correlation sequence that helps to
                 // identify when an event was added - This is typically to distinguish
                 // between events deferred in this processing versus previous.
+                auto fsm = m_fsm;
+                auto event = m_event;
                 m_fsm->m_deferred_events_queue.m_deferred_events_queue.push_back(
                     std::make_pair(
-                        ::boost::bind(
-                            pf, m_fsm, boost::any_cast<Event>(m_event), static_cast<::boost::msm::back::EventSource>(::boost::msm::back::EVENT_SOURCE_DIRECT | ::boost::msm::back::EVENT_SOURCE_DEFERRED)),
+                        [fsm, event] { return fsm->process_event_internal(
+                            boost::any_cast<Event>(event),
+                            static_cast<::boost::msm::back::EventSource>(::boost::msm::back::EVENT_SOURCE_DIRECT | ::boost::msm::back::EVENT_SOURCE_DEFERRED));
+                        },
                         static_cast<char>(m_fsm->m_deferred_events_queue.m_cur_seq + 1)));
             }
         }
@@ -1583,14 +1615,18 @@ protected:
     };
 
 public:
-    template <class Event>
-    typename::boost::enable_if< typename ::boost::msm::is_kleene_event<Event>::type, void>::type
+    template <class Event, class Policy=CompilePolicy>
+    typename::boost::enable_if<
+        mp11::mp_and<
+            typename ::boost::msm::is_kleene_event<Event>::type,
+            std::is_same<Policy, favor_runtime_speed>
+            >,
+        void>::type
     defer_event(Event const& e)
     {
-        typedef typename generate_event_set<stt>::type event_list;
+        typedef typename generate_event_set<stt>::event_set_mp11 event_list;
         bool found = false;
-        boost::fusion::for_each(
-            event_list(),
+        boost::mp11::mp_for_each<event_list>(
             defer_event_kleene_helper<Event,library_sm>(e,this,found));
         if (!found)
         {
@@ -1625,7 +1661,7 @@ public:
          template<typename StateType>
          void operator()(StateType const& astate) const
          {
-             ::boost::fusion::at_key<StateType>(*to_overwrite)=astate;
+             std::get<get_state_id<stt, StateType>::value>(*to_overwrite)=astate;
          }
          substate_list* to_overwrite;
      };
@@ -1636,8 +1672,8 @@ public:
              ::boost::fusion::as_vector(FoldToList()(expr, boost::fusion::nil_())),update_state(this->m_substate_list));
      }
 
-     // Construct with the default initial states
-     state_machine()
+    // Construct with the default initial states
+    state_machine()
          :Derived()
          ,m_events_queue()
          ,m_deferred_events_queue()
@@ -1646,14 +1682,14 @@ public:
          ,m_is_included(false)
          ,m_visitors()
          ,m_substate_list()
-     {
+    {
          // initialize our list of states with the ones defined in Derived::initial_state
          ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
                         (init_states(m_states));
          m_history.set_initial_states(m_states);
          // create states
          fill_states(this);
-     }
+    }
 
      // Construct with the default initial states and some default argument(s)
 #if defined (BOOST_NO_CXX11_RVALUE_REFERENCES)                                      \
@@ -1797,7 +1833,7 @@ public:
     // the following 2 functions handle the terminate/interrupt states handling
     // if one of these states is found, the first one is used
     template <class Event>
-    bool is_event_handling_blocked_helper( ::boost::mpl::true_ const &)
+    bool is_event_handling_blocked_helper(const Event& event, mp11::mp_true)
     {
         // if the state machine is terminated, do not handle any event
         if (is_flag_active< ::boost::msm::TerminateFlag>())
@@ -1805,13 +1841,13 @@ public:
         // if the state machine is interrupted, do not handle any event
         // unless the event is the end interrupt event
         if ( is_flag_active< ::boost::msm::InterruptedFlag>() &&
-            !is_flag_active< ::boost::msm::EndInterruptFlag<Event> >())
+            !is_end_interrupt_event(event))
             return true;
         return false;
     }
     // otherwise simple handling, no flag => continue
     template <class Event>
-    bool is_event_handling_blocked_helper( ::boost::mpl::false_ const &)
+    bool is_event_handling_blocked_helper(const Event&, mp11::mp_false)
     {
         // no terminate/interrupt states detected
         return false;
@@ -1821,9 +1857,7 @@ public:
         // non-default. Handle msg queue with higher prio than deferred queue
         if (!(EVENT_SOURCE_MSG_QUEUE & source))
         {
-            do_post_msg_queue_helper(
-                ::boost::mpl::bool_<
-                    is_no_message_queue<library_sm>::type::value>());
+            execute_queued_events();
             if (!(EVENT_SOURCE_DEFERRED & source))
             {
                 handle_defer_helper<library_sm> defer_helper(m_deferred_events_queue);
@@ -1843,33 +1877,26 @@ public:
             // we're not already processing from the message queue.
             if (!(EVENT_SOURCE_MSG_QUEUE & source))
             {
-                do_post_msg_queue_helper(
-                    ::boost::mpl::bool_<
-                        is_no_message_queue<library_sm>::type::value>());
+                execute_queued_events();
             }
         }
     }
     // the following functions handle pre/post-process handling  of a message queue
-    template <class StateType,class EventType>
+    template <class EventType>
     bool do_pre_msg_queue_helper(EventType const&, ::boost::mpl::true_ const &)
     {
         // no message queue needed
         return true;
     }
-    template <class StateType,class EventType>
+    template <class EventType>
     bool do_pre_msg_queue_helper(EventType const& evt, ::boost::mpl::false_ const &)
     {
-        execute_return (library_sm::*pf) (EventType const&, EventSource) =
-            &library_sm::process_event_internal;
-
         // if we are already processing an event
         if (m_event_processing)
         {
             // event has to be put into the queue
             m_events_queue.m_events_queue.push_back(
-                ::boost::bind(
-                    pf, this, evt,
-                    static_cast<EventSource>(EVENT_SOURCE_DIRECT | EVENT_SOURCE_MSG_QUEUE)));
+                [this, evt] { return process_event_internal(evt, static_cast<EventSource>(EVENT_SOURCE_DIRECT | EVENT_SOURCE_MSG_QUEUE));});
 
             return false;
         }
@@ -1877,14 +1904,6 @@ public:
         // event can be handled, processing
         m_event_processing = true;
         return true;
-    }
-    void do_post_msg_queue_helper( ::boost::mpl::true_ const &)
-    {
-        // no message queue needed
-    }
-    void do_post_msg_queue_helper( ::boost::mpl::false_ const &)
-    {
-        process_message_queue(this);
     }
     void do_allow_event_processing_after_transition( ::boost::mpl::true_ const &)
     {
@@ -1933,7 +1952,7 @@ public:
     // otherwise the standard version handling the deferred events
     template <class StateType>
     struct handle_defer_helper
-        <StateType, typename enable_if< typename ::boost::msm::back::has_fsm_deferred_events<StateType>::type,int >::type>
+        <StateType, typename enable_if< typename has_fsm_deferred_events<StateType>::type,int >::type>
     {
         struct sort_greater
         {
@@ -2031,7 +2050,7 @@ public:
     // otherwise
     template <class StateType>
     struct handle_eventless_transitions_helper
-        <StateType, typename enable_if< typename ::boost::msm::back::has_fsm_eventless_transition<StateType>::type >::type>
+        <StateType, typename enable_if< typename has_fsm_eventless_transition<StateType>::type >::type>
     {
         handle_eventless_transitions_helper(library_sm* self_, bool handled_):self(self_),handled(handled_){}
         void process_completion_event(EventSource source = EVENT_SOURCE_DEFAULT)
@@ -2058,7 +2077,7 @@ public:
     template<class Event>
     struct process_fsm_internal_table
     {
-        typedef typename ::boost::mpl::has_key<processable_events_internal_table,Event>::type is_event_processable;
+        typedef mp11::mp_set_contains<processable_events_internal_table,Event> is_event_processable;
 
         // forward to the correct do_process
         static void process(Event const& evt,library_sm* self_,HandledEnum& result)
@@ -2067,17 +2086,17 @@ public:
         }
     private:
         // the event is processable, let's try!
-        static void do_process(Event const& evt,library_sm* self_,HandledEnum& result, ::boost::mpl::true_)
+        static void do_process(Event const& evt,library_sm* self_,HandledEnum& result, mp11::mp_true)
         {
             if (result != HANDLED_TRUE)
             {
-                typedef dispatch_table<library_sm,complete_table,Event,CompilePolicy> table;
-                HandledEnum res_internal = table::instance().entries[0](*self_, 0, self_->m_states[0], evt);
+                typedef dispatch_table<library_sm,complete_table,CompilePolicy> table;
+                HandledEnum res_internal = table::dispatch_internal(*self_, 0, self_->m_states[0], evt);
                 result = (HandledEnum)((int)result | (int)res_internal);
             }
         }
         // version doing nothing if the event is not in the internal stt and we can save ourselves the time trying to process
-        static void do_process(Event const& ,library_sm* ,HandledEnum& , ::boost::mpl::false_)
+        static void do_process(Event const& ,library_sm* ,HandledEnum& , mp11::mp_false)
         {
             // do nothing
         }
@@ -2093,11 +2112,8 @@ public:
         void process(Event const& evt)
         {
             // use this table as if it came directly from the user
-            typedef dispatch_table<library_sm,complete_table,Event,CompilePolicy> table;
-            // +1 because index 0 is reserved for this fsm
-            HandledEnum res =
-                table::instance().entries[self->m_states[0]+1](
-                *self, 0, self->m_states[0], evt);
+            typedef dispatch_table<library_sm,complete_table,CompilePolicy> table;
+            HandledEnum res = table::dispatch(*self, 0, self->m_states[0], evt);
             result = (HandledEnum)((int)result | (int)res);
             // process the event in the internal table of this fsm if the event is processable (present in the table)
             process_fsm_internal_table<Event>::process(evt,self,result);
@@ -2119,10 +2135,8 @@ public:
             static void process(Event const& evt,library_sm* self_,HandledEnum& result_)
             {
                 // use this table as if it came directly from the user
-                typedef dispatch_table<library_sm,complete_table,Event,CompilePolicy> table;
-                // +1 because index 0 is reserved for this fsm
-                HandledEnum res =
-                    table::instance().entries[self_->m_states[region_id::value]+1](
+                typedef dispatch_table<library_sm,complete_table,CompilePolicy> table;
+                HandledEnum res = table::dispatch(
                     *self_, region_id::value , self_->m_states[region_id::value], evt);
                 result_ = (HandledEnum)((int)result_ | (int)res);
                 In< ::boost::mpl::int_<region_id::value+1> >::process(evt,self_,result_);
@@ -2152,21 +2166,44 @@ public:
         HandledEnum&    result;
     };
 
+    template<class Event, class Policy = CompilePolicy>
+    typename enable_if<is_same<Policy, favor_runtime_speed>, execute_return>::type
+    process_event_internal(Event const& evt,
+                           EventSource source = EVENT_SOURCE_DEFAULT)
+    {
+        return process_event_internal_impl(evt, source);
+    }
+
+    template<class Event, class Policy = CompilePolicy>
+    typename enable_if<is_same<Policy, favor_compile_time>, execute_return>::type
+    process_event_internal(Event const& evt,
+                           EventSource source = EVENT_SOURCE_DEFAULT)
+    {
+        return process_event_internal_impl(favor_compile_time::any_event(evt), source);
+    }
+
+    template<class Policy = CompilePolicy>
+    typename enable_if<is_same<Policy, favor_compile_time>, execute_return>::type
+    process_event_internal(favor_compile_time::any_event const& evt,
+                           EventSource source = EVENT_SOURCE_DEFAULT)
+    {
+        return process_event_internal_impl(evt, source);
+    }
+
     // Main function used internally to make transitions
     // Can only be called for internally (for example in an action method) generated events.
     template<class Event>
-    execute_return process_event_internal(Event const& evt,
-                                          EventSource source = EVENT_SOURCE_DEFAULT)
+    execute_return process_event_internal_impl(Event const& evt, EventSource source)
     {
         // if the state machine has terminate or interrupt flags, check them, otherwise skip
-        if (is_event_handling_blocked_helper<Event>
-                ( ::boost::mpl::bool_<has_fsm_blocking_states<library_sm>::type::value>() ) )
+        if (is_event_handling_blocked_helper
+                (evt, typename has_fsm_blocking_states<library_sm>::type()))
         {
             return HANDLED_TRUE;
         }
 
         // if a message queue is needed and processing is on the way
-        if (!do_pre_msg_queue_helper<Event>
+        if (!do_pre_msg_queue_helper
                 (evt,::boost::mpl::bool_<is_no_message_queue<library_sm>::type::value>()))
         {
             // wait for the end of current processing
@@ -2216,7 +2253,7 @@ public:
         // but let the containing sm handle the error, unless the event was generated in this fsm
         // (by calling process_event on this fsm object, is_direct_call == true)
         // completion events do not produce an error
-        if ( (!is_contained() || is_direct_call) && !handled && !is_completion_event<Event>::type::value)
+        if ( (!is_contained() || is_direct_call) && !handled && !is_completion_event<Event, CompilePolicy>::value(evt))
         {
             for (int i=0; i<nr_regions::value;++i)
             {
@@ -2231,10 +2268,6 @@ public:
     bool no_guard(Event const&){return true;}
     template <class Event>
     void no_action(Event const&){}
-
-#ifndef BOOST_NO_RTTI
-    HandledEnum process_any_event( ::boost::any const& evt);
-#endif
 
 private:
     // composite accept implementation. First calls accept on the composite, then accept on all its active states.
@@ -2267,7 +2300,7 @@ private:
         template <class State>
         void operator()(boost::msm::wrap<State> const&)
         {
-            execute_entry(::boost::fusion::at_key<State>(self->m_substate_list),evt,*self);
+            execute_entry(std::get<get_state_id<stt, State>::value>(self->m_substate_list),evt,*self);
         }
     private:
         Event const& evt;
@@ -2307,7 +2340,7 @@ private:
         }
         static bool forward(library_sm const& fsm)
         {
-            return ::boost::fusion::at_key<StateType>(fsm.m_substate_list).template is_flag_active<Flag>();
+            return std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list).template is_flag_active<Flag>();
         }
     };
     template <class Flag>
@@ -2335,12 +2368,12 @@ private:
             : entries(entries_)
         {}
 
-        // Flags initializer function object, used with mpl::for_each
+        // Flags initializer function object, used with for_each
         template <class StateType>
-        void operator()( ::boost::msm::wrap<StateType> const& )
+        void operator()( mp11::mp_identity<StateType> const& )
         {
             typedef typename get_flag_list<StateType>::type flags;
-            typedef typename ::boost::mpl::contains<flags,Flag >::type found;
+            typedef mp11::mp_contains<flags,Flag > found;
 
             BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,StateType>::type::value));
             if (found::type::value)
@@ -2364,12 +2397,12 @@ private:
     template <class Flag>
     flag_handler* get_entries_for_flag() const
     {
-        BOOST_STATIC_CONSTANT(int, max_state = (mpl::size<state_list>::value));
+        BOOST_STATIC_CONSTANT(int, max_state = (mp11::mp_size<state_set_mp11>::value));
 
         static flag_handler flags_entries[max_state];
         // build a state list, but only once
         static flag_handler* flags_entries_ptr =
-            (::boost::mpl::for_each<state_list, boost::msm::wrap< ::boost::mpl::placeholders::_1> >
+            (mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, state_set_mp11>>
                             (init_flags<Flag>(flags_entries)),
             flags_entries);
         return flags_entries_ptr;
@@ -2391,7 +2424,7 @@ private:
         static void set_sm(library_sm* sm)
         {
             // create and set the fsm
-            ::boost::fusion::at_key<State>(sm->m_substate_list).set_sm_ptr(sm);
+            std::get<get_state_id<stt, State>::value>(sm->m_substate_list).set_sm_ptr(sm);
         }
     };
         // main unspecialized helper class
@@ -2438,7 +2471,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
     void set_containing_sm(ContainingSM* sm)
     {
         m_is_included=true;
-        ::boost::fusion::for_each(m_substate_list,add_state<ContainingSM>(this,sm));
+        mp11::tuple_for_each(m_substate_list,add_state<ContainingSM>(this,sm));
     }
 #if defined (__IBMCPP__) || (__GNUC__ == 4 && __GNUC_MINOR__ < 1) || (defined(_MSC_VER) && (_MSC_VER < 1400))
      private:
@@ -2457,7 +2490,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
             typename is_composite_state<StateType>::type,void >::type
         new_state_helper(boost::msm::back::dummy<0> = 0) const
         {
-            ::boost::fusion::at_key<StateType>(self->m_substate_list).set_containing_sm(containing_sm);
+            std::get<get_state_id<stt, StateType>::value>(self->m_substate_list).set_containing_sm(containing_sm);
         }
         // State is a sub fsm without exit pseudo states and does not get a callback to this fsm
         // or state is a normal state and needs nothing except creation
@@ -2481,7 +2514,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
                 &ContainingSM::process_event;
             ::boost::function<execute_return (typename StateType::event const&)> fct =
                 ::boost::bind(pf,containing_sm,::boost::placeholders::_1);
-            ::boost::fusion::at_key<StateType>(self->m_substate_list).set_forward_fct(fct);
+            std::get<get_state_id<stt, StateType>::value>(self->m_substate_list).set_forward_fct(fct);
         }
         // for every defined state in the sm
         template <class State>
@@ -2493,7 +2526,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
             this->new_state_helper<State>(),
             create_state_helper<State>::set_sm(self);
             // create a visitor callback
-            visitor_helper(state_id,::boost::fusion::at_key<State>(self->m_substate_list),
+            visitor_helper(state_id,std::get<get_state_id<stt, State>::value>(self->m_substate_list),
                            ::boost::mpl::bool_<has_accept_sig<State>::type::value>());
         }
     private:
@@ -2534,7 +2567,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
              visitor_helper(int id) const
          {
              visitor_args<StateType,StateType::accept_sig::args_number>::template helper<StateType>
-                 (m_sm,id,::boost::fusion::at_key<StateType>(m_sm->m_substate_list));
+                 (m_sm,id,std::get<get_state_id<stt, StateType>::value>(m_sm->m_substate_list));
          }
          template <class StateType>
          typename ::boost::disable_if<typename has_accept_sig<StateType>::type,void >::type
@@ -2575,44 +2608,28 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          m_substate_list = rhs.m_substate_list;
          // except for the states themselves, which get duplicated
 
-         ::boost::mpl::for_each<state_list, ::boost::msm::wrap< ::boost::mpl::placeholders::_1> >
+         ::boost::mpl::for_each<state_set_mp11, ::boost::msm::wrap< ::boost::mpl::placeholders::_1> >
                         (copy_helper(this));
      }
 
-     // helper used to call the correct entry/exit method
+     // helper used to call the correct entry method
      // unfortunately in O(number of states in the sub-sm) but should be better than a virtual call
-     template<class Event,bool is_entry>
-     struct entry_exit_helper
+     template<class Event>
+     struct entry_helper
      {
-         entry_exit_helper(int id,Event const& e,library_sm* self_):
+         entry_helper(int id,Event const& e,library_sm* self_):
             state_id(id),evt(e),self(self_){}
-         // helper for entry actions
-         template <class IsEntry,class State>
-         typename ::boost::enable_if<typename IsEntry::type,void >::type
-         helper( ::boost::msm::back::dummy<0> = 0)
+
+         template <class StateAndId>
+         void operator()(StateAndId const&)
          {
-             BOOST_STATIC_CONSTANT(int, id = (get_state_id<stt,State>::value));
+             using State = mp11::mp_first<StateAndId>;
+             using Id = mp11::mp_second<StateAndId>;
+             BOOST_STATIC_CONSTANT(int, id = (Id::value));
              if (id == state_id)
              {
-                 execute_entry<State>(::boost::fusion::at_key<State>(self->m_substate_list),evt,*self);
+                 execute_entry<State>(std::get<Id::value>(self->m_substate_list),evt,*self);
              }
-         }
-         // helper for exit actions
-         template <class IsEntry,class State>
-         typename boost::disable_if<typename IsEntry::type,void >::type
-         helper( ::boost::msm::back::dummy<1> = 0)
-         {
-             BOOST_STATIC_CONSTANT(int, id = (get_state_id<stt,State>::value));
-             if (id == state_id)
-             {
-                 execute_exit<State>(::boost::fusion::at_key<State>(self->m_substate_list),evt,*self);
-             }
-         }
-         // iterates through all states to find the one to be activated
-         template <class State>
-         void operator()( ::boost::msm::wrap<State> const&)
-         {
-             entry_exit_helper<Event,is_entry>::template helper< ::boost::mpl::bool_<is_entry>,State >();
          }
      private:
          int            state_id;
@@ -2620,32 +2637,41 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          library_sm*    self;
      };
 
-     // helper to start the fsm
-     template <class region_id,int Dummy=0>
-     struct region_start_helper
+     // helper used to call the correct exit method
+     // unfortunately in O(number of states in the sub-sm) but should be better than a virtual call
+     template<class Event>
+     struct exit_helper
      {
-         template<class Event>
-         static void do_start(library_sm* self_,Event const& incomingEvent)
+         exit_helper(int id,Event const& e,library_sm* self_):
+            state_id(id),evt(e),self(self_){}
+
+         template <class StateAndId>
+         void operator()(StateAndId const&)
          {
-             //forward the event for handling by sub state machines
-             ::boost::mpl::for_each<state_list, ::boost::msm::wrap< ::boost::mpl::placeholders::_1> >
-                 (entry_exit_helper<Event,true>(self_->m_states[region_id::value],incomingEvent,self_));
-             region_start_helper
-                 < ::boost::mpl::int_<region_id::value+1> >::do_start(self_,incomingEvent);
+             using State = mp11::mp_first<StateAndId>;
+             using Id = mp11::mp_second<StateAndId>;
+             BOOST_STATIC_CONSTANT(int, id = (Id::value));
+             if (id == state_id)
+             {
+                 execute_exit<State>(std::get<Id::value>(self->m_substate_list),evt,*self);
+             }
          }
+     private:
+         int            state_id;
+         Event const&   evt;
+         library_sm*    self;
      };
-     template <int Dummy>
-     struct region_start_helper< ::boost::mpl::int_<nr_regions::value>,Dummy>
-     {
-         // end of processing
-         template<class Event>
-         static void do_start(library_sm*,Event const& ){}
-     };
+
      // start for states machines which are themselves embedded in other state machines (composites)
      template <class Event>
      void internal_start(Event const& incomingEvent)
      {
-         region_start_helper< ::boost::mpl::int_<0> >::do_start(this,incomingEvent);
+         for (size_t region_id=0; region_id<nr_regions::value; region_id++)
+         {
+             //forward the event for handling by sub state machines
+             mp11::mp_for_each<state_map_mp11>
+                 (entry_helper<Event>(m_states[region_id],incomingEvent,this));
+         }
          // give a chance to handle an anonymous (eventless) transition
          handle_eventless_transitions_helper<library_sm> eventless_helper(this,true);
          eventless_helper.process_completion_event();
@@ -2768,42 +2794,16 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          };
      };
 
-     // helper for entry
-     template <class region_id,int Dummy=0>
-     struct region_entry_exit_helper
-     {
-         template<class Event>
-         static void do_entry(library_sm* self_,Event const& incomingEvent)
-         {
-             self_->m_states[region_id::value] =
-                 self_->m_history.history_entry(incomingEvent)[region_id::value];
-             region_entry_exit_helper
-                 < ::boost::mpl::int_<region_id::value+1> >::do_entry(self_,incomingEvent);
-         }
-         template<class Event>
-         static void do_exit(library_sm* self_,Event const& incomingEvent)
-         {
-             ::boost::mpl::for_each<state_list, ::boost::msm::wrap< ::boost::mpl::placeholders::_1> >
-                 (entry_exit_helper<Event,false>(self_->m_states[region_id::value],incomingEvent,self_));
-             region_entry_exit_helper
-                 < ::boost::mpl::int_<region_id::value+1> >::do_exit(self_,incomingEvent);
-         }
-     };
-     template <int Dummy>
-     struct region_entry_exit_helper< ::boost::mpl::int_<nr_regions::value>,Dummy>
-     {
-         // end of processing
-         template<class Event>
-         static void do_entry(library_sm*,Event const& ){}
-         template<class Event>
-         static void do_exit(library_sm*,Event const& ){}
-     };
      // entry/exit for states machines which are themselves embedded in other state machines (composites)
      template <class Event,class FsmType>
      void do_entry(Event const& incomingEvent,FsmType& fsm)
      {
         // by default we activate the history/init states, can be overwritten by direct_event_start_helper
-        region_entry_exit_helper< ::boost::mpl::int_<0> >::do_entry(this,incomingEvent);
+        for (size_t region_id=0; region_id<nr_regions::value; region_id++)
+        {
+             m_states[region_id] =
+                 m_history.history_entry(incomingEvent)[region_id];
+        }
         // block immediate handling of events
         m_event_processing = true;
         // if the event is generating a direct entry/fork, set the current state(s) to the direct state(s)
@@ -2813,14 +2813,18 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
         // look for deferred events waiting
         handle_defer_helper<library_sm> defer_helper(m_deferred_events_queue);
         defer_helper.do_handle_deferred(true);
-        process_message_queue(this);
+        execute_queued_events();
      }
      template <class Event,class FsmType>
      void do_exit(Event const& incomingEvent,FsmType& fsm)
      {
         // first recursively exit the sub machines
         // forward the event for handling by sub state machines
-        region_entry_exit_helper< ::boost::mpl::int_<0> >::do_exit(this,incomingEvent);
+        for (size_t region_id=0; region_id<nr_regions::value; region_id++)
+        {
+             mp11::mp_for_each<state_map_mp11>
+                 (exit_helper<Event>(m_states[region_id],incomingEvent,this));
+        }
         // then call our own exit
         (static_cast<Derived*>(this))->on_exit(incomingEvent,fsm);
         // give the history a chance to handle this (or not).
@@ -2833,7 +2837,8 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
      }
 
     // the IBM and VC<8 compilers seem to have problems with the friend declaration of dispatch_table
-#if defined (__IBMCPP__) || (defined(_MSC_VER) && (_MSC_VER < 1400))
+    // also clang seems to have a problem with the defer_transition indirection in preprocess_state
+#if defined (__IBMCPP__) || (defined(_MSC_VER) && (_MSC_VER < 1400) || defined(__clang__ ))
      public:
 #endif
     // no transition for event.
@@ -2864,28 +2869,9 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
     {
         return HANDLED_FALSE;
     }
-#if defined (__IBMCPP__) || (defined(_MSC_VER) && (_MSC_VER < 1400))
+#if defined (__IBMCPP__) || (defined(_MSC_VER) && (_MSC_VER < 1400) || defined(__clang__ ))
      private:
 #endif
-    // removes one event from the message queue and processes it
-    template <class StateType>
-    void process_message_queue(StateType*,
-                               typename ::boost::disable_if<typename is_no_message_queue<StateType>::type,void >::type* = 0)
-    {
-        // Iteratively process all events from the message queue.
-        while (!m_events_queue.m_events_queue.empty())
-        {
-            transition_fct next = m_events_queue.m_events_queue.front();
-            m_events_queue.m_events_queue.pop_front();
-            next();
-        }
-    }
-    template <class StateType>
-    void process_message_queue(StateType*,
-                               typename ::boost::enable_if<typename is_no_message_queue<StateType>::type,void >::type* = 0)
-    {
-        // nothing to process
-    }
     // helper function. In cases where the event is wrapped (target is a direct entry states)
     // we want to send only the real event to on_entry, not the wrapper.
     template <class EventType>
@@ -2970,7 +2956,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
     convert_event_and_execute_entry(StateType& astate,EventType const& evt, FsmType& fsm, ::boost::msm::back::dummy<0> = 0)
     {
         // for the direct entry, pack the event in a wrapper so that we handle it differently during fsm entry
-        execute_entry(astate,msm::back::direct_entry_event<TargetType,EventType>(evt),fsm);
+        execute_entry(astate,direct_entry_event<TargetType,EventType>(evt),fsm);
     }
 
     // creates all the states
@@ -2982,11 +2968,10 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
         // checks that all states are reachable
         FsmCheckPolicy::template check_unreachable_states<library_sm>();
 
-        BOOST_STATIC_CONSTANT(int, max_state = (mpl::size<state_list>::value));
+        BOOST_STATIC_CONSTANT(int, max_state = (mp11::mp_size<state_set_mp11>::value));
         // allocate the place without reallocation
         m_visitors.fill_visitors(max_state);
-        ::boost::fusion::for_each(m_substate_list,add_state<ContainingSM>(this,containing_sm));
-
+        mp11::tuple_for_each(m_substate_list,add_state<ContainingSM>(this,containing_sm));
     }
 
 private:
@@ -3003,8 +2988,10 @@ private:
     {
     };
 
-    template <class Fsm,class Stt, class Event, class Compile>
-    friend struct dispatch_table;
+    template<class Fsm, class Stt, class Compile>
+    friend class dispatch_table;
+
+    friend class end_interrupt_event_helper;
 
     // data members
     int                             m_states[nr_regions::value];
@@ -3020,5 +3007,6 @@ private:
 
 };
 
-} } }// boost::msm::back
-#endif //BOOST_MSM_BACK_STATEMACHINE_H
+}}} // boost::msm::backmp11
+
+#endif //BOOST_MSM_BACKMP11_STATEMACHINE_H

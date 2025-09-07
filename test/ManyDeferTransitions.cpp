@@ -9,7 +9,7 @@
 // http://www.boost.org/LICENSE_1_0.txt)
 
 // back-end
-#include <boost/msm/back/state_machine.hpp>
+#include "BackCommon.hpp"
 //front-end
 #include <boost/msm/front/functor_row.hpp>
 #include <boost/msm/front/state_machine_def.hpp>
@@ -87,10 +87,10 @@ namespace
     };
 
     // Pick a back-end
-    typedef msm::back::state_machine<Sm1_> Sm1;
+    typedef get_test_machines<Sm1_> Sm1s;
 
 
-    BOOST_AUTO_TEST_CASE(back_many_deferred_transitions)
+    BOOST_AUTO_TEST_CASE_TEMPLATE(back_many_deferred_transitions, Sm1, Sm1s)
     {
         Sm1 sm1;
         sm1.start();
@@ -103,3 +103,5 @@ namespace
     }
 }
 
+using backmp11_fsm = boost::msm::backmp11::state_machine<Sm1_, boost::msm::backmp11::favor_compile_time>;
+BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_fsm);

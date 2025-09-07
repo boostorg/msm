@@ -10,14 +10,14 @@
 
 
 // back-end
-#include <boost/msm/back11/state_machine.hpp>
+#include "BackCommon.hpp"
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/puml/puml.hpp>
-#include <PumlCommon.hpp>
+#include "PumlCommon.hpp"
 
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE back11_only_string_puml_test
+#define BOOST_TEST_MODULE string_terminate_puml_test
 #endif
 #include <boost/test/unit_test.hpp>
 
@@ -58,10 +58,10 @@ namespace
         }
     };
     // Pick a back-end
-    typedef msm::back11::state_machine<front_> machine;
+    typedef get_test_machines<front_> machines;
 
 
-    BOOST_AUTO_TEST_CASE(back11_string_terminate_puml_test)
+    BOOST_AUTO_TEST_CASE_TEMPLATE(string_terminate_puml_test, machine, machines)
     {     
         machine p;
         static_assert(msm::back11::get_number_of_regions<typename machine::initial_state>::type::value == 2);
@@ -92,3 +92,5 @@ namespace
     }
 }
 
+using backmp11_fsm = boost::msm::backmp11::state_machine<front_, boost::msm::backmp11::favor_compile_time>;
+BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_fsm);

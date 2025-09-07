@@ -22,6 +22,7 @@ target_link_libraries(boost_msm
     Boost::core
     Boost::function
     Boost::fusion
+    Boost::mp11
     Boost::mpl
     Boost::parameter
     Boost::phoenix
@@ -34,8 +35,6 @@ target_link_libraries(boost_msm
 )
 
 if(BUILD_TESTING AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/CMakeLists.txt")
-
+  enable_testing()
   add_subdirectory(test)
-
 endif()
-
