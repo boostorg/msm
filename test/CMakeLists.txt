@@ -10,7 +10,6 @@ add_executable(boost_msm_tests
     main.cpp
 )
 target_include_directories(boost_msm_tests PRIVATE ../include)
-find_package(boost_serialization)
 target_link_libraries(boost_msm_tests Boost::serialization)
 target_compile_definitions(boost_msm_tests PRIVATE "BOOST_MSM_NONSTANDALONE_TEST")
 
