@@ -60,6 +60,7 @@
 #include <boost/msm/msm_grammar.hpp>
 #include <boost/msm/back/traits.hpp>
 #include <boost/msm/back/fold_to_list.hpp>
+#include <boost/msm/backmp11/context.hpp>
 #include <boost/msm/backmp11/favor_compile_time.hpp>
 #include <boost/msm/backmp11/metafunctions.hpp>
 #include <boost/msm/backmp11/history_policies.hpp>
@@ -99,6 +100,9 @@ BOOST_PARAMETER_TEMPLATE_KEYWORD(compile_policy)
 BOOST_PARAMETER_TEMPLATE_KEYWORD(fsm_check_policy)
 BOOST_PARAMETER_TEMPLATE_KEYWORD(queue_container_policy)
 
+BOOST_PARAMETER_TEMPLATE_KEYWORD(context_policy)
+BOOST_MPL_HAS_XXX_TRAIT_DEF(context_policy)
+
 typedef ::boost::parameter::parameters<
     ::boost::parameter::required< tag::front_end >
   , ::boost::parameter::optional<
@@ -113,6 +117,9 @@ typedef ::boost::parameter::parameters<
   , ::boost::parameter::optional<
         ::boost::parameter::deduced< tag::queue_container_policy>,
         has_queue_container_policy< ::boost::mpl::_ >
+    >
+  , ::boost::parameter::optional<
+        ::boost::parameter::deduced< tag::context_policy>, has_context_policy< ::boost::mpl::_ >
     >
 > state_machine_signature;
 
@@ -132,17 +139,17 @@ struct make_euml_terminal<T,F,typename ::boost::enable_if<has_using_declared_tab
 // A0=Derived,A1=NoHistory,A2=CompilePolicy,A3=FsmCheckPolicy >
 template <
       class A0
-    , class Context = void
     , class A1 = parameter::void_
     , class A2 = parameter::void_
     , class A3 = parameter::void_
     , class A4 = parameter::void_
+    , class A5 = parameter::void_
 >
 class state_machine : //public Derived
     public ::boost::parameter::binding<
-            typename state_machine_signature::bind<A0,A1,A2,A3,A4>::type, tag::front_end
+            typename state_machine_signature::bind<A0,A1,A2,A3,A4,A5>::type, tag::front_end
     >::type
-    , public make_euml_terminal<state_machine<A0,Context,A1,A2,A3,A4>,
+    , public make_euml_terminal<state_machine<A0,A1,A2,A3,A4,A5>,
                          typename ::boost::parameter::binding<
                                     typename state_machine_signature::bind<A0,A1,A2,A3,A4>::type, tag::front_end
                          >::type
@@ -151,7 +158,7 @@ class state_machine : //public Derived
 public:
     // Create ArgumentPack
     typedef typename
-        state_machine_signature::bind<A0,A1,A2,A3,A4>::type
+        state_machine_signature::bind<A0,A1,A2,A3,A4,A5>::type
         state_machine_args;
 
     // Extract first logical parameter.
@@ -171,10 +178,14 @@ public:
         state_machine_args, tag::queue_container_policy,
         queue_container_deque >::type                                           QueueContainerPolicy;
 
+    typedef typename ::boost::parameter::binding<
+        state_machine_args, tag::context_policy,
+        no_context >::type                                                      ContextPolicy;
+
 private:
 
     typedef state_machine<
-        A0,Context,A1,A2,A3,A4>                     library_sm;
+        A0,A1,A2,A3,A4,A5>                          library_sm;
 
     typedef ::std::function<
         execute_return ()>                          transition_fct;
@@ -185,6 +196,8 @@ private:
             std::pair<deferred_fct,char> >::type    deferred_events_queue_t;
     typedef typename QueueContainerPolicy::
         template In<transition_fct>::type           events_queue_t;
+
+    typedef typename ContextPolicy::type            Context;
 
     typedef typename boost::mpl::eval_if<
         typename is_active_state_switch_policy<Derived>::type,

@@ -18,7 +18,7 @@ It is named after the metaprogramming library Boost Mp11, the main contributor t
 
 ## New features
 
-The backend supports a `Context` template parameter, that can be used to share common data between sub-SMs in hierarchical state machines.
+The backend supports a *context policy*, that can be used to share common data between sub-SMs in hierarchical state machines. For a given `Context` structure, the policy can be set by passing `use_context<Context>` to the `state_machine` backend.
 
 
 ## How to use it

@@ -63,7 +63,7 @@ namespace
     };
 
     struct LowerMachine_ : public MachineBase_<LowerMachine_> {};
-    using LowerMachine = state_machine<LowerMachine_, Context>;
+    using LowerMachine = state_machine<LowerMachine_, use_context<Context>>;
 
     struct MiddleMachine_ : public MachineBase_<MiddleMachine_>
     {
@@ -72,7 +72,7 @@ namespace
             Row< LowerMachine , ExitSubFsm  , Default      >
         >;
     };
-    using MiddleMachine = state_machine<MiddleMachine_, Context>;
+    using MiddleMachine = state_machine<MiddleMachine_, use_context<Context>>;
 
     struct UpperMachine_ : public MachineBase_<UpperMachine_>
     {
@@ -84,7 +84,7 @@ namespace
         uint32_t machine_entries = 0;
         uint32_t machine_exits = 0;
     };
-    struct UpperMachine : state_machine<UpperMachine_, Context> {};
+    struct UpperMachine : state_machine<UpperMachine_, use_context<Context>> {};
 
 
     BOOST_AUTO_TEST_CASE( backmp11_upper_fsm_test )
