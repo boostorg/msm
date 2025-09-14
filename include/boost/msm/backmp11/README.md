@@ -1,6 +1,6 @@
 # Boost MSM backmp11 backend
 
-This README file is temporary and contains information about `backmp11`, a new backend that is mostly backwards-compatible with `back`. It is currently **experimental** stage, thus some details about the compatibility might change.
+This README file is temporary and contains information about `backmp11`, a new backend that is mostly backwards-compatible with `back`. It is currently in **experimental** stage, thus some details about the compatibility might change.
 
 This file's contents should eventually move into the MSM documentation.
 
