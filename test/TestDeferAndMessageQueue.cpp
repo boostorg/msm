@@ -45,7 +45,7 @@ namespace
             template <class EVT,class FSM,class SourceState,class TargetState>
             void operator()(EVT const& ,FSM& fsm,SourceState& ,TargetState& )
             {
-                fsm.template process_event(eventResolve());
+                fsm.process_event(eventResolve());
             }
         };
         struct enqueue_action2
@@ -53,7 +53,7 @@ namespace
             template <class EVT,class FSM,class SourceState,class TargetState>
             void operator()(EVT const& ,FSM& fsm,SourceState& ,TargetState& )
             {
-                fsm.template process_event(eventConnect());
+                fsm.process_event(eventConnect());
             }
         };
         struct expected_action
