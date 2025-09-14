@@ -73,7 +73,7 @@ namespace
             template <class EVT,class FSM,class SourceState,class TargetState>
             void operator()(EVT const& ,FSM& fsm,SourceState& ,TargetState& )
             {
-                fsm.template process_event(event2());
+                fsm.process_event(event2());
             }
         };
         struct expected_action
