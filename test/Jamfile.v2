@@ -80,5 +80,7 @@ test-suite msm-unit-tests-cxxstd20
     [ run StringTerminatePuml.cpp ]
     :
     <cxxstd>20
+    # Clang 11 and 12 don't support lambdas in unevaluated contexts
+    <toolset>clang-11:<build>no
+    <toolset>clang-12:<build>no
     ;
-
