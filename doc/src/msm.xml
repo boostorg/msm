@@ -1477,7 +1477,7 @@ struct event2
                             </imageobject>
                         </inlinemediaobject></para>
                     <para>But how to detect the digit event? We would like to avoid defining 10
-                        transitions on char_0, char_1 ... between two states as it would force us to
+                        transitions on char_0, char_1... between two states as it would force us to
                         write 4 x 10 transitions and the compile-time would suffer. To solve this
                         problem, MSM supports the triggering of a transition on a subclass event.
                         For example, if we define digits as: </para>
