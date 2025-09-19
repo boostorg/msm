@@ -1,8 +1,6 @@
 # Boost MSM backmp11 backend
 
-This README file is temporary and contains information about `backmp11`, a new backend that is mostly backwards-compatible with `back`. It is currently in **experimental** stage, thus some details about the compatibility might change.
-
-This file's contents should eventually move into the MSM documentation.
+This README file is temporary and contains information about `backmp11`, a new backend that is mostly backwards-compatible with `back`. It is currently in **experimental** stage, thus some details about the compatibility might change (feedback welcome!). This file's contents should eventually move into the MSM documentation.
 
 The new backend has the following goals:
 
@@ -12,11 +10,21 @@ The new backend has the following goals:
 It is named after the metaprogramming library Boost Mp11, the main contributor to the optimizations. Usages of MPL are replaced with Mp11 to get rid of the costly C++03 emulation of variadic templates.
 
 
+## New features
+
+
+## Resolved limitations
+
+### Forwarding constructor arguments to the frontend 
+
+The number of max. constructor arguments is not limited anymore to 'BOOST_MSM_CONSTRUCTOR_ARG_SIZE' and references can be passed directly, there is no need to wrap them with 'boost::ref'.
+
+
 ## Breaking changes
 
 ### The targeted minimum C++ version is C++17
 
-For the sake of compiler features such as `if constexpr`.
+C++11 brings the strongly needed variadic template support for MSM, but later C++ versions provide other important features - for example C++17's `if constexpr`.
 
 
 ### The eUML frontend is not supported
@@ -24,11 +32,12 @@ For the sake of compiler features such as `if constexpr`.
 The support of EUML induces longer compilation times by the need to include the Boost proto headers and applying C++03 variadic template emulation. If you want to use a UML-like syntax, please try out the new PUML frontend.
 
 
-### A state machine's frontend must be default-constructible
+### The backend's constructor does not allow initialization of states and `set_states` is not available
 
-TODO:
-- Double-check that removal is not an issue, check available alternatives post-construction time
-- Provide rationale (proto headers, limitations for hierarchical state machines(?))
+There were some caveats with one constructor that was used for different use cases: On the one hand some arguments were immediately forwarded to the frontend's constructor, on the other hand the stream operator was used to identify other arguments in the constructor as states, to copy them into the state machine. Besides the syntax of the later being rather unusual, when doing both at once the syntax becomes too difficult to understand; even more so if states within hierarchical sub state machines were initialized in this fashion.
+
+In order to keep API of the constructor simpler and less ambiguous, it only supports forwarding arguments to the frontend and no more.
+Also the `set_states` API is removed. If setting a state is required, this can still be done (in a little more verbose, but also more direct & explicit fashion) by getting a reference to the desired state via `get_state` and then assigning the desired new state to it.
 
 
 ## How to use it

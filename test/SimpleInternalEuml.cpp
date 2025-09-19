@@ -8,7 +8,8 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#define BOOST_MSM_TEST_EUML
+// EUML is not supported by backmp11
+#define BOOST_MSM_TEST_SKIP_BACKMP11
 #include "BackCommon.hpp"
 #include <boost/msm/front/euml/euml.hpp>
 #ifndef BOOST_MSM_NONSTANDALONE_TEST

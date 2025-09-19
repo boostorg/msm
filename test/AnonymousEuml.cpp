@@ -9,7 +9,8 @@
 // http://www.boost.org/LICENSE_1_0.txt)
 
 // back-end
-#define BOOST_MSM_TEST_EUML
+// EUML is not supported by backmp11
+#define BOOST_MSM_TEST_SKIP_BACKMP11
 #include "BackCommon.hpp"
 #include <boost/msm/front/euml/euml.hpp>
 

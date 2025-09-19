@@ -9,6 +9,8 @@
 // http://www.boost.org/LICENSE_1_0.txt)
 
 // back-end
+// set_states API is not supported by backmp11
+#define BOOST_MSM_TEST_SKIP_BACKMP11
 #include "BackCommon.hpp"
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>

@@ -1638,24 +1638,25 @@ public:
 
  public:
 
-    // Construct with the default initial states
-    state_machine()
-         :Derived()
-         ,m_events_queue()
-         ,m_deferred_events_queue()
-         ,m_history()
-         ,m_event_processing(false)
-         ,m_is_included(false)
-         ,m_visitors()
-         ,m_substate_list()
-    {
+    // Construct with the default initial states and forward constructor arguments to the frontend.
+    template <typename... Args>
+    state_machine(Args&&... args)
+    : Derived(std::forward<Args>(args)...)
+      ,m_events_queue()
+      ,m_deferred_events_queue()
+      ,m_history()
+      ,m_event_processing(false)
+      ,m_is_included(false)
+      ,m_visitors()
+      ,m_substate_list()
+     {
          // initialize our list of states with the ones defined in Derived::initial_state
          ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
                         (init_states(m_states));
          m_history.set_initial_states(m_states);
          // create states
          fill_states(this);
-    }
+     }
 
      // assignment operator using the copy policy to decide if non_copyable, shallow or deep copying is necessary
      library_sm& operator= (library_sm const& rhs)

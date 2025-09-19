@@ -9,8 +9,6 @@
 // http://www.boost.org/LICENSE_1_0.txt)
 
 // back-end
-// set_states API is not supported by backmp11
-#define BOOST_MSM_TEST_SKIP_BACKMP11
 #include "BackCommon.hpp"
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>
@@ -250,8 +248,10 @@ namespace
     typedef Back<player_, Policy> player;
     };
     // Pick a back-end
-    typedef get_hierarchical_test_machines<hierarchical_state_machine> test_machines;
-
+    typedef boost::mpl::vector<
+        hierarchical_state_machine<boost::msm::backmp11::state_machine>,
+        hierarchical_state_machine<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>
+        > test_machines; 
 
     BOOST_AUTO_TEST_CASE_TEMPLATE( test_constructor, test_machine, test_machines )
     {
@@ -259,19 +259,19 @@ namespace
         typedef typename test_machine::player_ player_;
 
         SomeExternalContext ctx(3);
-        player p1(boost::ref(ctx),5);
+        player p1(ctx, 5);
         BOOST_CHECK_MESSAGE(p1.context_.bla == 10,"Wrong returned context value");
 
-        ctx.bla = 3;
-        player p2(msm::back::states_ << typename player_::Empty(1),boost::ref(ctx),5);
-        BOOST_CHECK_MESSAGE(p2.template get_state<typename player_::Empty&>().data_ == 1,"Wrong Empty value");
+        p1.template get_state<typename player_::Empty&>() = typename player_::Empty(1);
+        BOOST_CHECK_MESSAGE(p1.template get_state<typename player_::Empty&>().data_ == 1,"Wrong Empty value");
 
-        p2.set_states(msm::back::states_ << typename player_::Empty(5));
-        BOOST_CHECK_MESSAGE(p2.template get_state<typename player_::Empty&>().data_ == 5,"Wrong Empty value");
+        p1.template get_state<typename player_::Empty&>() = typename player_::Empty(5);
+        BOOST_CHECK_MESSAGE(p1.template get_state<typename player_::Empty&>().data_ == 5,"Wrong Empty value");
 
-        p2.set_states(msm::back::states_ << typename player_::Empty(7) << typename player_::Open(2));
-        BOOST_CHECK_MESSAGE(p2.template get_state<typename player_::Empty&>().data_ == 7,"Wrong Empty value");
-        BOOST_CHECK_MESSAGE(p2.template get_state<typename player_::Open&>().data_ == 2,"Wrong Open value");
+        p1.template get_state<typename player_::Empty&>() = typename player_::Empty(7);
+        p1.template get_state<typename player_::Open&>() = typename player_::Open(2);
+        BOOST_CHECK_MESSAGE(p1.template get_state<typename player_::Empty&>().data_ == 7,"Wrong Empty value");
+        BOOST_CHECK_MESSAGE(p1.template get_state<typename player_::Open&>().data_ == 2,"Wrong Open value");
 
 #if defined(BOOST_MSVC) && BOOST_MSVC >= 1910 && BOOST_MSVC < 1930
 
@@ -284,9 +284,9 @@ namespace
 #else
 
         ctx.bla = 3;
-        player p(msm::back::states_ << typename player_::Empty(1) 
-                                    << typename player_::Playing(msm::back::states_ << typename player_::Playing_::Song1(8)),
-                 boost::ref(ctx),5);
+        player p(ctx, 5);
+        p.template get_state<typename player_::Empty&>() = typename player_::Empty(1);
+        p.template get_state<typename player_::Playing&>().template get_state<typename player_::Playing_::Song1&>() = typename player_::Playing_::Song1(8);
         BOOST_CHECK_MESSAGE(p.template get_state<typename player_::Playing&>().template get_state<typename player_::Playing_::Song1&>().data_ == 8,"Wrong Open value");
 
 #endif
