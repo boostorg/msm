@@ -8,6 +8,7 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
+#define BOOST_MSM_TEST_EUML
 #include "BackCommon.hpp"
 #include <boost/msm/front/euml/euml.hpp>
 
@@ -289,8 +290,3 @@ namespace
 using back0 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::player;
 using back1 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::Playing_type;
 BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back1);
-
-using backmp11_0 = hierarchical_state_machine<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>::player;
-BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_0);
-using backmp11_1 = hierarchical_state_machine<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>::Playing_type;
-BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_1);

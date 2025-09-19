@@ -8,6 +8,7 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
+#define BOOST_MSM_TEST_EUML
 #include "BackCommon.hpp"
 #include <boost/msm/front/euml/euml.hpp>
 
@@ -213,6 +214,3 @@ namespace
 // at the risk of a programming error creating duplicate objects.
 // this is to get rid of warning because p is not const
 // BOOST_CLASS_TRACKING(player, boost::serialization::track_never)
-
-using backmp11_fsm = boost::msm::backmp11::state_machine<player_, boost::msm::backmp11::favor_compile_time>;
-BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_fsm);

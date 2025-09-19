@@ -155,9 +155,7 @@ namespace
     // Pick a back-end
     typedef boost::mpl::vector<
         hierarchical_state_machine<boost::msm::back::state_machine>,
-        hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>,
-        hierarchical_state_machine<boost::msm::backmp11::state_machine>,
-        hierarchical_state_machine<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>
+        hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>
         // TODO:
         // Investigate reason for test failure in back11.
         // hierarchical_state_machine<boost::msm::back11::state_machine>
@@ -375,8 +373,3 @@ namespace
 using back0 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::player;
 using back1 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::Playing_type;
 BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back1);
-
-using backmp11_0 = hierarchical_state_machine<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>::player;
-BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_0);
-using backmp11_1 = hierarchical_state_machine<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>::Playing_type;
-BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_1);

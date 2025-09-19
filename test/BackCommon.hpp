@@ -19,8 +19,11 @@ template<typename Front>
 using get_test_machines = boost::mpl::vector<
     boost::msm::back::state_machine<Front>,
     boost::msm::back::state_machine<Front, boost::msm::back::favor_compile_time>,
+// EUML is not supported by backmp11.
+#ifndef BOOST_MSM_TEST_EUML
     boost::msm::backmp11::state_machine<Front>,
     boost::msm::backmp11::state_machine<Front, boost::msm::backmp11::favor_compile_time>,
+#endif // BOOST_MSM_TEST_EUML
     boost::msm::back11::state_machine<Front>
     >;
 
@@ -28,8 +31,11 @@ template <template <template <typename...> class, typename = void> class hierarc
 using get_hierarchical_test_machines = boost::mpl::vector<
     hierarchical<boost::msm::back::state_machine>,
     hierarchical<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>,
+// EUML is not supported by backmp11.
+#ifndef BOOST_MSM_TEST_EUML
     hierarchical<boost::msm::backmp11::state_machine>,
     hierarchical<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>,
+#endif // BOOST_MSM_TEST_EUML
     hierarchical<boost::msm::back11::state_machine>
 >;
 
