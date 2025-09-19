@@ -58,7 +58,6 @@
 #include <boost/msm/active_state_switching_policies.hpp>
 #include <boost/msm/row_tags.hpp>
 #include <boost/msm/back/traits.hpp>
-#include <boost/msm/back/fold_to_list.hpp>
 #include <boost/msm/backmp11/favor_compile_time.hpp>
 #include <boost/msm/backmp11/metafunctions.hpp>
 #include <boost/msm/backmp11/history_policies.hpp>
@@ -77,7 +76,6 @@ namespace boost { namespace msm { namespace backmp11
 
 using back::no_fsm_check;
 using back::queue_container_deque;
-using back::FoldToList;
 
 
 // event used internally for wrapping a direct entry
@@ -1637,23 +1635,8 @@ public:
          int* const m_initial_states;
          int m_index;
      };
+
  public:
-     struct update_state
-     {
-         update_state(substate_list& to_overwrite_):to_overwrite(&to_overwrite_){}
-         template<typename StateType>
-         void operator()(StateType const& astate) const
-         {
-             std::get<get_state_id<stt, StateType>::value>(*to_overwrite)=astate;
-         }
-         substate_list* to_overwrite;
-     };
-     template <class Expr>
-     void set_states(Expr const& expr)
-     {
-         ::boost::fusion::for_each(
-             ::boost::fusion::as_vector(FoldToList()(expr, boost::fusion::nil_())),update_state(this->m_substate_list));
-     }
 
     // Construct with the default initial states
     state_machine()
