@@ -24,6 +24,13 @@ For the sake of compiler features such as `if constexpr`.
 The support of EUML induces longer compilation times by the need to include the Boost proto headers and applying C++03 variadic template emulation. If you want to use a UML-like syntax, please try out the new PUML frontend.
 
 
+### A state machine's frontend must be default-constructible
+
+TODO:
+- Double-check that removal is not an issue, check available alternatives post-construction time
+- Provide rationale (proto headers, limitations for hierarchical state machines(?))
+
+
 ## How to use it
 
 The backend and both its policies `favor_runtime_speed` and `favor_compile_time` should be compatible with existing code. Required replacements to try it out:

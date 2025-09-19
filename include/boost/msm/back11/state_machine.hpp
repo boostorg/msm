@@ -70,10 +70,6 @@
 #include <boost/msm/back/queue_container_deque.hpp>
 #include <boost/msm/back11/dispatch_table.hpp>
 
-#ifndef BOOST_MSM_CONSTRUCTOR_ARG_SIZE
-#define BOOST_MSM_CONSTRUCTOR_ARG_SIZE 5 // default max number of arguments for constructors
-#endif
-
 namespace boost { namespace msm { namespace back11
 {
 // event used internally for wrapping a direct entry
