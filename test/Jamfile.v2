@@ -35,6 +35,7 @@ test-suite msm-unit-tests
     [ run AnonymousAndGuard.cpp ]
     [ run AnonymousEuml.cpp ]
     [ run Back11CompositeMachine.cpp ]
+    [ run Backmp11TestConstructor.cpp ]
     [ run BigWithFunctors.cpp ]
     [ run CompositeEuml.cpp ]
     [ run CompositeMachine.cpp ]
