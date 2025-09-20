@@ -28,7 +28,7 @@ using get_test_machines = boost::mpl::vector<
 
 template <template <template <typename...> class, typename = void> class hierarchical>
 using get_hierarchical_test_machines = boost::mpl::vector<
-hierarchical<boost::msm::back::state_machine>,
+    hierarchical<boost::msm::back::state_machine>,
     hierarchical<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>,
 #if !defined(BOOST_MSM_TEST_SKIP_BACKMP11)
     hierarchical<boost::msm::backmp11::state_machine>,
