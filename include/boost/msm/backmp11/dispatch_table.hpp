@@ -164,7 +164,6 @@ private:
 
     private:
         // A function object for use with mp11::mp_for_each that stuffs transitions into cells.
-        // Only used when C++20 is not available.
         class row_init_helper
         {
         public:
@@ -190,6 +189,23 @@ private:
         private:
             event_cell* m_entries;
         };
+        // A function object for use with mp11::mp_for_each that stuffs transitions into cells.
+        class state_init_helper
+        {
+        public:
+            state_init_helper(event_cell* entries)
+                : m_entries(entries) {}
+
+            template<typename State>
+            void operator()(State)
+            {
+                m_entries[get_table_index<Fsm, State, Event>::value] =
+                    &Fsm::defer_transition;
+            }
+
+        private:
+            event_cell* m_entries;
+        };
 
         // initialize the dispatch table for a given Event and Fsm
         event_dispatch_table()
@@ -204,6 +220,8 @@ private:
                 typename generate_state_set<Stt>::state_set_mp11,
                 state_filter_predicate
                 > filtered_states;
+// MSVC crashes when using get_init_cells.
+#if !defined(_MSC_VER)
             typedef mp11::mp_transform<
                 preprocess_state,
                 filtered_states
@@ -213,7 +231,10 @@ private:
                 get_init_cells<event_cell, preprocessed_states>(),
                 mp11::mp_size<preprocessed_states>::value
                 );
-            
+#else
+            mp11::mp_for_each<filtered_states>(state_init_helper{entries});
+#endif
+
             // build chaining rows for rows coming from the same state and the current event
             // first we build a map of sequence for every source
             // in reverse order so that the frow's are handled first (UML priority)
@@ -232,7 +253,9 @@ private:
                 > chained_rows;
 
             // Go back and fill in cells for matching transitions.
-#if __cplusplus >= 202002L
+// Creating init cells that refer to convert_event_and_forward is only possible from C++17.
+// MSVC crashes when using get_init_cells.
+#if __cplusplus >= 201703L && !defined(_MSC_VER)
             typedef mp11::mp_transform<
                 preprocess_row,
                 chained_rows
