@@ -36,7 +36,8 @@ test-suite msm-unit-tests
     [ run AnonymousEuml.cpp ]
     [ run Back11CompositeMachine.cpp ]
     [ run BigWithFunctors.cpp ]
-    [ run CompositeEuml.cpp ]
+    # MSVC 32-bit runs out of memory when compiling this test
+    [ run CompositeEuml.cpp : : : <toolset>msvc-14.3,<address-model>32:<build>no ]
     [ run CompositeMachine.cpp ]
     [ run Constructor.cpp ]
     [ run Entries.cpp ]
@@ -47,7 +48,8 @@ test-suite msm-unit-tests
     [ run OrthogonalDeferred.cpp ]
     [ run OrthogonalDeferred2.cpp ]
     [ run OrthogonalDeferred3.cpp ]
-    [ run OrthogonalDeferredEuml.cpp ]
+    # MSVC 32-bit runs out of memory when compiling this test
+    [ run OrthogonalDeferredEuml.cpp : : : <toolset>msvc-14.3,<address-model>32:<build>no ]
     [ run Serialize.cpp ]
     [ run SerializeSimpleEuml.cpp ]
     [ run SerializeWithHistory.cpp ]
@@ -72,7 +74,8 @@ test-suite msm-unit-tests
 
 test-suite msm-unit-tests-cxxstd20
     :
-    [ run Back11OrthogonalDeferred3WithPuml.cpp ]
+    # MSVC 32-bit runs out of memory when compiling this test
+    [ run Back11OrthogonalDeferred3WithPuml.cpp : : : <toolset>msvc-14.3,<address-model>32:<build>no ]
     [ run OnlyStringPuml.cpp ]
     [ run puml_syntax.cpp ]
     [ run puml_syntax_2.cpp ]
