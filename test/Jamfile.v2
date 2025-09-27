@@ -50,9 +50,11 @@ test-suite msm-unit-tests
     [ run OrthogonalDeferred3.cpp ]
     # MSVC 32-bit runs out of memory when compiling this test
     [ run OrthogonalDeferredEuml.cpp : : : <toolset>msvc-14.3,<address-model>32:<build>no ]
-    [ run Serialize.cpp ]
-    [ run SerializeSimpleEuml.cpp ]
-    [ run SerializeWithHistory.cpp ]
+    # GCC has a bug in std::type_info::before() that leads to a segfault.
+    # Only observable on Windows, though (https://github.com/boostorg/msm/issues/114).
+    [ run Serialize.cpp : : : <toolset>gcc,<target-os>windows:<build>no ]
+    [ run SerializeSimpleEuml.cpp : : : <toolset>gcc,<target-os>windows:<build>no ]
+    [ run SerializeWithHistory.cpp : : : <toolset>gcc,<target-os>windows:<build>no ]
     [ run SetStates.cpp ]
     [ run SimpleEuml.cpp ]
     [ run SimpleEuml2.cpp ]
