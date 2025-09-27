@@ -1,4 +1,4 @@
-file(GLOB SOURCES "*.cpp")
+file(GLOB SOURCES CONFIGURE_DEPENDS "*.cpp")
 if(CMAKE_CXX_STANDARD LESS 20)
     message(STATUS "MSM: CXX standard is below 20, excluding puml tests")
     list(FILTER SOURCES EXCLUDE REGEX "puml|Puml")
@@ -9,18 +9,15 @@ add_executable(boost_msm_tests
     ${SOURCES}
     main.cpp
 )
-
-# Build tests standalone
-get_filename_component(PARENT_DIR ${CMAKE_CURRENT_SOURCE_DIR} DIRECTORY)
-if(PARENT_DIR STREQUAL CMAKE_SOURCE_DIR)
-    target_include_directories(boost_msm_tests PRIVATE ../include)
-    find_package(Boost COMPONENTS serialization REQUIRED)
-    target_link_libraries(boost_msm_tests Boost::serialization)
-# Build tests as part of the super-project
-else()    
-    target_link_libraries(boost_msm_tests Boost::msm)
+if(BOOST_MSM_IS_ROOT)
+    find_package(Boost REQUIRED COMPONENTS unit_test_framework)
 endif()
-
+target_link_libraries(boost_msm_tests Boost::msm Boost::unit_test_framework)
 target_compile_definitions(boost_msm_tests PRIVATE "BOOST_MSM_NONSTANDALONE_TEST")
 
-add_test(boost_msm_tests boost_msm_tests)
+add_test(NAME boost_msm_tests COMMAND boost_msm_tests)
+
+if(NOT TARGET tests)
+    add_custom_target(tests)
+endif()
+add_dependencies(tests boost_msm_tests)
