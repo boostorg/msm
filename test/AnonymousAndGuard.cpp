@@ -106,5 +106,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(anonymous_and_guard_test2, MyStateMachine, MyState
     BOOST_CHECK_MESSAGE(sm.current_state()[1] == 3, "Completed should be active");
 }
 
+#if !defined(BOOST_MSM_TEST_SKIP_BACKMP11)
 using backmp11_fsm = boost::msm::backmp11::state_machine<Bug, boost::msm::backmp11::favor_compile_time>;
 BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_fsm);
+#endif

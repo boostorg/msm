@@ -12,20 +12,13 @@
 #ifndef BOOST_MSM_BACKMP11_FAVOR_COMPILE_TIME_H
 #define BOOST_MSM_BACKMP11_FAVOR_COMPILE_TIME_H
 
-#if __cplusplus >= 201703L
-#include <any>
-#endif
 #include <deque>
 #include <typeindex>
 #include <unordered_map>
 
-#include <boost/mpl/filter_view.hpp>
-#include <boost/mpl/for_each.hpp>
 #include <boost/mpl/bool.hpp>
 
-#include <boost/msm/common.hpp>
 #include <boost/msm/backmp11/metafunctions.hpp>
-#include <boost/msm/back/common_types.hpp>
 #include <boost/msm/backmp11/dispatch_table.hpp>
 
 namespace boost { namespace msm { namespace backmp11
@@ -43,11 +36,6 @@ struct favor_compile_time
 {
     typedef int compile_policy;
     typedef ::boost::mpl::false_ add_forwarding_rows;
-#if __cplusplus >= 201703L
-    typedef std::any any_event;
-#else
-    typedef boost::any any_event;
-#endif
 };
 
 template <class Event>
@@ -85,7 +73,7 @@ class end_interrupt_event_helper
             init_helper<Fsm>{fsm, m_is_flag_active_functions});
     }
 
-    bool is_end_interrupt_event(const favor_compile_time::any_event& event) const
+    bool is_end_interrupt_event(const any_event& event) const
     {
         auto it = m_is_flag_active_functions.find(event.type());
         if (it != m_is_flag_active_functions.end())
@@ -124,8 +112,6 @@ class end_interrupt_event_helper
 
 struct chain_row
 {
-    using any_event = favor_compile_time::any_event;
-
     template<typename Fsm>
     HandledEnum operator()(Fsm& fsm, int region, int state, any_event const& evt) const
     {
@@ -155,7 +141,6 @@ struct chain_row
 template<class Fsm, class Stt>
 class dispatch_table<Fsm, Stt, favor_compile_time>
 {
-    using any_event = favor_compile_time::any_event;
 public:
     // Dispatch an event.
     static HandledEnum dispatch(Fsm& fsm, int region_id, int state_id, const any_event& event)
