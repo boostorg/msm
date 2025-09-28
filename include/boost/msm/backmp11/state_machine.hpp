@@ -22,30 +22,16 @@
 #include <boost/core/ignore_unused.hpp>
 #include <boost/mp11.hpp>
 #include <boost/mp11/mpl_list.hpp>
-#include <boost/mpl/contains.hpp>
 #include <boost/mpl/deref.hpp>
 #include <boost/mpl/assert.hpp>
-
-#include <boost/fusion/container/vector/convert.hpp>
-#include <boost/fusion/include/as_vector.hpp>
-#include <boost/fusion/include/as_set.hpp>
-#include <boost/fusion/container/set.hpp>
-#include <boost/fusion/include/set.hpp>
-#include <boost/fusion/include/set_fwd.hpp>
-#include <boost/fusion/include/mpl.hpp>
-#include <boost/fusion/sequence/intrinsic/at_key.hpp>
-#include <boost/fusion/include/at_key.hpp>
-#include <boost/fusion/algorithm/iteration/for_each.hpp>
-#include <boost/fusion/include/for_each.hpp>
 
 #include <boost/assert.hpp>
 #include <boost/ref.hpp>
 #include <boost/type_traits/remove_pointer.hpp>
+#include <boost/type_traits/add_reference.hpp>
 #include <boost/utility/enable_if.hpp>
 #include <boost/type_traits/is_convertible.hpp>
 
-#include <boost/bind/bind.hpp>
-#include <boost/function.hpp>
 #ifndef BOOST_NO_RTTI
 #include <boost/any.hpp>
 #endif
@@ -239,8 +225,8 @@ private:
         typedef int                 no_automatic_create;
         typedef typename
             ExitPoint::event        Event;
-        typedef ::boost::function<execute_return (Event const&)>
-                                    forwarding_function;
+        typedef std::function<execute_return (Event const&)>
+                                    forward_function;
 
         // forward event to the higher-level FSM
         template <class ForwardEvent>
@@ -249,7 +235,7 @@ private:
             // use helper to forward or not
             ForwardHelper< ::boost::is_convertible<ForwardEvent,Event>::value>::helper(incomingEvent,m_forward);
         }
-        void set_forward_fct(::boost::function<execute_return (Event const&)> fct)
+        void set_forward_fct(forward_function fct)
         {
             m_forward = fct;
         }
@@ -262,14 +248,14 @@ private:
             return *this;
         }
     private:
-         forwarding_function          m_forward;
+         forward_function          m_forward;
 
          // using partial specialization instead of enable_if because of VC8 bug
         template <bool OwnEvent, int Dummy=0>
         struct ForwardHelper
         {
             template <class ForwardEvent>
-            static void helper(ForwardEvent const& ,forwarding_function& )
+            static void helper(ForwardEvent const& ,forward_function& )
             {
                 // Not our event, assert
                 BOOST_ASSERT(false);
@@ -279,7 +265,7 @@ private:
         struct ForwardHelper<true,Dummy>
         {
             template <class ForwardEvent>
-            static void helper(ForwardEvent const& incomingEvent,forwarding_function& forward_fct)
+            static void helper(ForwardEvent const& incomingEvent,forward_function& forward_fct)
             {
                 // call if handler set, if not, this state is simply a terminate state
                 if (forward_fct)
@@ -2231,19 +2217,18 @@ private:
         typename ::boost::enable_if<typename is_pseudo_exit<StateType>::type,void >::type
         new_state_helper( ::boost::msm::back::dummy<2> = 0) const
         {
-            execute_return (ContainingSM::*pf) (typename StateType::event const& evt)=
-                &ContainingSM::process_event;
-            ::boost::function<execute_return (typename StateType::event const&)> fct =
-                ::boost::bind(pf,containing_sm,::boost::placeholders::_1);
-            std::get<get_state_id<stt, StateType>::value>(self->m_substate_list).set_forward_fct(fct);
+            ContainingSM* sm = containing_sm;
+            self->get_state<StateType&>().set_forward_fct(
+                [sm](typename StateType::event const& event)
+                {
+                    return sm->process_event(event);
+                }
+            );
         }
         // for every defined state in the sm
         template <class State>
         void operator()( State const&) const
         {
-            //create a new state with the defined id and type
-            BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
-
             this->new_state_helper<State>(),
             create_state_helper<State>::set_sm(self);
         }
