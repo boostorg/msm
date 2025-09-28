@@ -66,6 +66,23 @@ namespace boost { namespace msm { namespace backmp11
 
 using back::favor_runtime_speed;
 
+// check whether a state has an accept method
+template<typename State, typename = void>
+struct has_accept_method : std::false_type {};
+template<typename State>
+struct has_accept_method<State, decltype(void(&State::accept))> : std::true_type {};
+
+// get the signature of a member function as list
+template <typename T>
+struct member_function_signature;
+template <typename Class, typename Ret, typename... Args>
+struct member_function_signature<Ret (Class::*)(Args...)>
+{
+    using type = mp11::mp_list<Ret, Args...>;
+};
+template<typename T>
+using member_function_signature_t = typename member_function_signature<T>::type;
+
 template <typename Sequence, typename Range>
 struct set_insert_range
 {
@@ -899,8 +916,8 @@ is_exit_state_active(FSM& fsm)
     typedef typename Composite::stt stt;
     int state_id = get_state_id<stt,StateType>::type::value;
     Composite& comp = fsm.template get_state<Composite&>();
-    return (std::find(comp.current_state(),comp.current_state()+Composite::nr_regions::value,state_id)
-                            !=comp.current_state()+Composite::nr_regions::value);
+    return (std::find(comp.current_state(),comp.current_state()+Composite::nr_regions,state_id)
+                            !=comp.current_state()+Composite::nr_regions);
 }
 template <class StateType,class OwnerFct,class FSM>
 inline
