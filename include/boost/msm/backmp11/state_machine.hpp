@@ -64,14 +64,9 @@
 #include <boost/msm/backmp11/metafunctions.hpp>
 #include <boost/msm/backmp11/history_policies.hpp>
 #include <boost/msm/backmp11/common_types.hpp>
-#include <boost/msm/back/args.hpp>
 #include <boost/msm/backmp11/dispatch_table.hpp>
 #include <boost/msm/back/no_fsm_check.hpp>
 #include <boost/msm/back/queue_container_deque.hpp>
-
-#ifndef BOOST_MSM_CONSTRUCTOR_ARG_SIZE
-#define BOOST_MSM_CONSTRUCTOR_ARG_SIZE 5 // default max number of arguments for constructors
-#endif
 
 namespace boost { namespace msm { namespace backmp11
 {
@@ -197,63 +192,6 @@ private:
     // all state machines are friend with each other to allow embedding any of them in another fsm
     template <class ,class , class, class, class
     > friend class state_machine;
-
-    // helper to add, if needed, visitors to all states
-    // version without visitors
-    template <class StateType,class Enable=void>
-    struct visitor_fct_helper
-    {
-    public:
-        visitor_fct_helper(){}
-        void fill_visitors(int)
-        {
-        }
-        template <class FCT>
-        void insert(int,FCT)
-        {
-        }
-        template <class VISITOR>
-        void execute(int,VISITOR)
-        {
-        }
-    };
-    // version with visitors
-    template <class StateType>
-    struct visitor_fct_helper<StateType,typename ::boost::enable_if<has_accept_sig<StateType> >::type>
-    {
-    public:
-        visitor_fct_helper():m_state_visitors(){}
-        void fill_visitors(int number_of_states)
-        {
-            m_state_visitors.resize(number_of_states);
-        }
-        template <class FCT>
-        void insert(int index,FCT fct)
-        {
-            m_state_visitors[index]=fct;
-        }
-        void execute(int index)
-        {
-            m_state_visitors[index]();
-        }
-
-#define MSM_VISITOR_HELPER_EXECUTE_SUB(z, n, unused) ARG ## n vis ## n
-#define MSM_VISITOR_HELPER_EXECUTE(z, n, unused)                                    \
-        template <BOOST_PP_ENUM_PARAMS(n, class ARG)>                               \
-        void execute(int index BOOST_PP_COMMA_IF(n)                                 \
-                     BOOST_PP_ENUM(n, MSM_VISITOR_HELPER_EXECUTE_SUB, ~ ) )         \
-        {                                                                           \
-            m_state_visitors[index](BOOST_PP_ENUM_PARAMS(n,vis));                   \
-        }
-        BOOST_PP_REPEAT_FROM_TO(1,BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_HELPER_EXECUTE, ~)
-#undef MSM_VISITOR_HELPER_EXECUTE
-#undef MSM_VISITOR_HELPER_EXECUTE_SUB
-    private:
-        typedef typename StateType::accept_sig::type                  visitor_fct;
-        typedef std::vector<visitor_fct>                              visitors;
-
-        visitors                                                      m_state_visitors;
-    };
 
     template <class StateType,class Enable=int>
     struct deferred_msg_queue_helper
@@ -387,7 +325,7 @@ private:
         typedef library_sm          owner;
         typedef int                 no_automatic_create;
     };
-    typedef typename get_number_of_regions<typename Derived::initial_state>::type nr_regions;
+    static constexpr int nr_regions = get_number_of_regions<typename Derived::initial_state>::type::value;
     // Template used to form rows in the transition table
     template<
         typename ROW
@@ -1171,7 +1109,7 @@ private:
     typedef typename generate_state_set<stt>::state_set_mp11 state_set_mp11;
     typedef typename generate_state_map<stt>::type state_map_mp11;
     typedef typename generate_event_set<stt>::event_set_mp11 event_set_mp11;
-    typedef typename HistoryPolicy::template apply<nr_regions::value>::type concrete_history;
+    typedef typename HistoryPolicy::template apply<nr_regions>::type concrete_history;
 
     typedef mp11::mp_rename<state_set_mp11, std::tuple> substate_list;
     typedef typename generate_event_set<
@@ -1219,29 +1157,22 @@ private:
     typedef typename extend_table<library_sm>::type complete_table;
     // define the dispatch table used for event dispatch
     typedef dispatch_table<library_sm,complete_table,CompilePolicy> sm_dispatch_table;
-     // build a sequence of regions
-     typedef typename get_regions_as_sequence<typename Derived::initial_state>::type seq_initial_states;
+    // build a sequence of regions
+    typedef typename get_regions_as_sequence<typename Derived::initial_state>::type seq_initial_states;
+
     // Member functions
 
     // start the state machine (calls entry of the initial state)
     void start()
     {
-         // reinitialize our list of currently active states with the ones defined in Derived::initial_state
-         ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
-                        (init_states(m_states));
-        // call on_entry on this SM
-        (static_cast<Derived*>(this))->on_entry(fsm_initial_event(),*this);
-        ::boost::mpl::for_each<initial_states, boost::msm::wrap<mpl::placeholders::_1> >
-            (call_init<fsm_initial_event>(fsm_initial_event(),this));
-        // give a chance to handle an anonymous (eventless) transition
-        handle_eventless_transitions_helper<library_sm> eventless_helper(this,true);
-        eventless_helper.process_completion_event();
+        start(fsm_initial_event{});
     }
 
     // start the state machine (calls entry of the initial state passing incomingEvent to on_entry's)
     template <class Event>
     void start(Event const& incomingEvent)
     {
+        m_running = true;
         // reinitialize our list of currently active states with the ones defined in Derived::initial_state
         ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
                         (init_states(m_states));
@@ -1257,7 +1188,7 @@ private:
     // stop the state machine (calls exit of the current state)
     void stop()
     {
-        do_exit(fsm_final_event(),*this);
+        stop(fsm_final_event{});
     }
 
     // stop the state machine (calls exit of the current state passing finalEvent to on_exit's)
@@ -1265,6 +1196,7 @@ private:
     void stop(Event const& finalEvent)
     {
         do_exit(finalEvent,*this);
+        m_running = false;
     }
 
     // Main function used by clients of the derived FSM to make transitions.
@@ -1504,7 +1436,7 @@ private:
     {
         flag_handler* flags_entries = get_entries_for_flag<Flag>();
         bool res = (*flags_entries[ m_states[0] ])(*this);
-        for (int i = 1; i < nr_regions::value ; ++i)
+        for (int i = 1; i < nr_regions ; ++i)
         {
             res = typename BinaryOp::type() (res,(*flags_entries[ m_states[i] ])(*this));
         }
@@ -1514,7 +1446,7 @@ private:
     template <class Flag>
     bool is_flag_active() const
     {
-        return FlagHelper<Flag,(nr_regions::value>1)>::helper(*this,get_entries_for_flag<Flag>());
+        return FlagHelper<Flag,(nr_regions>1)>::helper(*this,get_entries_for_flag<Flag>());
     }
 
     // Checks if an event is an end interrupt event.
@@ -1534,26 +1466,17 @@ private:
 
     // visit the currently active states (if these are defined as visitable
     // by implementing accept)
-    void visit_current_states()
+    template <typename... Args>
+    void visit_current_states(Args&&... args)
     {
-        for (int i=0; i<nr_regions::value;++i)
+        if (m_running)
         {
-            m_visitors.execute(m_states[i]);
+            for (int i = 0; i < nr_regions; ++i)
+            {
+                visitor_dispatch_table<BaseState>::dispatch(*this, m_states[i], std::forward<Args>(args)...);
+            }
         }
     }
-#define MSM_VISIT_STATE_SUB(z, n, unused) ARG ## n vis ## n
-#define MSM_VISIT_STATE_EXECUTE(z, n, unused)                                    \
-        template <BOOST_PP_ENUM_PARAMS(n, class ARG)>                               \
-        void visit_current_states(BOOST_PP_ENUM(n, MSM_VISIT_STATE_SUB, ~ ) )         \
-        {                                                                           \
-            for (int i=0; i<nr_regions::value;++i)                                                      \
-            {                                                                                           \
-                m_visitors.execute(m_states[i],BOOST_PP_ENUM_PARAMS(n,vis));                            \
-            }                                                                                           \
-        }
-        BOOST_PP_REPEAT_FROM_TO(1,BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISIT_STATE_EXECUTE, ~)
-#undef MSM_VISIT_STATE_EXECUTE
-#undef MSM_VISIT_STATE_SUB
 
     // puts the given event into the deferred queue
     template <class Event, class Policy = CompilePolicy>
@@ -1630,7 +1553,7 @@ public:
             defer_event_kleene_helper<Event,library_sm>(e,this,found));
         if (!found)
         {
-            for (int i = 0; i < nr_regions::value; ++i)
+            for (int i = 0; i < nr_regions; ++i)
             {
                 this->no_transition(e, *this, this->m_states[i]);
             }
@@ -1674,14 +1597,7 @@ public:
 
     // Construct with the default initial states
     state_machine()
-         :Derived()
-         ,m_events_queue()
-         ,m_deferred_events_queue()
-         ,m_history()
-         ,m_event_processing(false)
-         ,m_is_included(false)
-         ,m_visitors()
-         ,m_substate_list()
+        : Derived()
     {
          // initialize our list of states with the ones defined in Derived::initial_state
          ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
@@ -1692,143 +1608,50 @@ public:
     }
 
      // Construct with the default initial states and some default argument(s)
-#if defined (BOOST_NO_CXX11_RVALUE_REFERENCES)                                      \
-    || defined (BOOST_NO_CXX11_VARIADIC_TEMPLATES)                                  \
-    || defined (BOOST_NO_CXX11_FUNCTION_TEMPLATE_DEFAULT_ARGS)
-     template <class Expr>
-     state_machine
-     (Expr const& expr, typename ::boost::enable_if<typename ::boost::proto::is_expr<Expr>::type >::type* = 0)
-         :Derived()
-         , m_events_queue()
-         , m_deferred_events_queue()
-         , m_history()
-         , m_event_processing(false)
-         , m_is_included(false)
-         , m_visitors()
-         , m_substate_list()
-     {
-         BOOST_MPL_ASSERT_MSG(
-             (::boost::proto::matches<Expr, FoldToList>::value),
-             THE_STATES_EXPRESSION_PASSED_DOES_NOT_MATCH_GRAMMAR,
-             (FoldToList));
-
-         // initialize our list of states with the ones defined in Derived::initial_state
-         ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
-             (init_states(m_states));
-         m_history.set_initial_states(m_states);
-         // create states
-         set_states(expr);
-         fill_states(this);
-     }
-#define MSM_CONSTRUCTOR_HELPER_EXECUTE_SUB(z, n, unused) ARG ## n t ## n
-#define MSM_CONSTRUCTOR_HELPER_EXECUTE(z, n, unused)                                \
-        template <BOOST_PP_ENUM_PARAMS(n, class ARG)>                               \
-        state_machine<A0,A1,A2,A3,A4                                                \
-        >(BOOST_PP_ENUM(n, MSM_CONSTRUCTOR_HELPER_EXECUTE_SUB, ~ ),                 \
-        typename ::boost::disable_if<typename ::boost::proto::is_expr<ARG0>::type >::type* =0 )                \
-        :Derived(BOOST_PP_ENUM_PARAMS(n,t))                                         \
-         ,m_events_queue()                                                          \
-         ,m_deferred_events_queue()                                                 \
-         ,m_history()                                                               \
-         ,m_event_processing(false)                                                 \
-         ,m_is_included(false)                                                      \
-         ,m_visitors()                                                              \
-         ,m_substate_list()                                                         \
-     {                                                                              \
-         ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> > \
-                        (init_states(m_states));                                    \
-         m_history.set_initial_states(m_states);                                    \
-         fill_states(this);                                                         \
-     }                                                                              \
-        template <class Expr,BOOST_PP_ENUM_PARAMS(n, class ARG)>                    \
-        state_machine<A0,A1,A2,A3,A4                                                \
-        >(Expr const& expr,BOOST_PP_ENUM(n, MSM_CONSTRUCTOR_HELPER_EXECUTE_SUB, ~ ), \
-        typename ::boost::enable_if<typename ::boost::proto::is_expr<Expr>::type >::type* =0 ) \
-        :Derived(BOOST_PP_ENUM_PARAMS(n,t))                                         \
-         ,m_events_queue()                                                          \
-         ,m_deferred_events_queue()                                                 \
-         ,m_history()                                                               \
-         ,m_event_processing(false)                                                 \
-         ,m_is_included(false)                                                      \
-         ,m_visitors()                                                              \
-         ,m_substate_list()                                                         \
-     {                                                                              \
-         BOOST_MPL_ASSERT_MSG(                                                      \
-         ( ::boost::proto::matches<Expr, FoldToList>::value),                       \
-             THE_STATES_EXPRESSION_PASSED_DOES_NOT_MATCH_GRAMMAR,                   \
-             (FoldToList));                                                         \
-         ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> > \
-                        (init_states(m_states));                                    \
-         m_history.set_initial_states(m_states);                                    \
-         set_states(expr);                                                          \
-         fill_states(this);                                                         \
-     }
-
-     BOOST_PP_REPEAT_FROM_TO(1,BOOST_PP_ADD(BOOST_MSM_CONSTRUCTOR_ARG_SIZE,1), MSM_CONSTRUCTOR_HELPER_EXECUTE, ~)
-#undef MSM_CONSTRUCTOR_HELPER_EXECUTE
-#undef MSM_CONSTRUCTOR_HELPER_EXECUTE_SUB
-
-#else
     template <class ARG0,class... ARG,class=typename ::boost::disable_if<typename ::boost::proto::is_expr<ARG0>::type >::type>
     state_machine(ARG0&& t0,ARG&&... t)
-    :Derived(std::forward<ARG0>(t0), std::forward<ARG>(t)...)
-     ,m_events_queue()
-     ,m_deferred_events_queue()
-     ,m_history()
-     ,m_event_processing(false)
-     ,m_is_included(false)
-     ,m_visitors()
-     ,m_substate_list()
-     {
-         ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
-                        (init_states(m_states));
-         m_history.set_initial_states(m_states);
-         fill_states(this);
-     }
+        : Derived(std::forward<ARG0>(t0), std::forward<ARG>(t)...)
+    {
+        ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
+                       (init_states(m_states));
+        m_history.set_initial_states(m_states);
+        fill_states(this);
+    }
     template <class Expr,class... ARG,class=typename ::boost::enable_if<typename ::boost::proto::is_expr<Expr>::type >::type>
     state_machine(Expr const& expr,ARG&&... t)
-    :Derived(std::forward<ARG>(t)...)
-     ,m_events_queue()
-     ,m_deferred_events_queue()
-     ,m_history()
-     ,m_event_processing(false)
-     ,m_is_included(false)
-     ,m_visitors()
-     ,m_substate_list()
-     {
-         BOOST_MPL_ASSERT_MSG(
-         ( ::boost::proto::matches<Expr, FoldToList>::value),
-             THE_STATES_EXPRESSION_PASSED_DOES_NOT_MATCH_GRAMMAR,
-             (FoldToList));
-         ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
-                        (init_states(m_states));
-         m_history.set_initial_states(m_states);
-         set_states(expr);
-         fill_states(this);
-     }
-#endif
+        : Derived(std::forward<ARG>(t)...)
+    {
+        BOOST_MPL_ASSERT_MSG(
+        ( ::boost::proto::matches<Expr, FoldToList>::value),
+            THE_STATES_EXPRESSION_PASSED_DOES_NOT_MATCH_GRAMMAR,
+            (FoldToList));
+        ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
+                       (init_states(m_states));
+        m_history.set_initial_states(m_states);
+        set_states(expr);
+        fill_states(this);
+    }
 
-
-     // assignment operator using the copy policy to decide if non_copyable, shallow or deep copying is necessary
-     library_sm& operator= (library_sm const& rhs)
-     {
-         if (this != &rhs)
-         {
-            Derived::operator=(rhs);
-            do_copy(rhs);
-         }
-        return *this;
-     }
-     state_machine(library_sm const& rhs)
-         : Derived(rhs)
-     {
+    // assignment operator using the copy policy to decide if non_copyable, shallow or deep copying is necessary
+    library_sm& operator= (library_sm const& rhs)
+    {
         if (this != &rhs)
         {
-            // initialize our list of states with the ones defined in Derived::initial_state
-            fill_states(this);
-            do_copy(rhs);
+           Derived::operator=(rhs);
+           do_copy(rhs);
         }
-     }
+       return *this;
+    }
+    state_machine(library_sm const& rhs)
+        : Derived(rhs)
+    {
+       if (this != &rhs)
+       {
+           // initialize our list of states with the ones defined in Derived::initial_state
+           fill_states(this);
+           do_copy(rhs);
+       }
+    }
 
     // the following 2 functions handle the terminate/interrupt states handling
     // if one of these states is found, the first one is used
@@ -2143,7 +1966,7 @@ public:
             }
         };
         template <int Dummy>
-        struct In< ::boost::mpl::int_<nr_regions::value>,Dummy>
+        struct In< ::boost::mpl::int_<nr_regions>,Dummy>
         {
             // end of processing
             template<class Event>
@@ -2255,7 +2078,7 @@ public:
         // completion events do not produce an error
         if ( (!is_contained() || is_direct_call) && !handled && !is_completion_event<Event, CompilePolicy>::value(evt))
         {
-            for (int i=0; i<nr_regions::value;++i)
+            for (int i=0; i<nr_regions;++i)
             {
                 this->no_transition(evt,*this,this->m_states[i]);
             }
@@ -2270,26 +2093,15 @@ public:
     void no_action(Event const&){}
 
 private:
-    // composite accept implementation. First calls accept on the composite, then accept on all its active states.
-    void composite_accept()
+    // accept implementation.
+    // First calls accept on itself, then accept on all active states.
+    template <typename State=BaseState, typename... Args>
+    typename enable_if_c<has_accept_method<State>::type::value, void>::type
+    accept(Args&&... args)
     {
-        this->accept();
-        this->visit_current_states();
+        static_cast<State*>(this)->accept(std::forward<Args>(args)...);
+        visit_current_states(std::forward<Args>(args)...);
     }
-
-#define MSM_COMPOSITE_ACCEPT_SUB(z, n, unused) ARG ## n vis ## n
-#define MSM_COMPOSITE_ACCEPT_SUB2(z, n, unused) boost::ref( vis ## n )
-#define MSM_COMPOSITE_ACCEPT_EXECUTE(z, n, unused)                                      \
-        template <BOOST_PP_ENUM_PARAMS(n, class ARG)>                                   \
-        void composite_accept(BOOST_PP_ENUM(n, MSM_COMPOSITE_ACCEPT_SUB, ~ ) )               \
-        {                                                                               \
-            this->accept(BOOST_PP_ENUM_PARAMS(n,vis));                                        \
-            this->visit_current_states(BOOST_PP_ENUM(n,MSM_COMPOSITE_ACCEPT_SUB2, ~));        \
-        }
-        BOOST_PP_REPEAT_FROM_TO(1,BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_COMPOSITE_ACCEPT_EXECUTE, ~)
-#undef MSM_COMPOSITE_ACCEPT_EXECUTE
-#undef MSM_COMPOSITE_ACCEPT_SUB
-#undef MSM_COMPOSITE_ACCEPT_SUB2
 
     // helper used to call the init states at the start of the state machine
     template <class Event>
@@ -2427,39 +2239,6 @@ private:
             std::get<get_state_id<stt, State>::value>(sm->m_substate_list).set_sm_ptr(sm);
         }
     };
-        // main unspecialized helper class
-        template <class StateType,int ARGS>
-        struct visitor_args;
-
-#define MSM_VISITOR_ARGS_SUB(z, n, unused) BOOST_PP_CAT(::boost::placeholders::_,BOOST_PP_ADD(n,1))
-#define MSM_VISITOR_ARGS_TYPEDEF_SUB(z, n, unused) typename StateType::accept_sig::argument ## n
-
-#define MSM_VISITOR_ARGS_EXECUTE(z, n, unused)                                              \
-    template <class StateType>                                                              \
-    struct visitor_args<StateType,n>                                                        \
-    {                                                                                       \
-        template <class State>                                                              \
-        static typename enable_if_c<!is_composite_state<State>::value,void >::type          \
-        helper (library_sm* sm,                                                             \
-        int id,StateType& astate)                                                           \
-        {                                                                                   \
-            sm->m_visitors.insert(id, boost::bind(&StateType::accept,                       \
-                ::boost::ref(astate) BOOST_PP_COMMA_IF(n) BOOST_PP_ENUM(n, MSM_VISITOR_ARGS_SUB, ~) ));   \
-        }                                                                                   \
-        template <class State>                                                              \
-        static typename enable_if_c<is_composite_state<State>::value,void >::type           \
-        helper (library_sm* sm,                                                             \
-        int id,StateType& astate)                                                           \
-        {                                                                                   \
-            void (StateType::*caccept)(BOOST_PP_ENUM(n, MSM_VISITOR_ARGS_TYPEDEF_SUB, ~ ) )           \
-                                        = &StateType::composite_accept;                     \
-            sm->m_visitors.insert(id, boost::bind(caccept,             \
-            ::boost::ref(astate) BOOST_PP_COMMA_IF(n) BOOST_PP_ENUM(n, MSM_VISITOR_ARGS_SUB, ~) ));                 \
-        }                                                                                   \
-};
-BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXECUTE, ~)
-#undef MSM_VISITOR_ARGS_EXECUTE
-#undef MSM_VISITOR_ARGS_SUB
 
 // the IBM compiler seems to have problems with nested classes
 // the same seems to apply to the Apple version of gcc 4.0.1 (just in case we do for < 4.1)
@@ -2525,24 +2304,8 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
 
             this->new_state_helper<State>(),
             create_state_helper<State>::set_sm(self);
-            // create a visitor callback
-            visitor_helper(state_id,std::get<get_state_id<stt, State>::value>(self->m_substate_list),
-                           ::boost::mpl::bool_<has_accept_sig<State>::type::value>());
         }
     private:
-        // support possible use of a visitor if accept_sig is defined
-        template <class StateType>
-        void visitor_helper(int id,StateType& astate, ::boost::mpl::true_ const & ) const
-        {
-            visitor_args<StateType,StateType::accept_sig::args_number>::
-                template helper<StateType>(self,id,astate);
-        }
-        template <class StateType>
-        void visitor_helper(int ,StateType& , ::boost::mpl::false_ const &) const
-        {
-            // nothing to do
-        }
-
         library_sm*      self;
         ContainingSM*    containing_sm;
     };
@@ -2555,25 +2318,8 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          template <class StateType>
          void operator()( ::boost::msm::wrap<StateType> const& )
          {
-            BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,StateType>::type::value));
-            // possibly also set the visitor
-            visitor_helper<StateType>(state_id);
-
-            // and for states that keep a pointer to the fsm, reset the pointer
+            // for states that keep a pointer to the fsm, reset the pointer
             create_state_helper<StateType>::set_sm(m_sm);
-         }
-         template <class StateType>
-         typename ::boost::enable_if<typename has_accept_sig<StateType>::type,void >::type
-             visitor_helper(int id) const
-         {
-             visitor_args<StateType,StateType::accept_sig::args_number>::template helper<StateType>
-                 (m_sm,id,std::get<get_state_id<stt, StateType>::value>(m_sm->m_substate_list));
-         }
-         template <class StateType>
-         typename ::boost::disable_if<typename has_accept_sig<StateType>::type,void >::type
-             visitor_helper(int) const
-         {
-             // nothing to do
          }
 
          library_sm*     m_sm;
@@ -2589,7 +2335,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          }
      };
      template <int Dummy>
-     struct region_copy_helper< ::boost::mpl::int_<nr_regions::value>,Dummy>
+     struct region_copy_helper< ::boost::mpl::int_<nr_regions>,Dummy>
      {
          // end of processing
          static void do_copy(library_sm*,library_sm const& ){}
@@ -2606,6 +2352,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
          m_event_processing = rhs.m_event_processing;
          m_is_included = rhs.m_is_included;
          m_substate_list = rhs.m_substate_list;
+         m_running = rhs.m_running;
          // except for the states themselves, which get duplicated
 
          ::boost::mpl::for_each<state_set_mp11, ::boost::msm::wrap< ::boost::mpl::placeholders::_1> >
@@ -2666,7 +2413,8 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
      template <class Event>
      void internal_start(Event const& incomingEvent)
      {
-         for (size_t region_id=0; region_id<nr_regions::value; region_id++)
+         m_running = true;
+         for (size_t region_id=0; region_id<nr_regions; region_id++)
          {
              //forward the event for handling by sub state machines
              mp11::mp_for_each<state_map_mp11>
@@ -2726,7 +2474,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
              (static_cast<Derived*>(self))->on_entry(evt,fsm);
              int state_id = get_state_id<stt,typename EventType::active_state::wrapped_entry>::value;
              BOOST_STATIC_ASSERT(find_region_id<typename EventType::active_state::wrapped_entry>::region_index >= 0);
-             BOOST_STATIC_ASSERT(find_region_id<typename EventType::active_state::wrapped_entry>::region_index < nr_regions::value);
+             BOOST_STATIC_ASSERT(find_region_id<typename EventType::active_state::wrapped_entry>::region_index < nr_regions);
              // just set the correct zone, the others will be default/history initialized
              self->m_states[find_region_id<typename EventType::active_state::wrapped_entry>::region_index] = state_id;
              self->internal_start(evt.m_event);
@@ -2764,7 +2512,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
              (static_cast<Derived*>(self))->on_entry(evt,fsm);
              int state_id = get_state_id<stt,typename EventType::active_state::wrapped_entry>::value;
              BOOST_STATIC_ASSERT(find_region_id<typename EventType::active_state::wrapped_entry>::region_index >= 0);
-             BOOST_STATIC_ASSERT(find_region_id<typename EventType::active_state::wrapped_entry>::region_index < nr_regions::value);
+             BOOST_STATIC_ASSERT(find_region_id<typename EventType::active_state::wrapped_entry>::region_index < nr_regions);
              // given region starts with the entry pseudo state as active state
              self->m_states[find_region_id<typename EventType::active_state::wrapped_entry>::region_index] = state_id;
              self->internal_start(evt.m_event);
@@ -2785,7 +2533,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
              {
                  int state_id = get_state_id<stt,typename StateType::wrapped_entry>::value;
                  BOOST_STATIC_ASSERT(find_region_id<typename StateType::wrapped_entry>::region_index >= 0);
-                 BOOST_STATIC_ASSERT(find_region_id<typename StateType::wrapped_entry>::region_index < nr_regions::value);
+                 BOOST_STATIC_ASSERT(find_region_id<typename StateType::wrapped_entry>::region_index < nr_regions);
                  helper_self->m_states[find_region_id<typename StateType::wrapped_entry>::region_index] = state_id;
              }
          private:
@@ -2799,7 +2547,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
      void do_entry(Event const& incomingEvent,FsmType& fsm)
      {
         // by default we activate the history/init states, can be overwritten by direct_event_start_helper
-        for (size_t region_id=0; region_id<nr_regions::value; region_id++)
+        for (size_t region_id=0; region_id<nr_regions; region_id++)
         {
              m_states[region_id] =
                  m_history.history_entry(incomingEvent)[region_id];
@@ -2820,7 +2568,7 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
      {
         // first recursively exit the sub machines
         // forward the event for handling by sub state machines
-        for (size_t region_id=0; region_id<nr_regions::value; region_id++)
+        for (size_t region_id=0; region_id<nr_regions; region_id++)
         {
              mp11::mp_for_each<state_map_mp11>
                  (exit_helper<Event>(m_states[region_id],incomingEvent,this));
@@ -2968,13 +2716,15 @@ BOOST_PP_REPEAT(BOOST_PP_ADD(BOOST_MSM_VISITOR_ARG_SIZE,1), MSM_VISITOR_ARGS_EXE
         // checks that all states are reachable
         FsmCheckPolicy::template check_unreachable_states<library_sm>();
 
-        BOOST_STATIC_CONSTANT(int, max_state = (mp11::mp_size<state_set_mp11>::value));
-        // allocate the place without reallocation
-        m_visitors.fill_visitors(max_state);
         mp11::tuple_for_each(m_substate_list,add_state<ContainingSM>(this,containing_sm));
     }
 
 private:
+    template<class Fsm, class Stt, class Compile>
+    friend class dispatch_table;
+
+    friend class end_interrupt_event_helper;
+
     template <class StateType,class Enable=void>
     struct msg_queue_helper
     {
@@ -2988,23 +2738,87 @@ private:
     {
     };
 
-    template<class Fsm, class Stt, class Compile>
-    friend class dispatch_table;
+    // Dispatch table for visitors (empty version).
+    template <class BaseState, typename = void>
+    class visitor_dispatch_table
+    {
+    public:
+        template<typename... Args>
+        static void dispatch(library_sm&, int, Args&&...) { }
+    };
+    // Dispatch table for visitors.
+    template <class BaseState>
+    class visitor_dispatch_table<BaseState, typename enable_if<has_accept_method<BaseState>>::type>
+    {
+    public:
+        visitor_dispatch_table()
+        {
+            using state_identities = mp11::mp_transform<mp11::mp_identity, state_set_mp11>;
+            mp11::mp_for_each<state_identities>(init_helper{m_cells});
+        }
 
-    friend class end_interrupt_event_helper;
+        template<typename... Args>
+        static void dispatch(library_sm& fsm, int index, Args&&... args)
+        {
+            instance().m_cells[index](fsm, std::forward<Args>(args)...);
+        }
+
+    private:
+        using accept_method_signature =
+            member_function_signature_t<decltype(&BaseState::accept)>;
+
+        template <typename Res, typename... Args>
+        using get_visitor_cell = Res (*)(library_sm&, Args...);
+        using visitor_cell = mp11::mp_apply<get_visitor_cell, accept_method_signature>;
+
+        class init_helper
+        {
+          public:
+            init_helper(visitor_cell* cells) : m_cells(cells) { }
+
+            template <typename State>
+            void operator()(mp11::mp_identity<State>)
+            {
+                using wrapper = mp11::mp_apply<
+                    execute_wrapper,
+                    mp11::mp_push_front<accept_method_signature, State>
+                    >;
+                m_cells[get_state_id<stt, State>::value] = &wrapper::execute;
+            }
+
+          private:
+            template <typename State, typename Res, typename... Args>
+            struct execute_wrapper
+            {
+                static Res execute(library_sm& fsm, Args... args)
+                {
+                    State& state = fsm.get_state<State&>();
+                    return state.accept(std::forward<Args>(args)...);
+                }
+            };
+
+            visitor_cell* m_cells;
+        };
+
+        static visitor_dispatch_table& instance()
+        {
+            static visitor_dispatch_table instance;
+            return instance;
+        }
+
+        visitor_cell m_cells[mp11::mp_size<state_set_mp11>::value];
+    };
 
     // data members
-    int                             m_states[nr_regions::value];
-    msg_queue_helper<library_sm>    m_events_queue;
+    int                             m_states[nr_regions];
+    msg_queue_helper<library_sm>    m_events_queue{};
     deferred_msg_queue_helper
-        <library_sm>                m_deferred_events_queue;
-    concrete_history                m_history;
-    bool                            m_event_processing;
-    bool                            m_is_included;
-    visitor_fct_helper<BaseState>   m_visitors;
-    substate_list                   m_substate_list;
-
-
+        <library_sm>                m_deferred_events_queue{};
+    concrete_history                m_history{};
+    bool                            m_event_processing{false};
+    bool                            m_is_included{false};
+    substate_list                   m_substate_list{};
+    bool                            m_running{false};
 };
 
 }}} // boost::msm::backmp11
