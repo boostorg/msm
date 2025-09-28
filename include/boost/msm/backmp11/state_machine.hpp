@@ -32,9 +32,7 @@
 #include <boost/utility/enable_if.hpp>
 #include <boost/type_traits/is_convertible.hpp>
 
-#ifndef BOOST_NO_RTTI
 #include <boost/any.hpp>
-#endif
 
 #include <boost/serialization/base_object.hpp>
 
