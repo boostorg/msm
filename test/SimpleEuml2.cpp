@@ -8,6 +8,8 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
+// EUML is not supported by backmp11
+#define BOOST_MSM_TEST_SKIP_BACKMP11
 #include "BackCommon.hpp"
 #include <boost/msm/front/euml/euml.hpp>
 
@@ -193,6 +195,3 @@ namespace
                             "Stopped entry not called correctly");
     }
 }
-
-using backmp11_fsm = boost::msm::backmp11::state_machine<player_, boost::msm::backmp11::favor_compile_time>;
-BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_fsm);
