@@ -20,6 +20,30 @@ It is named after the metaprogramming library Boost Mp11, the main contributor t
     - If the SM was stopped, the last active state(s) were visited
 
 
+## New features
+
+## Resolved limitations
+
+## Breaking changes
+
+### The targeted minimum C++ version is C++17
+
+C++11 brings the strongly needed variadic template support for MSM, but later C++ versions provide other important features - for example C++17's `if constexpr`.
+
+
+### The eUML frontend is not supported
+
+The support of EUML induces longer compilation times by the need to include the Boost proto headers and applying C++03 variadic template emulation. If you want to use a UML-like syntax, please try out the new PUML frontend.
+
+
+### The backend's constructor does not allow initialization of states and `set_states` is not available
+
+There were some caveats with one constructor that was used for different use cases: On the one hand some arguments were immediately forwarded to the frontend's constructor, on the other hand the stream operator was used to identify other arguments in the constructor as states, to copy them into the state machine. Besides the syntax of the later being rather unusual, when doing both at once the syntax becomes too difficult to understand; even more so if states within hierarchical sub state machines were initialized in this fashion.
+
+In order to keep API of the constructor simpler and less ambiguous, it only supports forwarding arguments to the frontend and no more.
+Also the `set_states` API is removed. If setting a state is required, this can still be done (in a little more verbose, but also more direct & explicit fashion) by getting a reference to the desired state via `get_state` and then assigning the desired new state to it.
+
+
 ## How to use it
 
 The backend and both its policies `favor_runtime_speed` and `favor_compile_time` should be compatible with existing code. Required replacements to try it out:

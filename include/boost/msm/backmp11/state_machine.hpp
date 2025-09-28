@@ -57,9 +57,7 @@
 
 #include <boost/msm/active_state_switching_policies.hpp>
 #include <boost/msm/row_tags.hpp>
-#include <boost/msm/msm_grammar.hpp>
 #include <boost/msm/back/traits.hpp>
-#include <boost/msm/back/fold_to_list.hpp>
 #include <boost/msm/backmp11/favor_compile_time.hpp>
 #include <boost/msm/backmp11/metafunctions.hpp>
 #include <boost/msm/backmp11/history_policies.hpp>
@@ -73,7 +71,6 @@ namespace boost { namespace msm { namespace backmp11
 
 using back::no_fsm_check;
 using back::queue_container_deque;
-using back::FoldToList;
 
 
 // event used internally for wrapping a direct entry
@@ -111,17 +108,6 @@ typedef ::boost::parameter::parameters<
     >
 > state_machine_signature;
 
-// just here to disable use of proto when not needed
-template <class T, class F,class Enable=void>
-struct make_euml_terminal;
-template <class T,class F>
-struct make_euml_terminal<T,F,typename ::boost::disable_if<has_using_declared_table<F> >::type>
-{};
-template <class T,class F>
-struct make_euml_terminal<T,F,typename ::boost::enable_if<has_using_declared_table<F> >::type>
-    : public proto::extends<typename proto::terminal< boost::msm::state_tag>::type, T, boost::msm::state_domain>
-{};
-
 // library-containing class for state machines.  Pass the actual FSM class as
 // the Concrete parameter.
 // A0=Derived,A1=NoHistory,A2=CompilePolicy,A3=FsmCheckPolicy >
@@ -136,11 +122,6 @@ class state_machine : //public Derived
     public ::boost::parameter::binding<
             typename state_machine_signature::bind<A0,A1,A2,A3,A4>::type, tag::front_end
     >::type
-    , public make_euml_terminal<state_machine<A0,A1,A2,A3,A4>,
-                         typename ::boost::parameter::binding<
-                                    typename state_machine_signature::bind<A0,A1,A2,A3,A4>::type, tag::front_end
-                         >::type
-      >
 {
 public:
     // Create ArgumentPack
@@ -1577,27 +1558,13 @@ public:
          int* const m_initial_states;
          int m_index;
      };
- public:
-     struct update_state
-     {
-         update_state(substate_list& to_overwrite_):to_overwrite(&to_overwrite_){}
-         template<typename StateType>
-         void operator()(StateType const& astate) const
-         {
-             std::get<get_state_id<stt, StateType>::value>(*to_overwrite)=astate;
-         }
-         substate_list* to_overwrite;
-     };
-     template <class Expr>
-     void set_states(Expr const& expr)
-     {
-         ::boost::fusion::for_each(
-             ::boost::fusion::as_vector(FoldToList()(expr, boost::fusion::nil_())),update_state(this->m_substate_list));
-     }
 
-    // Construct with the default initial states
-    state_machine()
-        : Derived()
+ public:
+
+    // Construct with the default initial states and forward constructor arguments to the frontend.
+    template <typename... Args>
+    state_machine(Args&&... args)
+        : Derived(std::forward<Args>(args)...)
     {
          // initialize our list of states with the ones defined in Derived::initial_state
          ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
@@ -1605,31 +1572,6 @@ public:
          m_history.set_initial_states(m_states);
          // create states
          fill_states(this);
-    }
-
-     // Construct with the default initial states and some default argument(s)
-    template <class ARG0,class... ARG,class=typename ::boost::disable_if<typename ::boost::proto::is_expr<ARG0>::type >::type>
-    state_machine(ARG0&& t0,ARG&&... t)
-        : Derived(std::forward<ARG0>(t0), std::forward<ARG>(t)...)
-    {
-        ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
-                       (init_states(m_states));
-        m_history.set_initial_states(m_states);
-        fill_states(this);
-    }
-    template <class Expr,class... ARG,class=typename ::boost::enable_if<typename ::boost::proto::is_expr<Expr>::type >::type>
-    state_machine(Expr const& expr,ARG&&... t)
-        : Derived(std::forward<ARG>(t)...)
-    {
-        BOOST_MPL_ASSERT_MSG(
-        ( ::boost::proto::matches<Expr, FoldToList>::value),
-            THE_STATES_EXPRESSION_PASSED_DOES_NOT_MATCH_GRAMMAR,
-            (FoldToList));
-        ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
-                       (init_states(m_states));
-        m_history.set_initial_states(m_states);
-        set_states(expr);
-        fill_states(this);
     }
 
     // assignment operator using the copy policy to decide if non_copyable, shallow or deep copying is necessary
