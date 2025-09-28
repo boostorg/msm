@@ -32,8 +32,6 @@
 #include <boost/utility/enable_if.hpp>
 #include <boost/type_traits/is_convertible.hpp>
 
-#include <boost/any.hpp>
-
 #include <boost/serialization/base_object.hpp>
 
 #define BOOST_PARAMETER_CAN_USE_MP11
@@ -1491,7 +1489,7 @@ protected:
                 m_fsm->m_deferred_events_queue.m_deferred_events_queue.push_back(
                     std::make_pair(
                         [fsm, event] { return fsm->process_event_internal(
-                            boost::any_cast<Event>(event),
+                            std::any_cast<Event>(event),
                             static_cast<::boost::msm::back::EventSource>(::boost::msm::back::EVENT_SOURCE_DIRECT | ::boost::msm::back::EVENT_SOURCE_DEFERRED));
                         },
                         static_cast<char>(m_fsm->m_deferred_events_queue.m_cur_seq + 1)));
