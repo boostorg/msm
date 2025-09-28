@@ -22,25 +22,13 @@
 #include <boost/core/ignore_unused.hpp>
 #include <boost/mp11.hpp>
 #include <boost/mp11/mpl_list.hpp>
-#include <boost/mpl/contains.hpp>
 #include <boost/mpl/deref.hpp>
 #include <boost/mpl/assert.hpp>
-
-#include <boost/fusion/container/vector/convert.hpp>
-#include <boost/fusion/include/as_vector.hpp>
-#include <boost/fusion/include/as_set.hpp>
-#include <boost/fusion/container/set.hpp>
-#include <boost/fusion/include/set.hpp>
-#include <boost/fusion/include/set_fwd.hpp>
-#include <boost/fusion/include/mpl.hpp>
-#include <boost/fusion/sequence/intrinsic/at_key.hpp>
-#include <boost/fusion/include/at_key.hpp>
-#include <boost/fusion/algorithm/iteration/for_each.hpp>
-#include <boost/fusion/include/for_each.hpp>
 
 #include <boost/assert.hpp>
 #include <boost/ref.hpp>
 #include <boost/type_traits/remove_pointer.hpp>
+#include <boost/type_traits/add_reference.hpp>
 #include <boost/utility/enable_if.hpp>
 #include <boost/type_traits/is_convertible.hpp>
 
@@ -2241,9 +2229,6 @@ private:
         template <class State>
         void operator()( State const&) const
         {
-            //create a new state with the defined id and type
-            BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,State>::value));
-
             this->new_state_helper<State>(),
             create_state_helper<State>::set_sm(self);
         }
