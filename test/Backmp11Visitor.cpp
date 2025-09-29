@@ -33,39 +33,41 @@ namespace
         size_t visits;
     };
 
-    class Visitor
+    class CountVisitor
     {
       public:
-        virtual void visit(StateBase& state, int& visits) = 0;
-    };
+        CountVisitor(int& visits) : m_visits(visits) {}
 
-    struct CountVisitor : public Visitor
-    {
-        void visit(StateBase& state, int& visits) override
+        template<typename State>
+        void operator()(State& state)
         {
-            visits += 1;
+            m_visits += 1;
             state.visits += 1;
         }
+
+      private:
+        int& m_visits;
     };
 
-    struct ResetCountVisitor : public Visitor
+    class ResetCountVisitor
     {
-        void visit(StateBase& state, int& visits) override
+      public:
+        ResetCountVisitor(int& visits) : m_visits(visits) {}
+
+        template<typename State>
+        void operator()(State& state)
         {
-            visits = 0;
+            m_visits = 0;
             state.visits = 0;
         }
+
+      private:
+        int& m_visits;
     };
 
     // base state for all states of the fsm, to make them visitable
-    struct VisitableState : StateBase
-    {
-        // implementation of the accept function
-        void accept(Visitor& vis, int& i)
-        {
-            vis.visit(*this, i);
-        }
-    };
+    // TODO remove
+    struct VisitableState : StateBase {};
 
     // Events.
     struct EnterSubFsm{};
@@ -101,45 +103,60 @@ namespace
     };
     using UpperMachine = state_machine<UpperMachine_>;
     
-    BOOST_AUTO_TEST_CASE( backmp11_upper_fsm_test )
+    BOOST_AUTO_TEST_CASE( backmp11_visitor_test )
     {
-        UpperMachine upper_machine{};
-        CountVisitor count_visitor;
-        ResetCountVisitor reset_count_visitor;
         int visits = 0;
+        ResetCountVisitor reset_count_visitor{visits};
+        CountVisitor count_visitor{visits};
+
+        UpperMachine upper_machine{};
         auto& upper_machine_state = upper_machine.get_state<DefaultState&>();
         auto& middle_machine = upper_machine.get_state<MiddleMachine&>();
         auto& middle_machine_state = middle_machine.get_state<DefaultState&>();
         auto& lower_machine = middle_machine.get_state<LowerMachine&>();
         auto& lower_machine_state = lower_machine.get_state<DefaultState&>();
 
-        upper_machine.visit_current_states(count_visitor, visits);
-        BOOST_REQUIRE(visits == 0);
-        
-        upper_machine.start();
-        upper_machine.visit_current_states(count_visitor, visits);
-        BOOST_REQUIRE(upper_machine_state.visits == 1);
-        BOOST_REQUIRE(visits == 1);
-        upper_machine.visit_current_states(reset_count_visitor, visits);
+        // Test active states
+        {
+            upper_machine.visit(count_visitor);
+            BOOST_REQUIRE(visits == 0);
+            
+            upper_machine.start();
+            upper_machine.visit(count_visitor);
+            BOOST_REQUIRE(upper_machine_state.visits == 1);
+            BOOST_REQUIRE(visits == 1);
+            upper_machine.visit(reset_count_visitor);
 
-        upper_machine.process_event(EnterSubFsm());
-        upper_machine.visit_current_states(count_visitor, visits);
-        BOOST_REQUIRE(middle_machine.visits == 1);
-        BOOST_REQUIRE(middle_machine_state.visits == 1);
-        BOOST_REQUIRE(visits == 2);
-        upper_machine.visit_current_states(reset_count_visitor, visits);
+            upper_machine.process_event(EnterSubFsm());
+            upper_machine.visit(count_visitor);
+            BOOST_REQUIRE(middle_machine.visits == 1);
+            BOOST_REQUIRE(middle_machine_state.visits == 1);
+            BOOST_REQUIRE(visits == 2);
+            upper_machine.visit(reset_count_visitor);
 
-        upper_machine.process_event(EnterSubFsm());
-        upper_machine.visit_current_states(count_visitor, visits);
-        BOOST_REQUIRE(middle_machine.visits == 1);
-        BOOST_REQUIRE(lower_machine.visits == 1);
-        BOOST_REQUIRE(lower_machine_state.visits == 1);
-        BOOST_REQUIRE(visits == 3);
-        upper_machine.visit_current_states(reset_count_visitor, visits);
+            upper_machine.process_event(EnterSubFsm());
+            upper_machine.visit(count_visitor);
+            BOOST_REQUIRE(middle_machine.visits == 1);
+            BOOST_REQUIRE(lower_machine.visits == 1);
+            BOOST_REQUIRE(lower_machine_state.visits == 1);
+            BOOST_REQUIRE(visits == 3);
+            upper_machine.visit(reset_count_visitor);
 
-        upper_machine.stop();
-        upper_machine.visit_current_states(count_visitor, visits);
-        BOOST_REQUIRE(visits == 0);
+            upper_machine.stop();
+            upper_machine.visit(count_visitor);
+            BOOST_REQUIRE(visits == 0);
+        }
+
+        // Test all states
+        {
+            upper_machine.visit(count_visitor, all_states);
+            BOOST_REQUIRE(upper_machine_state.visits == 1);
+            BOOST_REQUIRE(middle_machine.visits == 1);
+            BOOST_REQUIRE(middle_machine_state.visits == 1);
+            BOOST_REQUIRE(lower_machine.visits == 1);
+            BOOST_REQUIRE(lower_machine_state.visits == 1);
+            BOOST_REQUIRE(visits == 5);
+        }
     }
 }
 

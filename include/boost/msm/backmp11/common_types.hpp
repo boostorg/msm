@@ -35,6 +35,14 @@ using back::EventSource;
 
 using any_event = std::any;
 
+// Tag referring to active states of a SM.
+struct active_states_t {};
+constexpr active_states_t active_states;
+
+// Tag referring to all states of a SM.
+struct all_states_t {};
+constexpr all_states_t all_states;
+
 }}} // namespace boost::msm::backmp11
 
 
