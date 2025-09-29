@@ -64,23 +64,6 @@ namespace boost { namespace msm { namespace backmp11
 
 using back::favor_runtime_speed;
 
-// check whether a state has an accept method
-template<typename State, typename = void>
-struct has_accept_method : std::false_type {};
-template<typename State>
-struct has_accept_method<State, decltype(void(&State::accept))> : std::true_type {};
-
-// get the signature of a member function as list
-template <typename T>
-struct member_function_signature;
-template <typename Class, typename Ret, typename... Args>
-struct member_function_signature<Ret (Class::*)(Args...)>
-{
-    using type = mp11::mp_list<Ret, Args...>;
-};
-template<typename T>
-using member_function_signature_t = typename member_function_signature<T>::type;
-
 template <typename Sequence, typename Range>
 struct set_insert_range
 {
@@ -351,6 +334,7 @@ template <class State>
 struct is_pseudo_exit 
 {
     typedef typename has_pseudo_exit<State>::type type;
+    static constexpr bool value = type::value;
 };
 // says if a state is an entry pseudo state or an explicit entry
 template <class State>

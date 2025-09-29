@@ -323,8 +323,8 @@ private:
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
-                                 std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
-                                 std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
+                                 fsm.get_state<current_state_type>(),
+                                 fsm.get_state<next_state_type>(),
                                  fsm.m_substate_list ) )
                 return true;
             return false;
@@ -333,8 +333,8 @@ private:
         static HandledEnum execute(library_sm& fsm, int region_index, int state, transition_event const& evt)
         {
 
-            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<stt,current_state_type>::type::value));
-            BOOST_STATIC_CONSTANT(int, next_state = (get_state_id<stt,next_state_type>::type::value));
+            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
+            BOOST_STATIC_CONSTANT(int, next_state = (get_state_id<next_state_type>()));
             boost::ignore_unused(state); // Avoid warnings if BOOST_ASSERT expands to nothing.
             BOOST_ASSERT(state == (current_state));
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
@@ -351,20 +351,19 @@ private:
             fsm.m_states[region_index] = active_state_switching::after_guard(current_state,next_state);
 
             // the guard condition has already been checked
-            execute_exit<current_state_type>
-                (std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),evt,fsm);
+            execute_exit<current_state_type>(fsm.get_state<current_state_type>(),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_exit(current_state,next_state);
 
             // then call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
-                             std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
-                             std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
+                             fsm.get_state<current_state_type>(),
+                             fsm.get_state<next_state_type>(),
                              fsm.m_substate_list);
             fsm.m_states[region_index] = active_state_switching::after_action(current_state,next_state);
 
             // and finally the entry method of the new current state
             convert_event_and_execute_entry<next_state_type,T2>
-                (std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),evt,fsm);
+                (fsm.get_state<next_state_type>(),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_entry(current_state,next_state);
             return res;
         }
@@ -404,8 +403,8 @@ private:
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
-                                 std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
-                                 std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
+                                 fsm.get_state<current_state_type>(),
+                                 fsm.get_state<next_state_type>(),
                                  fsm.m_substate_list ))
                 return true;
             return false;
@@ -413,8 +412,8 @@ private:
         // Take the transition action and return the next state.
         static HandledEnum execute(library_sm& fsm, int region_index, int state, transition_event const& evt)
         {
-            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<stt,current_state_type>::type::value));
-            BOOST_STATIC_CONSTANT(int, next_state = (get_state_id<stt,next_state_type>::type::value));
+            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
+            BOOST_STATIC_CONSTANT(int, next_state = (get_state_id<next_state_type>()));
             boost::ignore_unused(state); // Avoid warnings if BOOST_ASSERT expands to nothing.
             BOOST_ASSERT(state == (current_state));
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
@@ -432,13 +431,13 @@ private:
 
             // the guard condition has already been checked
             execute_exit<current_state_type>
-                (std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),evt,fsm);
+                (fsm.get_state<current_state_type>(),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_exit(current_state,next_state);
             fsm.m_states[region_index] = active_state_switching::after_action(current_state,next_state);
 
             // and finally the entry method of the new current state
             convert_event_and_execute_entry<next_state_type,T2>
-                (std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),evt,fsm);
+                (fsm.get_state<next_state_type>(),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_entry(current_state,next_state);
             return HANDLED_TRUE;
         }
@@ -477,8 +476,8 @@ private:
         // Take the transition action and return the next state.
         static HandledEnum execute(library_sm& fsm, int region_index, int state, transition_event const& evt)
         {
-            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<stt,current_state_type>::type::value));
-            BOOST_STATIC_CONSTANT(int, next_state = (get_state_id<stt,next_state_type>::type::value));
+            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
+            BOOST_STATIC_CONSTANT(int, next_state = (get_state_id<next_state_type>()));
             boost::ignore_unused(state); // Avoid warnings if BOOST_ASSERT expands to nothing.
             BOOST_ASSERT(state == (current_state));
 
@@ -493,19 +492,19 @@ private:
             // no need to check the guard condition
             // first call the exit method of the current state
             execute_exit<current_state_type>
-                (std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),evt,fsm);
+                (fsm.get_state<current_state_type>(),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_exit(current_state,next_state);
 
             // then call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
-                            std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
-                            std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
+                            fsm.get_state<current_state_type>(),
+                            fsm.get_state<next_state_type>(),
                             fsm.m_substate_list);
             fsm.m_states[region_index] = active_state_switching::after_action(current_state,next_state);
 
             // and finally the entry method of the new current state
             convert_event_and_execute_entry<next_state_type,T2>
-                (std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),evt,fsm);
+                (fsm.get_state<next_state_type>(),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_entry(current_state,next_state);
             return res;
         }
@@ -544,8 +543,8 @@ private:
         // Take the transition action and return the next state.
         static HandledEnum execute(library_sm& fsm, int region_index, int state, transition_event const& evt)
         {
-            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<stt,current_state_type>::type::value));
-            BOOST_STATIC_CONSTANT(int, next_state = (get_state_id<stt,next_state_type>::type::value));
+            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
+            BOOST_STATIC_CONSTANT(int, next_state = (get_state_id<next_state_type>()));
             boost::ignore_unused(state); // Avoid warnings if BOOST_ASSERT expands to nothing.
             BOOST_ASSERT(state == (current_state));
 
@@ -559,14 +558,14 @@ private:
 
             // first call the exit method of the current state
             execute_exit<current_state_type>
-                (std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),evt,fsm);
+                (fsm.get_state<current_state_type>(),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_exit(current_state,next_state);
             fsm.m_states[region_index] = active_state_switching::after_action(current_state,next_state);
 
 
             // and finally the entry method of the new current state
             convert_event_and_execute_entry<next_state_type,T2>
-                (std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),evt,fsm);
+                (fsm.get_state<next_state_type>(),evt,fsm);
             fsm.m_states[region_index] = active_state_switching::after_entry(current_state,next_state);
             return HANDLED_TRUE;
         }
@@ -587,8 +586,8 @@ private:
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
-                                 std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
-                                 std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
+                                 fsm.get_state<current_state_type>(),
+                                 fsm.get_state<next_state_type>(),
                                  fsm.m_substate_list))
                 return true;
             return false;
@@ -597,7 +596,7 @@ private:
         static HandledEnum execute(library_sm& fsm, int , int state, transition_event const& evt)
         {
 
-            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<stt,current_state_type>::type::value));
+            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
             boost::ignore_unused(state, current_state); // Avoid warnings if BOOST_ASSERT expands to nothing.
             BOOST_ASSERT(state == (current_state));
             if (!check_guard(fsm,evt))
@@ -608,8 +607,8 @@ private:
 
             // call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
-                             std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
-                             std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
+                             fsm.get_state<current_state_type>(),
+                             fsm.get_state<next_state_type>(),
                              fsm.m_substate_list);
             return res;
         }
@@ -631,8 +630,8 @@ private:
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
-                                 std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
-                                 std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
+                                 fsm.get_state<current_state_type>(),
+                                 fsm.get_state<next_state_type>(),
                                  fsm.m_substate_list) )
                 return true;
             return false;
@@ -640,7 +639,7 @@ private:
         // Take the transition action and return the next state.
         static HandledEnum execute(library_sm& fsm, int , int state, transition_event const& evt)
         {
-            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<stt,current_state_type>::type::value));
+            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
             boost::ignore_unused(state, current_state); // Avoid warnings if BOOST_ASSERT expands to nothing.
             BOOST_ASSERT(state == (current_state));
             if (!check_guard(fsm,evt))
@@ -668,14 +667,14 @@ private:
         // Take the transition action and return the next state.
         static HandledEnum execute(library_sm& fsm, int , int state, transition_event const& evt)
         {
-            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<stt,current_state_type>::type::value));
+            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
             boost::ignore_unused(state, current_state); // Avoid warnings if BOOST_ASSERT expands to nothing.
             BOOST_ASSERT(state == (current_state));
 
             // call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
-                            std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list),
-                            std::get<get_state_id<stt, next_state_type>::value>(fsm.m_substate_list),
+                            fsm.get_state<current_state_type>(),
+                            fsm.get_state<next_state_type>(),
                             fsm.m_substate_list);
 
             return res;
@@ -696,7 +695,7 @@ private:
         // Take the transition action and return the next state.
         static HandledEnum execute(library_sm& , int , int state, transition_event const& )
         {
-            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<stt,current_state_type>::type::value));
+            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
             boost::ignore_unused(state, current_state); // Avoid warnings if BOOST_ASSERT expands to nothing.
             BOOST_ASSERT(state == (current_state));
             return HANDLED_TRUE;
@@ -717,8 +716,8 @@ private:
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
-                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
-                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
+                fsm.get_state<StateType>(),
+                fsm.get_state<StateType>(),
                 fsm.m_substate_list) )
                 return true;
             return false;
@@ -734,8 +733,8 @@ private:
 
             // then call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
-                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
-                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
+                fsm.get_state<StateType>(),
+                fsm.get_state<StateType>(),
                 fsm.m_substate_list);
             return res;
         }
@@ -792,8 +791,8 @@ private:
         {
             // then call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
-                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
-                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
+                fsm.get_state<StateType>(),
+                fsm.get_state<StateType>(),
                 fsm.m_substate_list);
             return res;
         }
@@ -832,8 +831,8 @@ private:
         static bool check_guard(library_sm& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
-                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
-                std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list),
+                fsm.get_state<StateType>(),
+                fsm.get_state<StateType>(),
                 fsm.m_substate_list) )
                 return true;
             return false;
@@ -924,8 +923,8 @@ private:
         {
             // false as second parameter because this event is forwarded from outer fsm
             execute_return res =
-                (std::get<get_state_id<stt, current_state_type>::value>(fsm.m_substate_list)).process_event_internal(evt);
-            fsm.m_states[region_index]=get_state_id<stt,T1>::type::value;
+                (fsm.get_state<current_state_type>()).process_event_internal(evt);
+            fsm.m_states[region_index]=get_state_id<T1>();
             return res;
         }
         // helper metafunctions used by dispatch table and give the frow a new event
@@ -1138,7 +1137,7 @@ private:
         m_running = true;
         // reinitialize our list of currently active states with the ones defined in Derived::initial_state
         ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
-                        (init_states(m_states));
+                        (set_initial_states_helper(m_states));
         // call on_entry on this SM
         (static_cast<Derived*>(this))->on_entry(incomingEvent,*this);
         ::boost::mpl::for_each<initial_states, boost::msm::wrap<mpl::placeholders::_1> >
@@ -1299,52 +1298,28 @@ private:
         // queues cannot be serialized => skip
         ar & m_history;
         ar & m_event_processing;
-        ar & m_is_included;
+        ar & m_is_contained;
         // visitors cannot be serialized => skip
         mp11::tuple_for_each(m_substate_list, serialize_state<Archive>(ar));
     }
 
-    // linearly search for the state with the given id
-    struct get_state_id_helper
+    // Return the id of a state in the sm.
+    template<typename State>
+    static constexpr int get_state_id(const State&)
     {
-        get_state_id_helper(int id,const BaseState** res,const library_sm* self_):
-        result_state(res),searched_id(id),self(self_) {}
+        return backmp11::get_state_id<stt,State>::type::value;
+    }
+    // Return the id of a state in the sm.
+    template<typename State>
+    static constexpr int get_state_id()
+    {
+        return backmp11::get_state_id<stt,State>::type::value;
+    }
 
-        template <class StateType>
-        void operator()(boost::msm::wrap<StateType> const&)
-        {
-            // look for the state id until found
-            BOOST_STATIC_CONSTANT(int, id = (get_state_id<stt,StateType>::value));
-            if (!*result_state && (id == searched_id))
-            {
-                *result_state = &std::get<get_state_id<stt, StateType>::value>(self->m_substate_list);
-            }
-        }
-        const BaseState**  result_state;
-        int                searched_id;
-        const library_sm* self;
-    };
-    // return the state whose id is passed or 0 if not found
-    // caution if you need this, you probably need polymorphic states
-    // complexity: O(number of states)
-    BaseState* get_state_by_id(int id)
-    {
-        const BaseState*  result_state=0;
-        ::boost::mpl::for_each<state_set_mp11,
-            ::boost::msm::wrap< ::boost::mpl::placeholders::_1> > (get_state_id_helper(id,&result_state,this));
-        return const_cast<BaseState*>(result_state);
-    }
-    const BaseState* get_state_by_id(int id) const
-    {
-        const BaseState*  result_state=0;
-        ::boost::mpl::for_each<state_set_mp11,
-            ::boost::msm::wrap< ::boost::mpl::placeholders::_1> > (get_state_id_helper(id,&result_state,this));
-        return result_state;
-    }
     // true if the sm is used in another sm
     bool is_contained() const
     {
-        return m_is_included;
+        return m_is_contained;
     }
     // get the history policy class
     concrete_history& get_history()
@@ -1356,41 +1331,17 @@ private:
         return m_history;
     }
 
-    // get a state (const version)
-    // as a pointer
+    // Get a state.
     template <class State>
-    typename ::boost::enable_if<typename ::boost::is_pointer<State>::type,State >::type
-    get_state(::boost::msm::back::dummy<0> = 0) const
+    State& get_state()
     {
-        return const_cast<State >
-            (&
-                (std::get<get_state_id<stt,
-                    typename ::boost::remove_const<typename ::boost::remove_pointer<State>::type>::type>::value>(m_substate_list)));
+        return std::get<std::remove_reference_t<State>>(m_substate_list);
     }
-    // as a reference
+    // Get a state (const version).
     template <class State>
-    typename ::boost::enable_if<typename ::boost::is_reference<State>::type,State >::type
-    get_state(::boost::msm::back::dummy<1> = 0) const
+    const State& get_state() const
     {
-        return const_cast<State >
-            ( std::get<get_state_id<stt,
-                typename ::boost::remove_const<typename ::boost::remove_reference<State>::type>::type>::value>(m_substate_list) );
-    }
-    // get a state (non const version)
-    // as a pointer
-    template <class State>
-    typename ::boost::enable_if<typename ::boost::is_pointer<State>::type,State >::type
-    get_state(::boost::msm::back::dummy<0> = 0)
-    {
-        return &(static_cast<typename boost::add_reference<typename ::boost::remove_pointer<State>::type>::type >
-        (std::get<get_state_id<stt, typename ::boost::remove_pointer<State>::type>::value>(m_substate_list)));
-    }
-    // as a reference
-    template <class State>
-    typename ::boost::enable_if<typename ::boost::is_reference<State>::type,State >::type
-    get_state(::boost::msm::back::dummy<1> = 0)
-    {
-        return std::get<get_state_id<stt, typename ::boost::remove_reference<State>::type>::value>(m_substate_list);
+        return std::get<std::remove_reference_t<State>>(m_substate_list);
     }
 
     // checks if a flag is active using the BinaryOp as folding function
@@ -1427,18 +1378,42 @@ private:
         return helper.is_end_interrupt_event(event);
     }
 
-    // visit the currently active states (if these are defined as visitable
-    // by implementing accept)
-    template <typename... Args>
-    void visit_current_states(Args&&... args)
+    // Visit the states (only active states).
+    template <typename F>
+    void visit(F&& visitor)
+    {
+        visit(std::forward<F>(visitor), active_states);
+    }
+
+    // Visit the states (only active states).
+    template <typename F>
+    void visit(F&& visitor, active_states_t)
     {
         if (m_running)
         {
             for (int i = 0; i < nr_regions; ++i)
             {
-                visitor_dispatch_table<BaseState>::dispatch(*this, m_states[i], std::forward<Args>(args)...);
+                visitor_dispatch_table<F>::dispatch(*this, m_states[i], std::forward<F>(visitor));
             }
         }
+    }
+
+    // Visit the states (all states).
+    template <typename F>
+    void visit(F&& visitor, all_states_t)
+    {
+        mp11::tuple_for_each(m_substate_list,
+            [&visitor](auto& state)
+            {
+                std::invoke(std::forward<F>(visitor), state);
+
+                using State = std::remove_reference_t<decltype(state)>;
+                if constexpr (is_composite_state<State>::value)
+                {
+                    state.visit(std::forward<F>(visitor), all_states);
+                }
+            }
+        );
     }
 
     // puts the given event into the deferred queue
@@ -1527,15 +1502,15 @@ public:
  protected:    // interface for the derived class
 
      // helper used to fill the initial states
-     struct init_states
+     struct set_initial_states_helper
      {
-         init_states(int* const init):m_initial_states(init),m_index(-1){}
+         set_initial_states_helper(int* const init):m_initial_states(init),m_index(-1){}
 
          // History initializer function object, used with mpl::for_each
          template <class State>
          void operator()(::boost::msm::wrap<State> const&)
          {
-             m_initial_states[++m_index]=get_state_id<stt,State>::type::value;
+             m_initial_states[++m_index]=get_state_id<State>();
          }
          int* const m_initial_states;
          int m_index;
@@ -1550,10 +1525,10 @@ public:
     {
          // initialize our list of states with the ones defined in Derived::initial_state
          ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
-                        (init_states(m_states));
+                        (set_initial_states_helper(m_states));
          m_history.set_initial_states(m_states);
          // create states
-         fill_states(this);
+         init(*this);
     }
 
     // assignment operator using the copy policy to decide if non_copyable, shallow or deep copying is necessary
@@ -1572,7 +1547,7 @@ public:
        if (this != &rhs)
        {
            // initialize our list of states with the ones defined in Derived::initial_state
-           fill_states(this);
+           init(*this);
            do_copy(rhs);
        }
     }
@@ -2017,16 +1992,6 @@ public:
     void no_action(Event const&){}
 
 private:
-    // accept implementation.
-    // First calls accept on itself, then accept on all active states.
-    template <typename State=BaseState, typename... Args>
-    typename enable_if_c<has_accept_method<State>::type::value, void>::type
-    accept(Args&&... args)
-    {
-        static_cast<State*>(this)->accept(std::forward<Args>(args)...);
-        visit_current_states(std::forward<Args>(args)...);
-    }
-
     // helper used to call the init states at the start of the state machine
     template <class Event>
     struct call_init
@@ -2036,7 +2001,7 @@ private:
         template <class State>
         void operator()(boost::msm::wrap<State> const&)
         {
-            execute_entry(std::get<get_state_id<stt, State>::value>(self->m_substate_list),evt,*self);
+            execute_entry(self->get_state<State>(),evt,*self);
         }
     private:
         Event const& evt;
@@ -2076,7 +2041,7 @@ private:
         }
         static bool forward(library_sm const& fsm)
         {
-            return std::get<get_state_id<stt, StateType>::value>(fsm.m_substate_list).template is_flag_active<Flag>();
+            return fsm.get_state<StateType>().template is_flag_active<Flag>();
         }
     };
     template <class Flag>
@@ -2111,7 +2076,7 @@ private:
             typedef typename get_flag_list<StateType>::type flags;
             typedef mp11::mp_contains<flags,Flag > found;
 
-            BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<stt,StateType>::type::value));
+            BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<StateType>()));
             if (found::type::value)
             {
                 // the type defined the flag => true
@@ -2144,109 +2109,6 @@ private:
         return flags_entries_ptr;
     }
 
-    // helper used to create a state using the correct constructor
-    template <class State, class Enable=void>
-    struct create_state_helper
-    {
-        static void set_sm(library_sm* )
-        {
-            // state doesn't need its sm
-        }
-    };
-    // create a state requiring a pointer to the state machine
-    template <class State>
-    struct create_state_helper<State,typename boost::enable_if<typename State::needs_sm >::type>
-    {
-        static void set_sm(library_sm* sm)
-        {
-            // create and set the fsm
-            std::get<get_state_id<stt, State>::value>(sm->m_substate_list).set_sm_ptr(sm);
-        }
-    };
-
-// the IBM compiler seems to have problems with nested classes
-// the same seems to apply to the Apple version of gcc 4.0.1 (just in case we do for < 4.1)
-// and also to MS VC < 8
-#if defined (__IBMCPP__) || (__GNUC__ == 4 && __GNUC_MINOR__ < 1) || (defined(_MSC_VER) && (_MSC_VER < 1400))
-     public:
-#endif
-    template<class ContainingSM>
-    void set_containing_sm(ContainingSM* sm)
-    {
-        m_is_included=true;
-        mp11::tuple_for_each(m_substate_list,add_state<ContainingSM>(this,sm));
-    }
-#if defined (__IBMCPP__) || (__GNUC__ == 4 && __GNUC_MINOR__ < 1) || (defined(_MSC_VER) && (_MSC_VER < 1400))
-     private:
-#endif
-    // A function object for use with mpl::for_each that stuffs
-    // states into the state list.
-    template<class ContainingSM>
-    struct add_state
-    {
-        add_state(library_sm* self_,ContainingSM* sm)
-            : self(self_),containing_sm(sm){}
-
-        // State is a sub fsm with exit pseudo states and gets a pointer to this fsm, so it can build a callback
-        template <class StateType>
-        typename ::boost::enable_if<
-            typename is_composite_state<StateType>::type,void >::type
-        new_state_helper(boost::msm::back::dummy<0> = 0) const
-        {
-            std::get<get_state_id<stt, StateType>::value>(self->m_substate_list).set_containing_sm(containing_sm);
-        }
-        // State is a sub fsm without exit pseudo states and does not get a callback to this fsm
-        // or state is a normal state and needs nothing except creation
-        template <class StateType>
-        typename ::boost::enable_if<
-            typename boost::mpl::and_<typename boost::mpl::not_
-                                                    <typename is_composite_state<StateType>::type>::type,
-                                      typename boost::mpl::not_
-                                                    <typename is_pseudo_exit<StateType>::type>::type
-                   >::type,void>::type
-        new_state_helper( ::boost::msm::back::dummy<1> = 0) const
-        {
-            //nothing to do
-        }
-        // state is exit pseudo state and gets callback to target fsm
-        template <class StateType>
-        typename ::boost::enable_if<typename is_pseudo_exit<StateType>::type,void >::type
-        new_state_helper( ::boost::msm::back::dummy<2> = 0) const
-        {
-            ContainingSM* sm = containing_sm;
-            self->get_state<StateType&>().set_forward_fct(
-                [sm](typename StateType::event const& event)
-                {
-                    return sm->process_event(event);
-                }
-            );
-        }
-        // for every defined state in the sm
-        template <class State>
-        void operator()( State const&) const
-        {
-            this->new_state_helper<State>(),
-            create_state_helper<State>::set_sm(self);
-        }
-    private:
-        library_sm*      self;
-        ContainingSM*    containing_sm;
-    };
-
-     // helper used to copy every state if needed
-     struct copy_helper
-     {
-         copy_helper(library_sm* sm):
-           m_sm(sm){}
-         template <class StateType>
-         void operator()( ::boost::msm::wrap<StateType> const& )
-         {
-            // for states that keep a pointer to the fsm, reset the pointer
-            create_state_helper<StateType>::set_sm(m_sm);
-         }
-
-         library_sm*     m_sm;
-     };
      // helper to copy the active states attribute
      template <class region_id,int Dummy=0>
      struct region_copy_helper
@@ -2273,7 +2135,7 @@ private:
          m_deferred_events_queue = rhs.m_deferred_events_queue;
          m_history = rhs.m_history;
          m_event_processing = rhs.m_event_processing;
-         m_is_included = rhs.m_is_included;
+         m_is_contained = rhs.m_is_contained;
          m_substate_list = rhs.m_substate_list;
          m_running = rhs.m_running;
          // except for the states themselves, which get duplicated
@@ -2395,7 +2257,7 @@ private:
          operator()(EventType const& evt,FsmType& fsm, ::boost::msm::back::dummy<1> = 0)
          {
              (static_cast<Derived*>(self))->on_entry(evt,fsm);
-             int state_id = get_state_id<stt,typename EventType::active_state::wrapped_entry>::value;
+             int state_id = get_state_id<typename EventType::active_state::wrapped_entry>();
              BOOST_STATIC_ASSERT(find_region_id<typename EventType::active_state::wrapped_entry>::region_index >= 0);
              BOOST_STATIC_ASSERT(find_region_id<typename EventType::active_state::wrapped_entry>::region_index < nr_regions);
              // just set the correct zone, the others will be default/history initialized
@@ -2433,7 +2295,7 @@ private:
          {
              // entry on the FSM
              (static_cast<Derived*>(self))->on_entry(evt,fsm);
-             int state_id = get_state_id<stt,typename EventType::active_state::wrapped_entry>::value;
+             int state_id = get_state_id<typename EventType::active_state::wrapped_entry>();
              BOOST_STATIC_ASSERT(find_region_id<typename EventType::active_state::wrapped_entry>::region_index >= 0);
              BOOST_STATIC_ASSERT(find_region_id<typename EventType::active_state::wrapped_entry>::region_index < nr_regions);
              // given region starts with the entry pseudo state as active state
@@ -2454,7 +2316,7 @@ private:
              template <class StateType>
              void operator()( ::boost::msm::wrap<StateType> const& )
              {
-                 int state_id = get_state_id<stt,typename StateType::wrapped_entry>::value;
+                 int state_id = get_state_id<typename StateType::wrapped_entry>();
                  BOOST_STATIC_ASSERT(find_region_id<typename StateType::wrapped_entry>::region_index >= 0);
                  BOOST_STATIC_ASSERT(find_region_id<typename StateType::wrapped_entry>::region_index < nr_regions);
                  helper_self->m_states[find_region_id<typename StateType::wrapped_entry>::region_index] = state_id;
@@ -2630,16 +2492,41 @@ private:
         execute_entry(astate,direct_entry_event<TargetType,EventType>(evt),fsm);
     }
 
-    // creates all the states
+    // initializes the SM
     template <class ContainingSM>
-    void fill_states(ContainingSM* containing_sm=0)
+    void init(ContainingSM& containing_sm)
     {
+        m_is_contained = (
+            static_cast<void*>(this) != static_cast<void*>(&containing_sm)
+        );
+
         // checks that regions are truly orthogonal
         FsmCheckPolicy::template check_orthogonality<library_sm>();
         // checks that all states are reachable
         FsmCheckPolicy::template check_unreachable_states<library_sm>();
 
-        mp11::tuple_for_each(m_substate_list,add_state<ContainingSM>(this,containing_sm));
+        visit(
+            [&containing_sm](auto& state)
+            {
+                using State = std::remove_reference_t<decltype(state)>;
+
+                if constexpr (is_pseudo_exit<State>::value)
+                {
+                    state.set_forward_fct(
+                        [&containing_sm](typename State::event const& event)
+                        {
+                            return containing_sm.process_event(event);
+                        }
+                    );
+                }
+
+                if constexpr (is_composite_state<State>::value)
+                {
+                    state.init(containing_sm);
+                }
+            },
+            all_states
+        );
     }
 
 private:
@@ -2661,17 +2548,9 @@ private:
     {
     };
 
-    // Dispatch table for visitors (empty version).
-    template <class BaseState, typename = void>
-    class visitor_dispatch_table
-    {
-    public:
-        template<typename... Args>
-        static void dispatch(library_sm&, int, Args&&...) { }
-    };
     // Dispatch table for visitors.
-    template <class BaseState>
-    class visitor_dispatch_table<BaseState, typename enable_if<has_accept_method<BaseState>>::type>
+    template <typename F>
+    class visitor_dispatch_table
     {
     public:
         visitor_dispatch_table()
@@ -2680,19 +2559,13 @@ private:
             mp11::mp_for_each<state_identities>(init_helper{m_cells});
         }
 
-        template<typename... Args>
-        static void dispatch(library_sm& fsm, int index, Args&&... args)
+        static void dispatch(library_sm& fsm, int index, F&& visitor)
         {
-            instance().m_cells[index](fsm, std::forward<Args>(args)...);
+            instance().m_cells[index](fsm, std::forward<F>(visitor));
         }
 
     private:
-        using accept_method_signature =
-            member_function_signature_t<decltype(&BaseState::accept)>;
-
-        template <typename Res, typename... Args>
-        using get_visitor_cell = Res (*)(library_sm&, Args...);
-        using visitor_cell = mp11::mp_apply<get_visitor_cell, accept_method_signature>;
+        using visitor_cell = void (*)(library_sm&, F&&);
 
         class init_helper
         {
@@ -2702,24 +2575,22 @@ private:
             template <typename State>
             void operator()(mp11::mp_identity<State>)
             {
-                using wrapper = mp11::mp_apply<
-                    execute_wrapper,
-                    mp11::mp_push_front<accept_method_signature, State>
-                    >;
-                m_cells[get_state_id<stt, State>::value] = &wrapper::execute;
+                m_cells[get_state_id<State>()] = &execute<State>;
+            }
+
+            template<typename State>
+            static void execute(library_sm& fsm, F&& visitor)
+            {
+                State& state = fsm.get_state<State>();
+                std::invoke(std::forward<F>(visitor), state);
+
+                if constexpr (is_composite_state<State>::value)
+                {
+                    state.visit(std::forward<F>(visitor));
+                }
             }
 
           private:
-            template <typename State, typename Res, typename... Args>
-            struct execute_wrapper
-            {
-                static Res execute(library_sm& fsm, Args... args)
-                {
-                    State& state = fsm.get_state<State&>();
-                    return state.accept(std::forward<Args>(args)...);
-                }
-            };
-
             visitor_cell* m_cells;
         };
 
@@ -2739,7 +2610,7 @@ private:
         <library_sm>                m_deferred_events_queue{};
     concrete_history                m_history{};
     bool                            m_event_processing{false};
-    bool                            m_is_included{false};
+    bool                            m_is_contained{false};
     substate_list                   m_substate_list{};
     bool                            m_running{false};
 };

@@ -11,18 +11,27 @@ It is named after the metaprogramming library Boost Mp11, the main contributor t
 
 ## Behavioral changes
 
-### Visitor API
-
-- The argument size limitation `BOOST_MSM_VISITOR_ARG_SIZE` has been removed, the new visitor implementation uses perfect forwarding.
-- There is no need to declare an `accept_sig` in the base state, it is automatically derived from the signature of its `accept` method.
-- As long as the state machine is not running (before start resp. after stop), no states will be visited. The previous behavior was errorneous in the following way:
-    - If the SM was not started yet, the initial state(s) were visited
-    - If the SM was stopped, the last active state(s) were visited
-
 
 ## New features
 
+### Universal visitor API
+
+The need to define a BaseState, accept_sig and accept method in the frontend is removed.
+
+Instead there is a universal visitor API that supports two overloads via tag dispatch to either iterate over only active states or all states:
+- void state_machine::visit(F&& f) // Same as with active_states_t
+- void state_machine::visit(F&& f, back::active_states_t)
+- void state_machine::visit(F&& f, back::all_states_t)
+
+The functor f needs to fulfill the signature `void (auto& state)`.
+
+Also these bugs are fixed:
+- If the SM is not started yet, no active state is visited instead of the initial state(s)
+- If the SM is stopped, no active state is visited instead of the last active state(s)
+
+
 ## Resolved limitations
+
 
 ## Breaking changes
 
@@ -42,6 +51,33 @@ There were some caveats with one constructor that was used for different use cas
 
 In order to keep API of the constructor simpler and less ambiguous, it only supports forwarding arguments to the frontend and no more.
 Also the `set_states` API is removed. If setting a state is required, this can still be done (in a little more verbose, but also more direct & explicit fashion) by getting a reference to the desired state via `get_state` and then assigning the desired new state to it.
+
+
+### `sm_ptr` support is removed
+
+Not needed with the functor frontend and was already deprecated in MSM, thus removed in MSM2.
+
+
+### The method `visit_current_states` is removed
+
+Please use the universal visitor API instead.
+
+
+### The method `get_state_by_id` is removed
+
+If you really need to get a state by id, please use the universal visitor API to implement the function on your own.
+The backmp11 state_machine has a new method to support getting the id of a state in the visitor:
+
+```
+template<typename State>
+static constexpr int get_state_id(const State&);
+```
+
+### The pointer overload of `get_state` is removed
+
+Similarly to the STL's `std::get` of a tuple, the only sensible template parameter for `get_state` is `T` returning a `T&`.
+The overload for a `T*` is removed and the `T&` is discouraged, although still supported.
+If you need to get a state by its address, use the address operator after you have received the state,
 
 
 ## How to use it
