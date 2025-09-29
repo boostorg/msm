@@ -32,10 +32,6 @@
 #include <boost/utility/enable_if.hpp>
 #include <boost/type_traits/is_convertible.hpp>
 
-#ifndef BOOST_NO_RTTI
-#include <boost/any.hpp>
-#endif
-
 #include <boost/serialization/base_object.hpp>
 
 #define BOOST_PARAMETER_CAN_USE_MP11
@@ -1425,7 +1421,7 @@ private:
     }
     template <class Policy = CompilePolicy>
     typename std::enable_if<std::is_same<Policy, favor_compile_time>::value, bool>::type
-    is_end_interrupt_event(const favor_compile_time::any_event& event)
+    is_end_interrupt_event(const any_event& event)
     {
         static end_interrupt_event_helper helper{*this};
         return helper.is_end_interrupt_event(event);
@@ -1493,7 +1489,7 @@ protected:
                 m_fsm->m_deferred_events_queue.m_deferred_events_queue.push_back(
                     std::make_pair(
                         [fsm, event] { return fsm->process_event_internal(
-                            boost::any_cast<Event>(event),
+                            std::any_cast<Event>(event),
                             static_cast<::boost::msm::back::EventSource>(::boost::msm::back::EVENT_SOURCE_DIRECT | ::boost::msm::back::EVENT_SOURCE_DEFERRED));
                         },
                         static_cast<char>(m_fsm->m_deferred_events_queue.m_cur_seq + 1)));
@@ -1930,12 +1926,12 @@ public:
     process_event_internal(Event const& evt,
                            EventSource source = EVENT_SOURCE_DEFAULT)
     {
-        return process_event_internal_impl(favor_compile_time::any_event(evt), source);
+        return process_event_internal_impl(any_event(evt), source);
     }
 
     template<class Policy = CompilePolicy>
     typename enable_if<is_same<Policy, favor_compile_time>, execute_return>::type
-    process_event_internal(favor_compile_time::any_event const& evt,
+    process_event_internal(any_event const& evt,
                            EventSource source = EVENT_SOURCE_DEFAULT)
     {
         return process_event_internal_impl(evt, source);

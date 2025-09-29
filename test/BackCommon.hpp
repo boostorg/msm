@@ -11,9 +11,14 @@
 // back-end
 #include <boost/msm/back/state_machine.hpp>
 #include <boost/msm/back/favor_compile_time.hpp>
+#include <boost/msm/back11/state_machine.hpp>
+
+#if (BOOST_CXX_VERSION >= 201703L)
 #include <boost/msm/backmp11/state_machine.hpp>
 #include <boost/msm/backmp11/favor_compile_time.hpp>
-#include <boost/msm/back11/state_machine.hpp>
+#else
+    #define BOOST_MSM_TEST_SKIP_BACKMP11
+#endif
 
 template<typename Front>
 using get_test_machines = boost::mpl::vector<

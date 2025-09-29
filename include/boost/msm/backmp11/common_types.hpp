@@ -12,6 +12,7 @@
 #ifndef BOOST_MSM_BACKMP11_COMMON_TYPES_H
 #define BOOST_MSM_BACKMP11_COMMON_TYPES_H
 
+#include <any>
 #include <boost/msm/back/common_types.hpp>
 
 namespace boost { namespace msm { namespace backmp11
@@ -31,6 +32,8 @@ using back::EVENT_SOURCE_DEFERRED;
 using back::EVENT_SOURCE_MSG_QUEUE;
 
 using back::EventSource;
+
+using any_event = std::any;
 
 }}} // namespace boost::msm::backmp11
 

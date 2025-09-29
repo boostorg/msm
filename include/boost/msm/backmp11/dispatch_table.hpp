@@ -255,7 +255,7 @@ private:
             // Go back and fill in cells for matching transitions.
 // Creating init cells that refer to convert_event_and_forward is only possible from C++17.
 // MSVC crashes when using get_init_cells.
-#if __cplusplus >= 201703L && !defined(_MSC_VER)
+#if !defined(_MSC_VER)
             typedef mp11::mp_transform<
                 preprocess_row,
                 chained_rows

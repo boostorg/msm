@@ -35,8 +35,6 @@ test-suite msm-unit-tests
     [ run AnonymousAndGuard.cpp ]
     [ run AnonymousEuml.cpp ]
     [ run Back11CompositeMachine.cpp ]
-    [ run Backmp11Constructor.cpp ]
-    [ run Backmp11Visitor.cpp ]
     [ run BigWithFunctors.cpp ]
     # MSVC 32-bit runs out of memory when compiling this test
     [ run CompositeEuml.cpp : : : <toolset>msvc-14.3,<address-model>32:<build>no ]
@@ -76,6 +74,14 @@ test-suite msm-unit-tests
     [ run TransitionSkipping.cpp ]
     ;
 
+test-suite msm-unit-tests-cxxstd17
+    :
+    [ run Backmp11Constructor.cpp ]
+    [ run Backmp11Visitor.cpp ]
+    :
+    <cxxstd>17
+    ;
+
 test-suite msm-unit-tests-cxxstd20
     :
     # MSVC 32-bit runs out of memory when compiling this test
@@ -84,6 +90,7 @@ test-suite msm-unit-tests-cxxstd20
     [ run puml_syntax.cpp ]
     [ run puml_syntax_2.cpp ]
     [ run SimpleWithPuml.cpp ]
+    [ run SimpleInternalWithPuml.cpp ]
     [ run StringTerminatePuml.cpp ]
     :
     <cxxstd>20

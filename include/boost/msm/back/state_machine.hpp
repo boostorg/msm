@@ -45,9 +45,7 @@
 
 #include <boost/bind/bind.hpp>
 #include <boost/function.hpp>
-#ifndef BOOST_NO_RTTI
 #include <boost/any.hpp>
-#endif
 
 #include <boost/serialization/base_object.hpp>
 
@@ -2232,9 +2230,7 @@ public:
     template <class Event>
     void no_action(Event const&){}
 
-#ifndef BOOST_NO_RTTI
     HandledEnum process_any_event( ::boost::any const& evt);
-#endif
 
 private:
     // composite accept implementation. First calls accept on the composite, then accept on all its active states.
