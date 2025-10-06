@@ -28,11 +28,6 @@ using namespace msm::backmp11;
 
 namespace
 {
-    struct StateBase
-    {
-        size_t visits;
-    };
-
     class CountVisitor
     {
       public:
@@ -65,56 +60,70 @@ namespace
         int& m_visits;
     };
 
-    // base state for all states of the fsm, to make them visitable
-    // TODO remove
-    struct VisitableState : StateBase {};
-
     // Events.
     struct EnterSubFsm{};
     struct ExitSubFsm{};
 
     // States.
-    struct DefaultState : public state<VisitableState>{ };
+    struct StateBase
+    {
+        size_t visits;
+    };
+
+    struct DefaultState : public state<StateBase> {};
 
     template<typename T>
-    struct MachineBase_ : public state_machine_def<MachineBase_<T>, VisitableState>
+    struct MachineBase_ : public state_machine_def<MachineBase_<T>, StateBase>
     {
         using initial_state = DefaultState;
     };
 
-    struct LowerMachine_ : public MachineBase_<LowerMachine_> { };
-    using LowerMachine = state_machine<LowerMachine_>;
-
-    struct MiddleMachine_ : public MachineBase_<MiddleMachine_>
+    template<typename Policy>
+    struct hierarchical_state_machine
     {
-        using transition_table = mp11::mp_list<
-            Row< DefaultState , EnterSubFsm , LowerMachine >,
-            Row< LowerMachine , ExitSubFsm  , DefaultState >
-        >;
-    };
-    using MiddleMachine = state_machine<MiddleMachine_>;
+        struct LowerMachine_ : public MachineBase_<LowerMachine_> { };
+        using LowerMachine = state_machine<LowerMachine_, Policy>;
 
-    struct UpperMachine_ : public MachineBase_<UpperMachine_>
-    {
-        using transition_table = mp11::mp_list<
-            Row< DefaultState  , EnterSubFsm , MiddleMachine>,
-            Row< MiddleMachine , ExitSubFsm  , DefaultState>
-        >;
+        struct MiddleMachine_ : public MachineBase_<MiddleMachine_>
+        {
+            using transition_table = mp11::mp_list<
+                Row< DefaultState , EnterSubFsm , LowerMachine >,
+                Row< LowerMachine , ExitSubFsm  , DefaultState >
+            >;
+        };
+        using MiddleMachine = state_machine<MiddleMachine_, Policy>;
+
+        struct UpperMachine_ : public MachineBase_<UpperMachine_>
+        {
+            using transition_table = mp11::mp_list<
+                Row< DefaultState  , EnterSubFsm , MiddleMachine>,
+                Row< MiddleMachine , ExitSubFsm  , DefaultState>
+            >;
+        };
+        using UpperMachine = state_machine<UpperMachine_, Policy>;
     };
-    using UpperMachine = state_machine<UpperMachine_>;
+
+    using TestMachines = boost::mpl::vector<
+        // hierarchical_state_machine<favor_runtime_speed>,
+        hierarchical_state_machine<favor_compile_time>
+        >;
     
-    BOOST_AUTO_TEST_CASE( backmp11_visitor_test )
+    BOOST_AUTO_TEST_CASE_TEMPLATE( backmp11_visitor_test, TestMachine, TestMachines )
     {
+        using UpperMachine = typename TestMachine::UpperMachine;
+        using MiddleMachine = typename TestMachine::MiddleMachine;
+        using LowerMachine = typename TestMachine::LowerMachine;
+
         int visits = 0;
         ResetCountVisitor reset_count_visitor{visits};
         CountVisitor count_visitor{visits};
 
         UpperMachine upper_machine{};
-        auto& upper_machine_state = upper_machine.get_state<DefaultState&>();
-        auto& middle_machine = upper_machine.get_state<MiddleMachine&>();
-        auto& middle_machine_state = middle_machine.get_state<DefaultState&>();
-        auto& lower_machine = middle_machine.get_state<LowerMachine&>();
-        auto& lower_machine_state = lower_machine.get_state<DefaultState&>();
+        auto& upper_machine_state = upper_machine.template get_state<DefaultState&>();
+        auto& middle_machine = upper_machine.template get_state<MiddleMachine&>();
+        auto& middle_machine_state = middle_machine.template get_state<DefaultState&>();
+        auto& lower_machine = middle_machine.template get_state<LowerMachine&>();
+        auto& lower_machine_state = lower_machine.template get_state<DefaultState&>();
 
         // Test active states
         {
@@ -160,3 +169,7 @@ namespace
     }
 }
 
+using TestMachine = hierarchical_state_machine<favor_compile_time>;
+BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(TestMachine::UpperMachine);
+BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(TestMachine::MiddleMachine);
+BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(TestMachine::LowerMachine);

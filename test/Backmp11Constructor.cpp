@@ -22,6 +22,9 @@
 namespace msm = boost::msm;
 namespace mpl = boost::mpl;
 
+using namespace msm::front;
+using namespace msm::backmp11;
+
 
 namespace
 {
@@ -250,11 +253,11 @@ namespace
     };
     // Pick a back-end
     typedef boost::mpl::vector<
-        hierarchical_state_machine<boost::msm::backmp11::state_machine>,
-        hierarchical_state_machine<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>
+        hierarchical_state_machine<state_machine>,
+        hierarchical_state_machine<state_machine, favor_compile_time>
         > test_machines; 
 
-    BOOST_AUTO_TEST_CASE_TEMPLATE( test_constructor, test_machine, test_machines )
+    BOOST_AUTO_TEST_CASE_TEMPLATE( backmp11_constructor_test, test_machine, test_machines )
     {
         typedef typename test_machine::player player;
         typedef typename test_machine::player_ player_;
