@@ -12,40 +12,9 @@
 #ifndef BOOST_MSM_BACKMP11_METAFUNCTIONS_H
 #define BOOST_MSM_BACKMP11_METAFUNCTIONS_H
 
-#include "boost/msm/front/completion_event.hpp"
-#include <algorithm>
-
 #include <boost/mp11.hpp>
 #include <boost/mp11/mpl_list.hpp>
-#include <boost/mpl/set.hpp>
-#include <boost/mpl/at.hpp>
-#include <boost/mpl/pair.hpp>
-#include <boost/mpl/int.hpp>
-#include <boost/mpl/has_xxx.hpp>
-#include <boost/mpl/find.hpp>
 #include <boost/mpl/count_if.hpp>
-#include <boost/mpl/fold.hpp>
-#include <boost/mpl/if.hpp>
-#include <boost/mpl/has_key.hpp>
-#include <boost/mpl/insert.hpp>
-#include <boost/mpl/next_prior.hpp>
-#include <boost/mpl/push_back.hpp>
-#include <boost/mpl/vector.hpp>
-#include <boost/mpl/is_sequence.hpp>
-#include <boost/mpl/size.hpp>
-#include <boost/mpl/transform.hpp>
-#include <boost/mpl/begin_end.hpp>
-#include <boost/mpl/bool.hpp>
-#include <boost/mpl/empty.hpp>
-#include <boost/mpl/identity.hpp>
-#include <boost/mpl/eval_if.hpp>
-#include <boost/mpl/insert_range.hpp>
-#include <boost/mpl/front.hpp>
-#include <boost/mpl/logical.hpp>
-#include <boost/mpl/plus.hpp>
-#include <boost/mpl/copy_if.hpp>
-#include <boost/mpl/back_inserter.hpp>
-#include <boost/mpl/transform.hpp>
 
 #include <boost/type_traits/is_same.hpp>
 #include <boost/utility/enable_if.hpp>
@@ -677,6 +646,8 @@ struct is_no_exception_thrown
         typename has_no_exception_thrown<StateType>::type,
         found
     >::type type;
+
+    static constexpr typename type::value_type value = type::value;
 };
 
 template <class StateType>
@@ -894,12 +865,17 @@ typename ::boost::enable_if<typename ::boost::mpl::and_<typename is_composite_st
 is_exit_state_active(FSM& fsm)
 {
     typedef typename OwnerFct::type Composite;
-    //typedef typename create_stt<Composite>::type stt;
-    typedef typename Composite::stt stt;
-    int state_id = get_state_id<stt,StateType>::type::value;
     Composite& comp = fsm.template get_state<Composite&>();
-    return (std::find(comp.current_state(),comp.current_state()+Composite::nr_regions,state_id)
-                            !=comp.current_state()+Composite::nr_regions);
+    const int state_id = comp.template get_state_id<StateType>();
+    const int* active_state_ids = comp.current_state();
+    for (int nr_region=0; nr_region<Composite::nr_regions; nr_region++)
+    {
+        if (active_state_ids[nr_region] == state_id)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 template <class StateType,class OwnerFct,class FSM>
 inline

@@ -16,12 +16,9 @@
 
 #include <boost/mp11.hpp>
 #include <boost/mp11/mpl_list.hpp>
-#include <boost/mpl/reverse_fold.hpp>
-#include <boost/mpl/greater.hpp>
-#include <boost/mpl/filter_view.hpp>
+
+#include <boost/mpl/empty.hpp>
 #include <boost/mpl/pop_front.hpp>
-#include <boost/mpl/for_each.hpp>
-#include <boost/mpl/advance.hpp>
 
 #include <boost/type_traits/is_base_of.hpp>
 #include <boost/type_traits/is_same.hpp>
@@ -118,12 +115,13 @@ using get_table_index = typename table_index<Fsm, State, Event>::type;
 // Generates a singleton runtime lookup table that maps current state
 // to a function that makes the SM take its transition on the given
 // Event type.
-template<class Fsm, class Stt, class CompilePolicy>
+template<class Fsm, class CompilePolicy>
 class dispatch_table;
 
-template<class Fsm, class Stt>
-class dispatch_table<Fsm, Stt, favor_runtime_speed>
+template<class Fsm>
+class dispatch_table<Fsm, favor_runtime_speed>
 {
+    using Stt = typename Fsm::complete_table;
 public:
     // Dispatch function for a specific event.
     template<class Event>

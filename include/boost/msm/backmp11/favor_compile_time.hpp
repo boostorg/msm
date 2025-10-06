@@ -18,6 +18,7 @@
 
 #include <boost/mpl/bool.hpp>
 
+#include <boost/msm/front/completion_event.hpp>
 #include <boost/msm/backmp11/metafunctions.hpp>
 #include <boost/msm/backmp11/dispatch_table.hpp>
 
@@ -138,9 +139,10 @@ struct chain_row
 // Generates a singleton runtime lookup table that maps current state
 // to a function that makes the SM take its transition on the given
 // Event type.
-template<class Fsm, class Stt>
-class dispatch_table<Fsm, Stt, favor_compile_time>
+template<class Fsm>
+class dispatch_table<Fsm, favor_compile_time>
 {
+    using Stt = typename Fsm::complete_table;
 public:
     // Dispatch an event.
     static HandledEnum dispatch(Fsm& fsm, int region_id, int state_id, const any_event& event)
