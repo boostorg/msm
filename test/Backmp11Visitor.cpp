@@ -20,6 +20,8 @@
 #endif
 #include <boost/test/unit_test.hpp>
 
+#include "Backmp11.hpp"
+
 namespace msm = boost::msm;
 namespace mp11 = boost::mp11;
 
@@ -78,11 +80,11 @@ namespace
         using initial_state = DefaultState;
     };
 
-    template<typename Policy>
+    template<typename Config = default_state_machine_config>
     struct hierarchical_state_machine
     {
         struct LowerMachine_ : public MachineBase_<LowerMachine_> { };
-        using LowerMachine = state_machine<LowerMachine_, Policy>;
+        using LowerMachine = state_machine<LowerMachine_, Config>;
 
         struct MiddleMachine_ : public MachineBase_<MiddleMachine_>
         {
@@ -91,7 +93,7 @@ namespace
                 Row< LowerMachine , ExitSubFsm  , DefaultState >
             >;
         };
-        using MiddleMachine = state_machine<MiddleMachine_, Policy>;
+        using MiddleMachine = state_machine<MiddleMachine_, Config>;
 
         struct UpperMachine_ : public MachineBase_<UpperMachine_>
         {
@@ -100,12 +102,12 @@ namespace
                 Row< MiddleMachine , ExitSubFsm  , DefaultState>
             >;
         };
-        using UpperMachine = state_machine<UpperMachine_, Policy>;
+        using UpperMachine = state_machine<UpperMachine_, Config>;
     };
 
     using TestMachines = boost::mpl::vector<
-        // hierarchical_state_machine<favor_runtime_speed>,
-        hierarchical_state_machine<favor_compile_time>
+        hierarchical_state_machine<>,
+        hierarchical_state_machine<favor_compile_time_config>
         >;
     
     BOOST_AUTO_TEST_CASE_TEMPLATE( backmp11_visitor_test, TestMachine, TestMachines )
@@ -169,7 +171,7 @@ namespace
     }
 }
 
-using TestMachine = hierarchical_state_machine<favor_compile_time>;
+using TestMachine = hierarchical_state_machine<favor_compile_time_config>;
 BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(TestMachine::UpperMachine);
 BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(TestMachine::MiddleMachine);
 BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(TestMachine::LowerMachine);

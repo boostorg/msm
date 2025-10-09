@@ -65,6 +65,7 @@ add_dependencies(tests boost_msm_euml_tests)
 add_executable(boost_msm_cxx17_tests
     EXCLUDE_FROM_ALL
     Backmp11Constructor.cpp
+    Backmp11RootSm.cpp
     Backmp11Visitor.cpp
     main.cpp
 )

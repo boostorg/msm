@@ -13,6 +13,7 @@
 #define BOOST_MSM_BACKMP11_FAVOR_COMPILE_TIME_H
 
 #include <deque>
+#include <functional>
 #include <typeindex>
 #include <unordered_map>
 

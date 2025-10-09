@@ -59,7 +59,7 @@ namespace
         DiskTypeEnum disc_type;
     };
 
-    template<template <typename...> class Back, typename Policy = void>
+    template<template <typename...> class Back, typename Config = default_state_machine_config>
     struct hierarchical_state_machine
     {
     // front-end: define the FSM structure 
@@ -179,7 +179,7 @@ namespace
             }
         };
         // back-end
-        typedef Back<Playing_, Policy> Playing;
+        typedef Back<Playing_, Config> Playing;
 
         // state not defining any entry or exit
         struct Paused : public msm::front::state<>
@@ -249,12 +249,12 @@ namespace
             BOOST_FAIL("no_transition called!");
         }
     };
-    typedef Back<player_, Policy> player;
+    typedef Back<player_, Config> player;
     };
     // Pick a back-end
     typedef boost::mpl::vector<
         hierarchical_state_machine<state_machine>,
-        hierarchical_state_machine<state_machine, favor_compile_time>
+        hierarchical_state_machine<state_machine, favor_compile_time_config>
         > test_machines; 
 
     BOOST_AUTO_TEST_CASE_TEMPLATE( backmp11_constructor_test, test_machine, test_machines )

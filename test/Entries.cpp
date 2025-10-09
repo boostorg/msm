@@ -64,7 +64,6 @@ namespace
         struct SubFsm2_ : public msm::front::state_machine_def<SubFsm2_>
         {
             BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(SubFsm2_)
-            typedef Back<SubFsm2_, Policy> SubFsm2;
 
             unsigned int entry_action_counter;
 
@@ -232,7 +231,7 @@ namespace
 
 
     BOOST_AUTO_TEST_CASE_TEMPLATE( entries_test, test_machine, test_machines )
-    {     
+    {
         typename test_machine::Fsm p;
         typedef typename test_machine::Fsm_ Fsm_;
 
@@ -309,8 +308,8 @@ using back1 = hierarchical_state_machine<boost::msm::back::state_machine, boost:
 BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back1);
 
 #if !defined(BOOST_MSM_TEST_SKIP_BACKMP11)
-using backmp11_0 = hierarchical_state_machine<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>::Fsm;
-using backmp11_1 = hierarchical_state_machine<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>::Fsm_::SubFsm2;
+using backmp11_0 = hierarchical_state_machine<boost::msm::backmp11::state_machine_adapter, boost::msm::backmp11::favor_compile_time>::Fsm;
+using backmp11_1 = hierarchical_state_machine<boost::msm::backmp11::state_machine_adapter, boost::msm::backmp11::favor_compile_time>::Fsm_::SubFsm2;
 BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_0);
 BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_1);
 #endif

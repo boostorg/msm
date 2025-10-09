@@ -36,9 +36,6 @@
 
 #include <boost/serialization/base_object.hpp>
 
-#define BOOST_PARAMETER_CAN_USE_MP11
-#include <boost/parameter.hpp>
-
 #include <boost/msm/active_state_switching_policies.hpp>
 #include <boost/msm/row_tags.hpp>
 #include <boost/msm/back/traits.hpp>
@@ -47,15 +44,10 @@
 #include <boost/msm/backmp11/common_types.hpp>
 #include <boost/msm/backmp11/dispatch_table.hpp>
 #include <boost/msm/backmp11/favor_compile_time.hpp>
-#include <boost/msm/back/no_fsm_check.hpp>
-#include <boost/msm/back/queue_container_deque.hpp>
+#include <boost/msm/backmp11/state_machine_config.hpp>
 
 namespace boost { namespace msm { namespace backmp11
 {
-
-using back::no_fsm_check;
-using back::queue_container_deque;
-
 
 // event used internally for wrapping a direct entry
 template <class StateType,class Event>
@@ -69,94 +61,46 @@ struct direct_entry_event
     Event const& m_event;
 };
 
-BOOST_PARAMETER_TEMPLATE_KEYWORD(front_end)
-BOOST_PARAMETER_TEMPLATE_KEYWORD(history_policy)
-BOOST_PARAMETER_TEMPLATE_KEYWORD(compile_policy)
-BOOST_PARAMETER_TEMPLATE_KEYWORD(fsm_check_policy)
-BOOST_PARAMETER_TEMPLATE_KEYWORD(queue_container_policy)
-
-typedef ::boost::parameter::parameters<
-    ::boost::parameter::required< tag::front_end >
-  , ::boost::parameter::optional<
-        ::boost::parameter::deduced< tag::history_policy>, has_history_policy< ::boost::mpl::_ >
-    >
-  , ::boost::parameter::optional<
-        ::boost::parameter::deduced< tag::compile_policy>, has_compile_policy< ::boost::mpl::_ >
-    >
-  , ::boost::parameter::optional<
-        ::boost::parameter::deduced< tag::fsm_check_policy>, has_fsm_check< ::boost::mpl::_ >
-    >
-  , ::boost::parameter::optional<
-        ::boost::parameter::deduced< tag::queue_container_policy>,
-        has_queue_container_policy< ::boost::mpl::_ >
-    >
-> state_machine_signature;
-
-// library-containing class for state machines.  Pass the actual FSM class as
-// the Concrete parameter.
-// A0=Derived,A1=NoHistory,A2=CompilePolicy,A3=FsmCheckPolicy >
+// Back end for state machines.
+// Pass the state_machine_def as TFrontEnd and
+// a state_machine_config as TConfig.
 template <
-      class A0
-    , class A1 = parameter::void_
-    , class A2 = parameter::void_
-    , class A3 = parameter::void_
-    , class A4 = parameter::void_
+    class TFrontEnd,
+    class TConfig = default_state_machine_config
 >
-class state_machine : //public Derived
-    public ::boost::parameter::binding<
-            typename state_machine_signature::bind<A0,A1,A2,A3,A4>::type, tag::front_end
-    >::type
+class state_machine : public TFrontEnd
 {
 public:
-    // Create ArgumentPack
-    typedef typename
-        state_machine_signature::bind<A0,A1,A2,A3,A4>::type
-        state_machine_args;
-
-    // Extract first logical parameter.
-    typedef typename ::boost::parameter::binding<
-        state_machine_args, tag::front_end>::type Derived;
-
-    typedef typename ::boost::parameter::binding<
-        state_machine_args, tag::history_policy, NoHistory >::type              HistoryPolicy;
-
-    typedef typename ::boost::parameter::binding<
-        state_machine_args, tag::compile_policy, favor_runtime_speed >::type    CompilePolicy;
-
-    typedef typename ::boost::parameter::binding<
-        state_machine_args, tag::fsm_check_policy, no_fsm_check >::type         FsmCheckPolicy;
-
-    typedef typename ::boost::parameter::binding<
-        state_machine_args, tag::queue_container_policy,
-        queue_container_deque >::type                                           QueueContainerPolicy;
+    using Config = TConfig;
+    using RootSm = typename Config::root_sm;
+    using FrontEnd = TFrontEnd;
 
 private:
-
-    typedef state_machine<
-        A0,A1,A2,A3,A4>                             library_sm;
+    using CompilePolicy = typename Config::compile_policy;
+    using FsmCheck = typename Config::fsm_check;
+    using History = typename Config::history;
 
     typedef ::std::function<
         execute_return ()>                          transition_fct;
     typedef ::std::function<
         execute_return () >                         deferred_fct;
-    typedef typename QueueContainerPolicy::
-        template In<
-            std::pair<deferred_fct,char> >::type    deferred_events_queue_t;
-    typedef typename QueueContainerPolicy::
-        template In<transition_fct>::type           events_queue_t;
+    using deferred_events_queue_t = typename Config::template queue_container<
+        std::pair<deferred_fct, char>>;
+    using events_queue_t =
+        typename Config::template queue_container<transition_fct>;
 
     typedef typename boost::mpl::eval_if<
-        typename is_active_state_switch_policy<Derived>::type,
-        get_active_state_switch_policy<Derived>,
+        typename is_active_state_switch_policy<FrontEnd>::type,
+        get_active_state_switch_policy<FrontEnd>,
         // default
         ::boost::mpl::identity<active_state_switch_after_entry>
     >::type active_state_switching;
 
-    typedef bool (*flag_handler)(library_sm const&);
+    typedef bool (*flag_handler)(state_machine const&);
 
     // all state machines are friend with each other to allow embedding any of them in another fsm
-    template <class ,class , class, class, class
-    > friend class state_machine;
+    template <class, class>
+    friend class state_machine;
 
     template <class StateType,class Enable=int>
     struct deferred_msg_queue_helper
@@ -182,9 +126,6 @@ private:
     // tags
     typedef int composite_tag;
 
-    // in case someone needs to know
-    typedef HistoryPolicy               history_policy;
-
     struct InitEvent { };
     struct ExitEvent { };
     // flag handling
@@ -196,20 +137,19 @@ private:
     {
      typedef std::logical_or<bool> type;
     };
-    typedef Derived                           FrontEnd;
     typedef typename FrontEnd::BaseAllStates  BaseState;
 
     // if the front-end fsm provides an initial_event typedef, replace InitEvent by this one
     typedef typename ::boost::mpl::eval_if<
-        typename has_initial_event<Derived>::type,
-        get_initial_event<Derived>,
+        typename has_initial_event<FrontEnd>::type,
+        get_initial_event<FrontEnd>,
         ::boost::mpl::identity<InitEvent>
     >::type fsm_initial_event;
 
     // if the front-end fsm provides an exit_event typedef, replace ExitEvent by this one
     typedef typename ::boost::mpl::eval_if<
-        typename has_final_event<Derived>::type,
-        get_final_event<Derived>,
+        typename has_final_event<FrontEnd>::type,
+        get_final_event<FrontEnd>,
         ::boost::mpl::identity<ExitEvent>
     >::type fsm_final_event;
 
@@ -219,7 +159,7 @@ private:
         // tags
         typedef ExitPoint           wrapped_exit;
         typedef int                 pseudo_exit;
-        typedef library_sm          owner;
+        typedef state_machine       owner;
         typedef int                 no_automatic_create;
         typedef typename
             ExitPoint::event        Event;
@@ -278,7 +218,7 @@ private:
         // tags
         typedef EntryPoint          wrapped_entry;
         typedef int                 pseudo_entry;
-        typedef library_sm          owner;
+        typedef state_machine       owner;
         typedef int                 no_automatic_create;
     };
     template <class EntryPoint>
@@ -287,7 +227,7 @@ private:
         // tags
         typedef EntryPoint          wrapped_entry;
         typedef int                 explicit_entry_state;
-        typedef library_sm          owner;
+        typedef state_machine       owner;
         typedef int                 no_automatic_create;
     };
     static constexpr int nr_regions = get_number_of_regions<typename FrontEnd::initial_state>::type::value;
@@ -298,15 +238,15 @@ private:
     struct row_
     {
         //typedef typename ROW::Source T1;
-        typedef typename make_entry<typename ROW::Source,library_sm>::type T1;
-        typedef typename make_exit<typename ROW::Target,library_sm>::type T2;
+        typedef typename make_entry<typename ROW::Source,state_machine>::type T1;
+        typedef typename make_exit<typename ROW::Target,state_machine>::type T2;
         typedef typename ROW::Evt transition_event;
         // if the source is an exit pseudo state, then
         // current_state_type becomes the result of get_owner
         // meaning the containing SM from which the exit occurs
         typedef typename ::boost::mpl::eval_if<
                 typename has_pseudo_exit<T1>::type,
-                get_owner<T1,library_sm>,
+                get_owner<T1,state_machine>,
                 ::boost::mpl::identity<typename ROW::Source> >::type current_state_type;
 
         // if Target is a sequence, then we have a fork and expect a sequence of explicit_entry
@@ -314,15 +254,15 @@ private:
         // meaning the containing SM if the row is "outside" the containing SM or else the explicit_entry state itself
         typedef typename ::boost::mpl::eval_if<
             typename ::boost::mpl::is_sequence<T2>::type,
-            get_fork_owner<T2,library_sm>,
+            get_fork_owner<T2,state_machine>,
             ::boost::mpl::eval_if<
                     typename has_no_automatic_create<T2>::type,
-                    get_owner<T2,library_sm>,
+                    get_owner<T2,state_machine>,
                     ::boost::mpl::identity<T2> >
         >::type next_state_type;
 
         // if a guard condition is here, call it to check that the event is accepted
-        static bool check_guard(library_sm& fsm,transition_event const& evt)
+        static bool check_guard(state_machine& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
                                  fsm.get_state<current_state_type>(),
@@ -332,7 +272,7 @@ private:
             return false;
         }
         // Take the transition action and return the next state.
-        static HandledEnum execute(library_sm& fsm, int region_index, int state, transition_event const& evt)
+        static HandledEnum execute(state_machine& fsm, int region_index, int state, transition_event const& evt)
         {
 
             BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
@@ -341,7 +281,7 @@ private:
             BOOST_ASSERT(state == (current_state));
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
             if (has_pseudo_exit<T1>::type::value &&
-                !backmp11::is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
+                !backmp11::is_exit_state_active<T1,get_owner<T1,state_machine> >(fsm))
             {
                 return HANDLED_FALSE;
             }
@@ -378,15 +318,15 @@ private:
     struct g_row_
     {
         //typedef typename ROW::Source T1;
-        typedef typename make_entry<typename ROW::Source,library_sm>::type T1;
-        typedef typename make_exit<typename ROW::Target,library_sm>::type T2;
+        typedef typename make_entry<typename ROW::Source,state_machine>::type T1;
+        typedef typename make_exit<typename ROW::Target,state_machine>::type T2;
         typedef typename ROW::Evt transition_event;
         // if the source is an exit pseudo state, then
         // current_state_type becomes the result of get_owner
         // meaning the containing SM from which the exit occurs
         typedef typename ::boost::mpl::eval_if<
                 typename has_pseudo_exit<T1>::type,
-                get_owner<T1,library_sm>,
+                get_owner<T1,state_machine>,
                 ::boost::mpl::identity<typename ROW::Source> >::type current_state_type;
 
         // if Target is a sequence, then we have a fork and expect a sequence of explicit_entry
@@ -394,15 +334,15 @@ private:
         // meaning the containing SM if the row is "outside" the containing SM or else the explicit_entry state itself
         typedef typename ::boost::mpl::eval_if<
             typename ::boost::mpl::is_sequence<T2>::type,
-            get_fork_owner<T2,library_sm>,
+            get_fork_owner<T2,state_machine>,
             ::boost::mpl::eval_if<
                     typename has_no_automatic_create<T2>::type,
-                    get_owner<T2,library_sm>,
+                    get_owner<T2,state_machine>,
                     ::boost::mpl::identity<T2> >
         >::type next_state_type;
 
         // if a guard condition is defined, call it to check that the event is accepted
-        static bool check_guard(library_sm& fsm,transition_event const& evt)
+        static bool check_guard(state_machine& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
                                  fsm.get_state<current_state_type>(),
@@ -412,7 +352,7 @@ private:
             return false;
         }
         // Take the transition action and return the next state.
-        static HandledEnum execute(library_sm& fsm, int region_index, int state, transition_event const& evt)
+        static HandledEnum execute(state_machine& fsm, int region_index, int state, transition_event const& evt)
         {
             BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
             BOOST_STATIC_CONSTANT(int, next_state = (get_state_id<next_state_type>()));
@@ -420,7 +360,7 @@ private:
             BOOST_ASSERT(state == (current_state));
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
             if (has_pseudo_exit<T1>::type::value &&
-                !backmp11::is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
+                !backmp11::is_exit_state_active<T1,get_owner<T1,state_machine> >(fsm))
             {
                 return HANDLED_FALSE;
             }
@@ -452,15 +392,15 @@ private:
     struct a_row_
     {
         //typedef typename ROW::Source T1;
-        typedef typename make_entry<typename ROW::Source,library_sm>::type T1;
-        typedef typename make_exit<typename ROW::Target,library_sm>::type T2;
+        typedef typename make_entry<typename ROW::Source,state_machine>::type T1;
+        typedef typename make_exit<typename ROW::Target,state_machine>::type T2;
         typedef typename ROW::Evt transition_event;
         // if the source is an exit pseudo state, then
         // current_state_type becomes the result of get_owner
         // meaning the containing SM from which the exit occurs
         typedef typename ::boost::mpl::eval_if<
                 typename has_pseudo_exit<T1>::type,
-                get_owner<T1,library_sm>,
+                get_owner<T1,state_machine>,
                 ::boost::mpl::identity<typename ROW::Source> >::type current_state_type;
 
         // if Target is a sequence, then we have a fork and expect a sequence of explicit_entry
@@ -468,15 +408,15 @@ private:
         // meaning the containing SM if the row is "outside" the containing SM or else the explicit_entry state itself
         typedef typename ::boost::mpl::eval_if<
             typename ::boost::mpl::is_sequence<T2>::type,
-            get_fork_owner<T2,library_sm>,
+            get_fork_owner<T2,state_machine>,
             ::boost::mpl::eval_if<
                     typename has_no_automatic_create<T2>::type,
-                    get_owner<T2,library_sm>,
+                    get_owner<T2,state_machine>,
                     ::boost::mpl::identity<T2> >
         >::type next_state_type;
 
         // Take the transition action and return the next state.
-        static HandledEnum execute(library_sm& fsm, int region_index, int state, transition_event const& evt)
+        static HandledEnum execute(state_machine& fsm, int region_index, int state, transition_event const& evt)
         {
             BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
             BOOST_STATIC_CONSTANT(int, next_state = (get_state_id<next_state_type>()));
@@ -485,7 +425,7 @@ private:
 
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
             if (has_pseudo_exit<T1>::type::value &&
-                !backmp11::is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
+                !backmp11::is_exit_state_active<T1,get_owner<T1,state_machine> >(fsm))
             {
                 return HANDLED_FALSE;
             }
@@ -519,15 +459,15 @@ private:
     struct _row_
     {
         //typedef typename ROW::Source T1;
-        typedef typename make_entry<typename ROW::Source,library_sm>::type T1;
-        typedef typename make_exit<typename ROW::Target,library_sm>::type T2;
+        typedef typename make_entry<typename ROW::Source,state_machine>::type T1;
+        typedef typename make_exit<typename ROW::Target,state_machine>::type T2;
         typedef typename ROW::Evt transition_event;
         // if the source is an exit pseudo state, then
         // current_state_type becomes the result of get_owner
         // meaning the containing SM from which the exit occurs
         typedef typename ::boost::mpl::eval_if<
                 typename has_pseudo_exit<T1>::type,
-                get_owner<T1,library_sm>,
+                get_owner<T1,state_machine>,
                 ::boost::mpl::identity<typename ROW::Source> >::type current_state_type;
 
         // if Target is a sequence, then we have a fork and expect a sequence of explicit_entry
@@ -535,15 +475,15 @@ private:
         // meaning the containing SM if the row is "outside" the containing SM or else the explicit_entry state itself
         typedef typename ::boost::mpl::eval_if<
             typename ::boost::mpl::is_sequence<T2>::type,
-            get_fork_owner<T2,library_sm>,
+            get_fork_owner<T2,state_machine>,
             ::boost::mpl::eval_if<
                     typename has_no_automatic_create<T2>::type,
-                    get_owner<T2,library_sm>,
+                    get_owner<T2,state_machine>,
                     ::boost::mpl::identity<T2> >
         >::type next_state_type;
 
         // Take the transition action and return the next state.
-        static HandledEnum execute(library_sm& fsm, int region_index, int state, transition_event const& evt)
+        static HandledEnum execute(state_machine& fsm, int region_index, int state, transition_event const& evt)
         {
             BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
             BOOST_STATIC_CONSTANT(int, next_state = (get_state_id<next_state_type>()));
@@ -552,7 +492,7 @@ private:
 
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
             if (has_pseudo_exit<T1>::type::value &&
-                !backmp11::is_exit_state_active<T1,get_owner<T1,library_sm> >(fsm))
+                !backmp11::is_exit_state_active<T1,get_owner<T1,state_machine> >(fsm))
             {
                 return HANDLED_FALSE;
             }
@@ -578,14 +518,14 @@ private:
     >
     struct irow_
     {
-        typedef typename make_entry<typename ROW::Source,library_sm>::type T1;
-        typedef typename make_exit<typename ROW::Target,library_sm>::type T2;
+        typedef typename make_entry<typename ROW::Source,state_machine>::type T1;
+        typedef typename make_exit<typename ROW::Target,state_machine>::type T2;
         typedef typename ROW::Evt transition_event;
         typedef typename ROW::Source current_state_type;
         typedef T2 next_state_type;
 
         // if a guard condition is here, call it to check that the event is accepted
-        static bool check_guard(library_sm& fsm,transition_event const& evt)
+        static bool check_guard(state_machine& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
                                  fsm.get_state<current_state_type>(),
@@ -595,7 +535,7 @@ private:
             return false;
         }
         // Take the transition action and return the next state.
-        static HandledEnum execute(library_sm& fsm, int , int state, transition_event const& evt)
+        static HandledEnum execute(state_machine& fsm, int , int state, transition_event const& evt)
         {
 
             BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
@@ -622,14 +562,14 @@ private:
     >
     struct g_irow_
     {
-        typedef typename make_entry<typename ROW::Source,library_sm>::type T1;
-        typedef typename make_exit<typename ROW::Target,library_sm>::type T2;
+        typedef typename make_entry<typename ROW::Source,state_machine>::type T1;
+        typedef typename make_exit<typename ROW::Target,state_machine>::type T2;
         typedef typename ROW::Evt transition_event;
         typedef typename ROW::Source current_state_type;
         typedef T2 next_state_type;
 
         // if a guard condition is defined, call it to check that the event is accepted
-        static bool check_guard(library_sm& fsm,transition_event const& evt)
+        static bool check_guard(state_machine& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
                                  fsm.get_state<current_state_type>(),
@@ -639,7 +579,7 @@ private:
             return false;
         }
         // Take the transition action and return the next state.
-        static HandledEnum execute(library_sm& fsm, int , int state, transition_event const& evt)
+        static HandledEnum execute(state_machine& fsm, int , int state, transition_event const& evt)
         {
             BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
             boost::ignore_unused(state, current_state); // Avoid warnings if BOOST_ASSERT expands to nothing.
@@ -659,15 +599,15 @@ private:
     >
     struct a_irow_
     {
-        typedef typename make_entry<typename ROW::Source,library_sm>::type T1;
-        typedef typename make_exit<typename ROW::Target,library_sm>::type T2;
+        typedef typename make_entry<typename ROW::Source,state_machine>::type T1;
+        typedef typename make_exit<typename ROW::Target,state_machine>::type T2;
 
         typedef typename ROW::Evt transition_event;
         typedef typename ROW::Source current_state_type;
         typedef T2 next_state_type;
 
         // Take the transition action and return the next state.
-        static HandledEnum execute(library_sm& fsm, int , int state, transition_event const& evt)
+        static HandledEnum execute(state_machine& fsm, int , int state, transition_event const& evt)
         {
             BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
             boost::ignore_unused(state, current_state); // Avoid warnings if BOOST_ASSERT expands to nothing.
@@ -688,14 +628,14 @@ private:
     >
     struct _irow_
     {
-        typedef typename make_entry<typename ROW::Source,library_sm>::type T1;
-        typedef typename make_exit<typename ROW::Target,library_sm>::type T2;
+        typedef typename make_entry<typename ROW::Source,state_machine>::type T1;
+        typedef typename make_exit<typename ROW::Target,state_machine>::type T2;
         typedef typename ROW::Evt transition_event;
         typedef typename ROW::Source current_state_type;
         typedef T2 next_state_type;
 
         // Take the transition action and return the next state.
-        static HandledEnum execute(library_sm& , int , int state, transition_event const& )
+        static HandledEnum execute(state_machine& , int , int state, transition_event const& )
         {
             BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
             boost::ignore_unused(state, current_state); // Avoid warnings if BOOST_ASSERT expands to nothing.
@@ -715,7 +655,7 @@ private:
         typedef typename ROW::Evt transition_event;
 
         // if a guard condition is here, call it to check that the event is accepted
-        static bool check_guard(library_sm& fsm,transition_event const& evt)
+        static bool check_guard(state_machine& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
                 fsm.get_state<StateType>(),
@@ -725,7 +665,7 @@ private:
             return false;
         }
         // Take the transition action and return the next state.
-        static HandledEnum execute(library_sm& fsm, int , int , transition_event const& evt)
+        static HandledEnum execute(state_machine& fsm, int , int , transition_event const& evt)
         {
             if (!check_guard(fsm,evt))
             {
@@ -744,14 +684,14 @@ private:
     template<
         typename ROW
     >
-    struct internal_ <ROW,library_sm>
+    struct internal_ <ROW,state_machine>
     {
-        typedef library_sm current_state_type;
-        typedef library_sm next_state_type;
+        typedef state_machine current_state_type;
+        typedef state_machine next_state_type;
         typedef typename ROW::Evt transition_event;
 
         // if a guard condition is here, call it to check that the event is accepted
-        static bool check_guard(library_sm& fsm,transition_event const& evt)
+        static bool check_guard(state_machine& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
                 fsm,
@@ -761,7 +701,7 @@ private:
             return false;
         }
         // Take the transition action and return the next state.
-        static HandledEnum execute(library_sm& fsm, int , int , transition_event const& evt)
+        static HandledEnum execute(state_machine& fsm, int , int , transition_event const& evt)
         {
             if (!check_guard(fsm,evt))
             {
@@ -789,7 +729,7 @@ private:
         typedef typename ROW::Evt transition_event;
 
         // Take the transition action and return the next state.
-        static HandledEnum execute(library_sm& fsm, int, int, transition_event const& evt)
+        static HandledEnum execute(state_machine& fsm, int, int, transition_event const& evt)
         {
             // then call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
@@ -802,14 +742,14 @@ private:
     template<
         typename ROW
     >
-    struct a_internal_ <ROW,library_sm>
+    struct a_internal_ <ROW,state_machine>
     {
-        typedef library_sm current_state_type;
-        typedef library_sm next_state_type;
+        typedef state_machine current_state_type;
+        typedef state_machine next_state_type;
         typedef typename ROW::Evt transition_event;
 
         // Take the transition action and return the next state.
-        static HandledEnum execute(library_sm& fsm, int, int, transition_event const& evt)
+        static HandledEnum execute(state_machine& fsm, int, int, transition_event const& evt)
         {
             // then call the action method
             HandledEnum res = ROW::action_call(fsm,evt,
@@ -830,7 +770,7 @@ private:
         typedef typename ROW::Evt transition_event;
 
         // if a guard condition is here, call it to check that the event is accepted
-        static bool check_guard(library_sm& fsm,transition_event const& evt)
+        static bool check_guard(state_machine& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
                 fsm.get_state<StateType>(),
@@ -840,7 +780,7 @@ private:
             return false;
         }
         // Take the transition action and return the next state.
-        static HandledEnum execute(library_sm& fsm, int, int, transition_event const& evt)
+        static HandledEnum execute(state_machine& fsm, int, int, transition_event const& evt)
         {
             if (!check_guard(fsm,evt))
             {
@@ -853,14 +793,14 @@ private:
     template<
         typename ROW
     >
-    struct g_internal_ <ROW,library_sm>
+    struct g_internal_ <ROW,state_machine>
     {
-        typedef library_sm current_state_type;
-        typedef library_sm next_state_type;
+        typedef state_machine current_state_type;
+        typedef state_machine next_state_type;
         typedef typename ROW::Evt transition_event;
 
         // if a guard condition is here, call it to check that the event is accepted
-        static bool check_guard(library_sm& fsm,transition_event const& evt)
+        static bool check_guard(state_machine& fsm,transition_event const& evt)
         {
             if ( ROW::guard_call(fsm,evt,
                 fsm,
@@ -870,7 +810,7 @@ private:
             return false;
         }
         // Take the transition action and return the next state.
-        static HandledEnum execute(library_sm& fsm, int, int, transition_event const& evt)
+        static HandledEnum execute(state_machine& fsm, int, int, transition_event const& evt)
         {
             if (!check_guard(fsm,evt))
             {
@@ -889,7 +829,7 @@ private:
         typedef StateType current_state_type;
         typedef StateType next_state_type;
         typedef typename ROW::Evt transition_event;
-        static HandledEnum execute(library_sm& , int , int , transition_event const& )
+        static HandledEnum execute(state_machine& , int , int , transition_event const& )
         {
             return HANDLED_TRUE;
         }
@@ -897,12 +837,12 @@ private:
     template<
         typename ROW
     >
-    struct _internal_ <ROW,library_sm>
+    struct _internal_ <ROW,state_machine>
     {
-        typedef library_sm current_state_type;
-        typedef library_sm next_state_type;
+        typedef state_machine current_state_type;
+        typedef state_machine next_state_type;
         typedef typename ROW::Evt transition_event;
-        static HandledEnum execute(library_sm& , int , int , transition_event const& )
+        static HandledEnum execute(state_machine& , int , int , transition_event const& )
         {
             return HANDLED_TRUE;
         }
@@ -921,7 +861,7 @@ private:
         typedef int                 is_frow;
 
         // Take the transition action and return the next state.
-        static HandledEnum execute(library_sm& fsm, int region_index, int , transition_event const& evt)
+        static HandledEnum execute(state_machine& fsm, int region_index, int , transition_event const& evt)
         {
             // false as second parameter because this event is forwarded from outer fsm
             execute_return res =
@@ -1067,17 +1007,17 @@ private:
         typedef typename create_real_stt<StateType, typename StateType::internal_transition_table >::type type;
     };
     // typedefs used internally
-    typedef typename create_real_stt<Derived>::type real_transition_table;
-    typedef typename create_stt<library_sm>::type stt;
+    typedef typename create_real_stt<FrontEnd>::type real_transition_table;
+    typedef typename create_stt<state_machine>::type stt;
     typedef typename get_initial_states<typename FrontEnd::initial_state>::type initial_states;
     typedef typename generate_state_set<stt>::state_set_mp11 state_set_mp11;
     typedef typename generate_state_map<stt>::type state_map_mp11;
     typedef typename generate_event_set<stt>::event_set_mp11 event_set_mp11;
-    typedef typename HistoryPolicy::template apply<nr_regions>::type concrete_history;
+    typedef typename History::template apply<nr_regions>::type concrete_history;
 
     typedef mp11::mp_rename<state_set_mp11, std::tuple> substate_list;
     typedef typename generate_event_set<
-        typename create_real_stt<library_sm, typename library_sm::internal_transition_table >::type
+        typename create_real_stt<state_machine, typename state_machine::internal_transition_table >::type
     >::event_set_mp11 processable_events_internal_table;
 
     // extends the transition table with rows from composite states
@@ -1118,9 +1058,9 @@ private:
         > type;
     };
     // extend the table with tables from composite states
-    typedef typename extend_table<library_sm>::type complete_table;
+    typedef typename extend_table<state_machine>::type complete_table;
     // define the dispatch table used for event dispatch
-    typedef dispatch_table<library_sm,CompilePolicy> sm_dispatch_table;
+    typedef dispatch_table<state_machine,CompilePolicy> sm_dispatch_table;
     // build a sequence of regions
     typedef typename get_regions_as_sequence<typename FrontEnd::initial_state>::type seq_initial_states;
 
@@ -1151,7 +1091,7 @@ private:
             }
         );
         // give a chance to handle an anonymous (eventless) transition
-        handle_eventless_transitions_helper<library_sm> eventless_helper(this,true);
+        handle_eventless_transitions_helper<state_machine> eventless_helper(this,true);
         eventless_helper.process_completion_event();
     }
 
@@ -1216,17 +1156,17 @@ private:
     template <class EventType>
     void enqueue_event(EventType const& evt)
     {
-        enqueue_event_helper<EventType>(evt, typename is_no_message_queue<library_sm>::type());
+        enqueue_event_helper<EventType>(evt, typename is_no_message_queue<state_machine>::type());
     }
 
     // empty the queue and process events
     void execute_queued_events()
     {
-        execute_queued_events_helper(typename is_no_message_queue<library_sm>::type());
+        execute_queued_events_helper(typename is_no_message_queue<state_machine>::type());
     }
     void execute_single_queued_event()
     {
-        execute_single_queued_event_helper(typename is_no_message_queue<library_sm>::type());
+        execute_single_queued_event_helper(typename is_no_message_queue<state_machine>::type());
     }
     typename events_queue_t::size_type get_message_queue_size() const
     {
@@ -1300,15 +1240,29 @@ private:
     void serialize(Archive & ar, const unsigned int)
     {
         // invoke serialization of the base class
-        (serialize_state<Archive>(ar))(boost::serialization::base_object<Derived>(*this));
+        (serialize_state<Archive>(ar))(boost::serialization::base_object<FrontEnd>(*this));
         // now our attributes
         ar & m_active_state_ids;
         // queues cannot be serialized => skip
         ar & m_history;
         ar & m_event_processing;
-        ar & m_is_contained;
         // visitors cannot be serialized => skip
         mp11::tuple_for_each(m_substate_list, serialize_state<Archive>(ar));
+    }
+
+    // Get the root sm.
+    template <typename T = RootSm, 
+              typename = std::enable_if_t<!std::is_same_v<T, no_root_sm>>>
+    RootSm& get_root_sm()
+    {
+        return *static_cast<RootSm*>(m_root_sm);
+    }
+    // Get the root sm.
+    template <typename T = RootSm, 
+              typename = std::enable_if_t<!std::is_same_v<T, no_root_sm>>>
+    const RootSm& get_root_sm() const
+    {
+        return *static_cast<const RootSm*>(m_root_sm);
     }
 
     // Return the id of a state in the sm.
@@ -1327,7 +1281,7 @@ private:
     // true if the sm is used in another sm
     bool is_contained() const
     {
-        return m_is_contained;
+        return (static_cast<const void*>(this) != m_root_sm);
     }
     // get the history policy class
     concrete_history& get_history()
@@ -1436,7 +1390,7 @@ private:
     {
         // to call this function, you need either a state with a deferred_events typedef
         // or that the fsm provides the activate_deferred_events typedef
-        BOOST_MPL_ASSERT(( has_fsm_deferred_events<library_sm> ));
+        BOOST_MPL_ASSERT(( has_fsm_deferred_events<state_machine> ));
 
         // Deferred events are added with a correlation sequence that helps to
         // identify when an event was added - This is typically to distinguish
@@ -1462,7 +1416,7 @@ protected:
                 m_found = true;
                 // to call this function, you need either a state with a deferred_events typedef
                 // or that the fsm provides the activate_deferred_events typedef
-                BOOST_MPL_ASSERT((has_fsm_deferred_events<library_sm>));
+                BOOST_MPL_ASSERT((has_fsm_deferred_events<state_machine>));
 
                 // Deferred events are added with a correlation sequence that helps to
                 // identify when an event was added - This is typically to distinguish
@@ -1496,7 +1450,7 @@ public:
         typedef typename generate_event_set<stt>::event_set_mp11 event_list;
         bool found = false;
         boost::mp11::mp_for_each<event_list>(
-            defer_event_kleene_helper<Event,library_sm>(e,this,found));
+            defer_event_kleene_helper<Event,state_machine>(e,this,found));
         if (!found)
         {
             for (int i = 0; i < nr_regions; ++i)
@@ -1529,18 +1483,31 @@ public:
     // Construct with the default initial states and forward constructor arguments to the frontend.
     template <typename... Args>
     state_machine(Args&&... args)
-        : Derived(std::forward<Args>(args)...)
+        : FrontEnd(std::forward<Args>(args)...)
     {
-         // initialize our list of states with the ones defined in FrontEnd::initial_state
-         ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
-                        (set_initial_states_helper(m_active_state_ids));
-         m_history.set_initial_states(m_active_state_ids);
-         // create states
-         init(*this);
+        // initialize our list of states with the ones defined in FrontEnd::initial_state
+        ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
+                       (set_initial_states_helper(m_active_state_ids));
+        m_history.set_initial_states(m_active_state_ids);
+        // TODO:
+        // Wrong root_sm configuration cannot be detected.
+        // Detection could work if we can use a tag contained_sm_t to forward at construction time
+        // and a wrapper for non-composite states, that accept the tag gracefully.
+        // Then include below check in the init function:
+        // static_assert(
+        //     std::is_base_of_v<RootSm, root_sm_t>,
+        //     "The configured root_sm must match the used one."
+        // );
+        if constexpr (std::is_same_v<no_root_sm, RootSm> ||
+                      std::is_base_of_v<state_machine, RootSm>)
+        {
+            // create states
+            init(*this);
+        }
     }
 
     // assignment operator using the copy policy to decide if non_copyable, shallow or deep copying is necessary
-    library_sm& operator= (library_sm const& rhs)
+    state_machine& operator= (state_machine const& rhs)
     {
         if (this != &rhs)
         {
@@ -1549,8 +1516,8 @@ public:
         }
        return *this;
     }
-    state_machine(library_sm const& rhs)
-        : Derived(rhs)
+    state_machine(state_machine const& rhs)
+        : FrontEnd(rhs)
     {
        if (this != &rhs)
        {
@@ -1590,7 +1557,7 @@ public:
             execute_queued_events();
             if (!(EVENT_SOURCE_DEFERRED & source))
             {
-                handle_defer_helper<library_sm> defer_helper(m_deferred_events_queue);
+                handle_defer_helper<state_machine> defer_helper(m_deferred_events_queue);
                 defer_helper.do_handle_deferred(HANDLED_TRUE & handled);
             }
         }
@@ -1600,7 +1567,7 @@ public:
         // default. Handle deferred queue with higher prio than msg queue
         if (!(EVENT_SOURCE_DEFERRED & source))
         {
-            handle_defer_helper<library_sm> defer_helper(m_deferred_events_queue);
+            handle_defer_helper<state_machine> defer_helper(m_deferred_events_queue);
             defer_helper.do_handle_deferred(HANDLED_TRUE & handled);
 
             // Handle any new events generated into the queue, but only if
@@ -1649,7 +1616,7 @@ public:
     template <class StateType, class Enable = int>
     struct handle_defer_helper
     {
-        handle_defer_helper(deferred_msg_queue_helper<library_sm>& ){}
+        handle_defer_helper(deferred_msg_queue_helper<state_machine>& ){}
         void do_handle_deferred(bool)
         {
         }
@@ -1677,7 +1644,7 @@ public:
             }
             char seq_;
         };
-        handle_defer_helper(deferred_msg_queue_helper<library_sm>& a_queue):
+        handle_defer_helper(deferred_msg_queue_helper<state_machine>& a_queue):
             m_events_queue(a_queue) {}
         void do_handle_deferred(bool new_seq=false)
         {
@@ -1741,7 +1708,7 @@ public:
         }
 
     private:
-        deferred_msg_queue_helper<library_sm>& m_events_queue;
+        deferred_msg_queue_helper<state_machine>& m_events_queue;
     };
 
     // handling of eventless transitions
@@ -1749,7 +1716,7 @@ public:
     template <class StateType, class Enable = void>
     struct handle_eventless_transitions_helper
     {
-        handle_eventless_transitions_helper(library_sm* , bool ){}
+        handle_eventless_transitions_helper(state_machine* , bool ){}
         void process_completion_event(EventSource = EVENT_SOURCE_DEFAULT){}
     };
     // otherwise
@@ -1757,7 +1724,7 @@ public:
     struct handle_eventless_transitions_helper
         <StateType, typename enable_if< typename has_fsm_eventless_transition<StateType>::type >::type>
     {
-        handle_eventless_transitions_helper(library_sm* self_, bool handled_):self(self_),handled(handled_){}
+        handle_eventless_transitions_helper(state_machine* self_, bool handled_):self(self_),handled(handled_){}
         void process_completion_event(EventSource source = EVENT_SOURCE_DEFAULT)
         {
             typedef typename ::boost::mpl::deref<
@@ -1774,8 +1741,8 @@ public:
         }
 
     private:
-        library_sm* self;
-        bool        handled;
+        state_machine* self;
+        bool           handled;
     };
 
     // Main function used internally to make transitions
@@ -1805,14 +1772,14 @@ public:
     {
         // if the state machine has terminate or interrupt flags, check them, otherwise skip
         if (is_event_handling_blocked_helper
-                (evt, typename has_fsm_blocking_states<library_sm>::type()))
+                (evt, typename has_fsm_blocking_states<state_machine>::type()))
         {
             return HANDLED_TRUE;
         }
 
         // if a message queue is needed and processing is on the way
         if (!do_pre_msg_queue_helper
-                (evt,::boost::mpl::bool_<is_no_message_queue<library_sm>::type::value>()))
+                (evt,::boost::mpl::bool_<is_no_message_queue<state_machine>::type::value>()))
         {
             // wait for the end of current processing
             return HANDLED_TRUE;
@@ -1822,7 +1789,7 @@ public:
             // Process event
             HandledEnum handled;
             const bool is_direct_call = source & EVENT_SOURCE_DIRECT;
-            if constexpr (is_no_exception_thrown<library_sm>::value)
+            if constexpr (is_no_exception_thrown<state_machine>::value)
             {
                 handled = do_process_event(evt, is_direct_call);
             }
@@ -1848,11 +1815,11 @@ public:
             // at this point we allow the next transition be executed without enqueing
             // so that completion events and deferred events execute now (if any)
             do_allow_event_processing_after_transition(
-                ::boost::mpl::bool_<is_no_message_queue<library_sm>::type::value>());
+                ::boost::mpl::bool_<is_no_message_queue<state_machine>::type::value>());
 
             // Process completion transitions BEFORE any other event in the
             // pool (UML Standard 2.3 15.3.14)
-            handle_eventless_transitions_helper<library_sm>
+            handle_eventless_transitions_helper<state_machine>
                 eventless_helper(this,(HANDLED_TRUE & handled));
             eventless_helper.process_completion_event(source);
 
@@ -1860,7 +1827,7 @@ public:
             // we're not already processing from the deferred queue.
             do_handle_prio_msg_queue_deferred_queue(
                         source,handled,
-                        ::boost::mpl::bool_<has_event_queue_before_deferred_queue<library_sm>::type::value>());
+                        ::boost::mpl::bool_<has_event_queue_before_deferred_queue<state_machine>::type::value>());
             return handled;
         }
     }
@@ -1914,7 +1881,7 @@ private:
     template <class Flag,bool orthogonalStates>
     struct FlagHelper
     {
-        static bool helper(library_sm const& sm,flag_handler* )
+        static bool helper(state_machine const& sm,flag_handler* )
         {
             // by default we use OR to accumulate the flags
             return sm.is_flag_active<Flag,Flag_OR>();
@@ -1923,7 +1890,7 @@ private:
     template <class Flag>
     struct FlagHelper<Flag,false>
     {
-        static bool helper(library_sm const& sm,flag_handler* flags_entries)
+        static bool helper(state_machine const& sm,flag_handler* flags_entries)
         {
             // just one active state, so we can call operator[] with 0
             return flags_entries[sm.current_state()[0]](sm);
@@ -1934,15 +1901,15 @@ private:
     template <class StateType,class Flag>
     struct FlagHandler
     {
-        static bool flag_true(library_sm const& )
+        static bool flag_true(state_machine const& )
         {
             return true;
         }
-        static bool flag_false(library_sm const& )
+        static bool flag_false(state_machine const& )
         {
             return false;
         }
-        static bool forward(library_sm const& fsm)
+        static bool forward(state_machine const& fsm)
         {
             return fsm.get_state<StateType>().template is_flag_active<Flag>();
         }
@@ -2016,7 +1983,7 @@ private:
      template <class region_id,int Dummy=0>
      struct region_copy_helper
      {
-         static void do_copy(library_sm* self_,library_sm const& rhs)
+         static void do_copy(state_machine* self_,state_machine const& rhs)
          {
              self_->m_active_state_ids[region_id::value] = rhs.m_active_state_ids[region_id::value];
              region_copy_helper< ::boost::mpl::int_<region_id::value+1> >::do_copy(self_,rhs);
@@ -2026,10 +1993,10 @@ private:
      struct region_copy_helper< ::boost::mpl::int_<nr_regions>,Dummy>
      {
          // end of processing
-         static void do_copy(library_sm*,library_sm const& ){}
+         static void do_copy(state_machine*,state_machine const& ){}
      };
      // copy functions for deep copy (no need of a 2nd version for NoCopy as noncopyable handles it)
-     void do_copy (library_sm const& rhs,
+     void do_copy (state_machine const& rhs,
               ::boost::msm::back::dummy<0> = 0)
      {
          // deep copy simply assigns the data
@@ -2038,7 +2005,6 @@ private:
          m_deferred_events_queue = rhs.m_deferred_events_queue;
          m_history = rhs.m_history;
          m_event_processing = rhs.m_event_processing;
-         m_is_contained = rhs.m_is_contained;
          m_substate_list = rhs.m_substate_list;
          m_running = rhs.m_running;
          // except for the states themselves, which get duplicated
@@ -2052,7 +2018,7 @@ private:
      template<class Event>
      struct entry_helper
      {
-         entry_helper(int id,Event const& e,library_sm* self_):
+         entry_helper(int id,Event const& e,state_machine* self_):
             state_id(id),evt(e),self(self_){}
 
          template <class StateAndId>
@@ -2069,7 +2035,7 @@ private:
      private:
          int            state_id;
          Event const&   evt;
-         library_sm*    self;
+         state_machine* self;
      };
 
      // helper used to call the correct exit method
@@ -2077,7 +2043,7 @@ private:
      template<class Event>
      struct exit_helper
      {
-         exit_helper(int id,Event const& e,library_sm* self_):
+         exit_helper(int id,Event const& e,state_machine* self_):
             state_id(id),evt(e),self(self_){}
 
          template <class StateAndId>
@@ -2094,7 +2060,7 @@ private:
      private:
          int            state_id;
          Event const&   evt;
-         library_sm*    self;
+         state_machine* self;
      };
 
      // start for states machines which are themselves embedded in other state machines (composites)
@@ -2109,7 +2075,7 @@ private:
                  (entry_helper<Event>(m_active_state_ids[region_id],incomingEvent,this));
          }
          // give a chance to handle an anonymous (eventless) transition
-         handle_eventless_transitions_helper<library_sm> eventless_helper(this,true);
+         handle_eventless_transitions_helper<state_machine> eventless_helper(this,true);
          eventless_helper.process_completion_event();
      }
 
@@ -2126,7 +2092,7 @@ private:
          struct In<-1,Dummy>
          {
              typedef typename build_orthogonal_regions<
-                 library_sm,
+                 state_machine,
                  initial_states
              >::type all_regions;
              enum {region_index= find_region_index<all_regions,StateType>::value };
@@ -2136,13 +2102,13 @@ private:
      // helper used to set the correct state as active state upon entry into a fsm
      struct direct_event_start_helper
      {
-         direct_event_start_helper(library_sm* self_):self(self_){}
+         direct_event_start_helper(state_machine* self_):self(self_){}
          // this variant is for the standard case, entry due to activation of the containing FSM
          template <class EventType,class FsmType>
          typename ::boost::disable_if<typename has_direct_entry<EventType>::type,void>::type
              operator()(EventType const& evt,FsmType& fsm, ::boost::msm::back::dummy<0> = 0)
          {
-             (static_cast<Derived*>(self))->on_entry(evt,fsm);
+             (static_cast<FrontEnd*>(self))->on_entry(evt,fsm);
              self->internal_start(evt);
          }
 
@@ -2159,7 +2125,7 @@ private:
                                   >::type
          operator()(EventType const& evt,FsmType& fsm, ::boost::msm::back::dummy<1> = 0)
          {
-             (static_cast<Derived*>(self))->on_entry(evt,fsm);
+             (static_cast<FrontEnd*>(self))->on_entry(evt,fsm);
              int state_id = get_state_id<typename EventType::active_state::wrapped_entry>();
              BOOST_STATIC_ASSERT(find_region_id<typename EventType::active_state::wrapped_entry>::region_index >= 0);
              BOOST_STATIC_ASSERT(find_region_id<typename EventType::active_state::wrapped_entry>::region_index < nr_regions);
@@ -2181,7 +2147,7 @@ private:
                                 >::type
          operator()(EventType const& evt,FsmType& fsm, ::boost::msm::back::dummy<2> = 0)
          {
-             (static_cast<Derived*>(self))->on_entry(evt,fsm);
+             (static_cast<FrontEnd*>(self))->on_entry(evt,fsm);
              ::boost::mpl::for_each<typename EventType::active_state,
                                     ::boost::msm::wrap< ::boost::mpl::placeholders::_1> >
                                                         (fork_helper<EventType>(self,evt));
@@ -2197,7 +2163,7 @@ private:
          operator()(EventType const& evt,FsmType& fsm, ::boost::msm::back::dummy<3> = 0)
          {
              // entry on the FSM
-             (static_cast<Derived*>(self))->on_entry(evt,fsm);
+             (static_cast<FrontEnd*>(self))->on_entry(evt,fsm);
              int state_id = get_state_id<typename EventType::active_state::wrapped_entry>();
              BOOST_STATIC_ASSERT(find_region_id<typename EventType::active_state::wrapped_entry>::region_index >= 0);
              BOOST_STATIC_ASSERT(find_region_id<typename EventType::active_state::wrapped_entry>::region_index < nr_regions);
@@ -2210,11 +2176,11 @@ private:
          }
      private:
          // helper for the fork case, does almost like the direct entry
-         library_sm* self;
+         state_machine* self;
          template <class EventType>
          struct fork_helper
          {
-             fork_helper(library_sm* self_,EventType const& evt_):
+             fork_helper(state_machine* self_,EventType const& evt_):
                 helper_self(self_),helper_evt(evt_){}
              template <class StateType>
              void operator()( ::boost::msm::wrap<StateType> const& )
@@ -2225,7 +2191,7 @@ private:
                  helper_self->m_active_state_ids[find_region_id<typename StateType::wrapped_entry>::region_index] = state_id;
              }
          private:
-             library_sm*        helper_self;
+             state_machine*     helper_self;
              EventType const&   helper_evt;
          };
      };
@@ -2247,7 +2213,7 @@ private:
         // handle messages which were generated and blocked in the init calls
         m_event_processing = false;
         // look for deferred events waiting
-        handle_defer_helper<library_sm> defer_helper(m_deferred_events_queue);
+        handle_defer_helper<state_machine> defer_helper(m_deferred_events_queue);
         defer_helper.do_handle_deferred(true);
         execute_queued_events();
      }
@@ -2262,7 +2228,7 @@ private:
                  (exit_helper<Event>(m_active_state_ids[region_id],incomingEvent,this));
         }
         // then call our own exit
-        (static_cast<Derived*>(this))->on_exit(incomingEvent,fsm);
+        (static_cast<FrontEnd*>(this))->on_exit(incomingEvent,fsm);
         // give the history a chance to handle this (or not).
         m_history.history_exit(this->m_active_state_ids);
         // history decides what happens with deferred events
@@ -2279,13 +2245,13 @@ private:
 #endif
     // no transition for event.
     template <class Event>
-    static HandledEnum call_no_transition(library_sm& , int , int , Event const& )
+    static HandledEnum call_no_transition(state_machine& , int , int , Event const& )
     {
         return HANDLED_FALSE;
     }
     // no transition for event for internal transitions (not an error).
     template <class Event>
-    static HandledEnum call_no_transition_internal(library_sm& , int , int , Event const& )
+    static HandledEnum call_no_transition_internal(state_machine& , int , int , Event const& )
     {
         //// reject to give others a chance to handle
         //return HANDLED_GUARD_REJECT;
@@ -2293,7 +2259,7 @@ private:
     }
     // called for deferred events. Address set in the dispatch_table at init
     template <class Event>
-    static HandledEnum defer_transition(library_sm& fsm, int , int , Event const& e)
+    static HandledEnum defer_transition(state_machine& fsm, int , int , Event const& e)
     {
         fsm.defer_event(e);
         return HANDLED_DEFERRED;
@@ -2301,7 +2267,7 @@ private:
     // called for completion events. Default address set in the dispatch_table at init
     // prevents no-transition detection for completion events
     template <class Event>
-    static HandledEnum default_eventless_transition(library_sm&, int, int , Event const&)
+    static HandledEnum default_eventless_transition(state_machine&, int, int , Event const&)
     {
         return HANDLED_FALSE;
     }
@@ -2396,40 +2362,47 @@ private:
     }
 
     // initializes the SM
-    template <class ContainingSM>
-    void init(ContainingSM& containing_sm)
+    template <class TRootSm>
+    void init(TRootSm& root_sm)
     {
-        m_is_contained = (
-            static_cast<void*>(this) != static_cast<void*>(&containing_sm)
-        );
+        if constexpr (!std::is_same_v<RootSm, no_root_sm>)
+        {
+            static_assert(
+                std::is_base_of_v<TRootSm, RootSm>,
+                "The configured root_sm must match the used one."
+            );
+        }
+        m_root_sm = static_cast<void*>(&root_sm);
 
         // checks that regions are truly orthogonal
-        FsmCheckPolicy::template check_orthogonality<library_sm>();
+        FsmCheck::template check_orthogonality<state_machine>();
         // checks that all states are reachable
-        FsmCheckPolicy::template check_unreachable_states<library_sm>();
+        FsmCheck::template check_unreachable_states<state_machine>();
 
         visit(
-            [&containing_sm](auto& state)
+            [&root_sm](auto& state)
             {
                 using State = std::remove_reference_t<decltype(state)>;
 
                 if constexpr (is_pseudo_exit<State>::value)
                 {
                     state.set_forward_fct(
-                        [&containing_sm](typename State::event const& event)
+                        [&root_sm](typename State::event const& event)
                         {
-                            return containing_sm.process_event(event);
+                            return root_sm.process_event(event);
                         }
                     );
                 }
 
                 if constexpr (is_composite_state<State>::value)
                 {
-                    state.init(containing_sm);
+                    // TODO:
+                    // All configs must be identical.
                     static_assert(
                         std::is_same_v<CompilePolicy, typename State::CompilePolicy>,
                         "All compile policies must be identical."
                     );
+                    state.init(root_sm);
                 }
             },
             all_states
@@ -2466,13 +2439,13 @@ private:
             mp11::mp_for_each<state_identities>(init_helper{m_cells});
         }
 
-        static void dispatch(library_sm& fsm, int index, F&& visitor)
+        static void dispatch(state_machine& fsm, int index, F&& visitor)
         {
             instance().m_cells[index](fsm, std::forward<F>(visitor));
         }
 
     private:
-        using visitor_cell = void (*)(library_sm&, F&&);
+        using visitor_cell = void (*)(state_machine&, F&&);
 
         class init_helper
         {
@@ -2486,7 +2459,7 @@ private:
             }
 
             template<typename State>
-            static void accept(library_sm& fsm, F&& visitor)
+            static void accept(state_machine& fsm, F&& visitor)
             {
                 State& state = fsm.get_state<State>();
                 std::invoke(std::forward<F>(visitor), state);
@@ -2512,12 +2485,12 @@ private:
 
     // data members
     int                             m_active_state_ids[nr_regions];
-    msg_queue_helper<library_sm>    m_events_queue{};
+    msg_queue_helper<state_machine> m_events_queue{};
     deferred_msg_queue_helper
-        <library_sm>                m_deferred_events_queue{};
+        <state_machine>             m_deferred_events_queue{};
     concrete_history                m_history{};
     bool                            m_event_processing{false};
-    bool                            m_is_contained{false};
+    void*                           m_root_sm{nullptr};
     substate_list                   m_substate_list{};
     bool                            m_running{false};
 };
