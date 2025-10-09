@@ -1341,38 +1341,38 @@ private:
     }
 
     // Visit the states (only active states).
-    template <typename F>
-    void visit(F&& visitor)
+    template <typename Visitor>
+    void visit(Visitor&& visitor)
     {
-        visit(std::forward<F>(visitor), active_states);
+        visit(std::forward<Visitor>(visitor), active_states);
     }
 
     // Visit the states (only active states).
-    template <typename F>
-    void visit(F&& visitor, active_states_t)
+    template <typename Visitor>
+    void visit(Visitor&& visitor, active_states_t)
     {
         if (m_running)
         {
             for (int i = 0; i < nr_regions; ++i)
             {
-                visitor_dispatch_table<F>::dispatch(*this, m_active_state_ids[i], std::forward<F>(visitor));
+                visitor_dispatch_table<Visitor>::dispatch(*this, m_active_state_ids[i], std::forward<Visitor>(visitor));
             }
         }
     }
 
     // Visit the states (all states).
-    template <typename F>
-    void visit(F&& visitor, all_states_t)
+    template <typename Visitor>
+    void visit(Visitor&& visitor, all_states_t)
     {
         mp11::tuple_for_each(m_substate_list,
             [&visitor](auto& state)
             {
-                std::invoke(std::forward<F>(visitor), state);
+                std::invoke(std::forward<Visitor>(visitor), state);
 
                 using State = std::remove_reference_t<decltype(state)>;
                 if constexpr (is_composite_state<State>::value)
                 {
-                    state.visit(std::forward<F>(visitor), all_states);
+                    state.visit(std::forward<Visitor>(visitor), all_states);
                 }
             }
         );
@@ -2429,7 +2429,7 @@ private:
     };
 
     // Dispatch table for visitors.
-    template <typename F>
+    template <typename Visitor>
     class visitor_dispatch_table
     {
     public:
@@ -2439,13 +2439,13 @@ private:
             mp11::mp_for_each<state_identities>(init_helper{m_cells});
         }
 
-        static void dispatch(state_machine& fsm, int index, F&& visitor)
+        static void dispatch(state_machine& fsm, int index, Visitor&& visitor)
         {
-            instance().m_cells[index](fsm, std::forward<F>(visitor));
+            instance().m_cells[index](fsm, std::forward<Visitor>(visitor));
         }
 
     private:
-        using visitor_cell = void (*)(state_machine&, F&&);
+        using visitor_cell = void (*)(state_machine&, Visitor&&);
 
         class init_helper
         {
@@ -2459,14 +2459,14 @@ private:
             }
 
             template<typename State>
-            static void accept(state_machine& fsm, F&& visitor)
+            static void accept(state_machine& fsm, Visitor&& visitor)
             {
                 State& state = fsm.get_state<State>();
-                std::invoke(std::forward<F>(visitor), state);
+                std::invoke(std::forward<Visitor>(visitor), state);
 
                 if constexpr (is_composite_state<State>::value)
                 {
-                    state.visit(std::forward<F>(visitor));
+                    state.visit(std::forward<Visitor>(visitor));
                 }
             }
 

@@ -21,15 +21,15 @@ The need to define a BaseState, accept_sig and accept method in the frontend is 
 Instead there is a universal visitor API that supports two overloads via tag dispatch to either iterate over only active states or all states:
 
 ```cpp
-template<typename F>
-void state_machine::visit(F&& f); // Same as with active_states_t
-template<typename F>
-void state_machine::visit(F&& f, back::active_states_t);
-template<typename F>
-void state_machine::visit(F&& f, back::all_states_t);
+template<typename Visitor>
+void state_machine::visit(Visitor&& visitor); // Same as with active_states_t
+template<typename Visitor>
+void state_machine::visit(Visitor&& visitor, back::active_states_t);
+template<typename Visitor>
+void state_machine::visit(Visitor&& visitor, back::all_states_t);
 ```
 
-The functor f needs to fulfill the signature requirement for all sub-states present in the state machine:
+The visitor needs to fulfill the signature requirement for all sub-states present in the state machine:
 
 ```cpp
 template<typename State>
