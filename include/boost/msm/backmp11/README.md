@@ -127,6 +127,15 @@ struct Playing_ : public msm::front::state_machine_def<Playing_>
 ```
 
 
+### `current_state()` is deprecated and superseded by `get_active_state_ids()`
+
+The new API returns an std::array to report the no. of regions together with the active state ids:
+
+```cpp
+const std::array<int, nr_regions>& get_active_state_ids() const;
+```
+
+
 ### The eUML frontend support is removed
 
 The support of EUML induces longer compilation times by the need to include the Boost proto headers and applying C++03 variadic template emulation. If you want to use a UML-like syntax, please try out the new PUML frontend.

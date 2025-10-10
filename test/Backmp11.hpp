@@ -83,6 +83,11 @@ struct state_machine_config_adapter : state_machine_config
 //     using Base = state_machine<A0, state_machine_config_adapter<A1, A2, A3, A4>>;
 //   public:
 //     using Base::Base;
+
+//     const int* current_state() const
+//     {
+//         return &this->get_active_state_ids()[0];
+//     }
 // };
 
 template <class A0,

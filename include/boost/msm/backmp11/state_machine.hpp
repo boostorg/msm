@@ -35,6 +35,7 @@
 #include <boost/type_traits/is_convertible.hpp>
 
 #include <boost/serialization/base_object.hpp>
+#include <boost/serialization/array.hpp>
 
 #include <boost/msm/active_state_switching_policies.hpp>
 #include <boost/msm/row_tags.hpp>
@@ -119,6 +120,9 @@ private:
         deferred_events_queue_t         m_deferred_events_queue;
         char m_cur_seq;
     };
+
+    static constexpr int nr_regions = get_number_of_regions<typename FrontEnd::initial_state>::type::value;
+    using active_state_ids_t = std::array<int, nr_regions>;
 
  public:
     // tags
@@ -228,7 +232,6 @@ private:
         typedef state_machine       owner;
         typedef int                 no_automatic_create;
     };
-    static constexpr int nr_regions = get_number_of_regions<typename FrontEnd::initial_state>::type::value;
 
     // Template used to create transitions from rows in the transition table
     // (normal transitions).
@@ -793,10 +796,15 @@ private:
         return m_deferred_events_queue.m_deferred_events_queue;
     }
 
-    // Getter that returns the current state of the FSM
+    // Getter that returns the currently active state IDS of the FSM:
+    const active_state_ids_t& get_active_state_ids() const
+    {
+        return m_active_state_ids;
+    }
+    // Temporary API for compatibility.
     const int* current_state() const
     {
-        return this->m_active_state_ids;
+        return &this->get_active_state_ids()[0];
     }
 
     template <class Archive>
@@ -1052,7 +1060,7 @@ public:
      // helper used to fill the initial states
      struct set_initial_states_helper
      {
-         set_initial_states_helper(int* const init):m_initial_states(init),m_index(-1){}
+         set_initial_states_helper(active_state_ids_t& init):m_initial_states(init),m_index(-1){}
 
          // History initializer function object, used with mpl::for_each
          template <class State>
@@ -1060,7 +1068,7 @@ public:
          {
              m_initial_states[++m_index]=get_state_id<State>();
          }
-         int* const m_initial_states;
+         active_state_ids_t& m_initial_states;
          int m_index;
      };
 
@@ -1479,7 +1487,7 @@ private:
         static bool helper(state_machine const& sm,flag_handler* flags_entries)
         {
             // just one active state, so we can call operator[] with 0
-            return flags_entries[sm.current_state()[0]](sm);
+            return flags_entries[sm.get_active_state_ids()[0]](sm);
         }
     };
     // handling of flag
@@ -2065,7 +2073,7 @@ private:
     };
 
     // data members
-    int                             m_active_state_ids[nr_regions];
+    active_state_ids_t              m_active_state_ids;
     msg_queue_helper<state_machine> m_events_queue{};
     deferred_msg_queue_helper
         <state_machine>             m_deferred_events_queue{};
