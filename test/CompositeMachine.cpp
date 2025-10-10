@@ -356,8 +356,8 @@ using back1 = hierarchical_state_machine<boost::msm::back::state_machine, boost:
 BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back1);
 
 #if !defined(BOOST_MSM_TEST_SKIP_BACKMP11)
-using backmp11_0 = hierarchical_state_machine<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>::player;
+using backmp11_0 = hierarchical_state_machine<boost::msm::backmp11::state_machine_adapter, boost::msm::backmp11::favor_compile_time>::player;
 BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_0);
-using backmp11_1 = hierarchical_state_machine<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>::player_::Playing;
+using backmp11_1 = hierarchical_state_machine<boost::msm::backmp11::state_machine_adapter, boost::msm::backmp11::favor_compile_time>::player_::Playing;
 BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_1);
 #endif

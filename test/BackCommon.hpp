@@ -1,3 +1,4 @@
+// Copyright 2025 Christian Granzin
 // Copyright 2024 Christophe Henry
 // henry UNDERSCORE christophe AT hotmail DOT com
 // This is an extended version of the state machine available in the boost::mpl library
@@ -20,13 +21,19 @@
     #define BOOST_MSM_TEST_SKIP_BACKMP11
 #endif
 
+#ifndef BOOST_MSM_TEST_SKIP_BACKMP11
+
+#include "Backmp11.hpp"
+
+#endif
+
 template<typename Front>
 using get_test_machines = boost::mpl::vector<
     boost::msm::back::state_machine<Front>,
     boost::msm::back::state_machine<Front, boost::msm::back::favor_compile_time>,
 #if !defined(BOOST_MSM_TEST_SKIP_BACKMP11)
-    boost::msm::backmp11::state_machine<Front>,
-    boost::msm::backmp11::state_machine<Front, boost::msm::backmp11::favor_compile_time>,
+    boost::msm::backmp11::state_machine_adapter<Front>,
+    boost::msm::backmp11::state_machine_adapter<Front, boost::msm::backmp11::favor_compile_time>,
 #endif // BOOST_MSM_TEST_SKIP_BACKMP11
     boost::msm::back11::state_machine<Front>
     >;
@@ -36,8 +43,8 @@ using get_hierarchical_test_machines = boost::mpl::vector<
     hierarchical<boost::msm::back::state_machine>,
     hierarchical<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>,
 #if !defined(BOOST_MSM_TEST_SKIP_BACKMP11)
-    hierarchical<boost::msm::backmp11::state_machine>,
-    hierarchical<boost::msm::backmp11::state_machine, boost::msm::backmp11::favor_compile_time>,
+    hierarchical<boost::msm::backmp11::state_machine_adapter>,
+    hierarchical<boost::msm::backmp11::state_machine_adapter, boost::msm::backmp11::favor_compile_time>,
 #endif // BOOST_MSM_TEST_SKIP_BACKMP11
     hierarchical<boost::msm::back11::state_machine>
 >;

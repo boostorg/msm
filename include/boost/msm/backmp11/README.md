@@ -19,16 +19,71 @@ It is named after the metaprogramming library Boost Mp11, the main contributor t
 The need to define a BaseState, accept_sig and accept method in the frontend is removed.
 
 Instead there is a universal visitor API that supports two overloads via tag dispatch to either iterate over only active states or all states:
-- void state_machine::visit(F&& f) // Same as with active_states_t
-- void state_machine::visit(F&& f, back::active_states_t)
-- void state_machine::visit(F&& f, back::all_states_t)
 
-The functor f needs to fulfill the signature `void (auto& state)`.
+```cpp
+template<typename Visitor>
+void state_machine::visit(Visitor&& visitor); // Same as with active_states_t
+template<typename Visitor>
+void state_machine::visit(Visitor&& visitor, back::active_states_t);
+template<typename Visitor>
+void state_machine::visit(Visitor&& visitor, back::all_states_t);
+```
+
+The visitor needs to fulfill the signature requirement for all sub-states present in the state machine:
+
+```cpp
+template<typename State>
+void operator()(State& state);
+```
 
 Also these bugs are fixed:
 - If the SM is not started yet, no active state is visited instead of the initial state(s)
 - If the SM is stopped, no active state is visited instead of the last active state(s)
 
+
+### Simplified state machine signature
+
+The signature has been simplified to facilitate sharing configurations between state machines. The new signature looks as follows:
+
+```cpp
+template <
+    class TFrontEnd,
+    class TConfig = default_state_machine_config
+>
+class state_machine;
+```
+
+The configuration of the state machine can be defined via a config structure. The default config looks as follows:
+
+```cpp
+struct default_state_machine_config
+{
+    using compile_policy = favor_runtime_speed;
+    using root_sm = no_root_sm;
+    template<typename T>
+    using queue_container = std::deque<T>;
+    using fsm_check = no_fsm_check;
+    using history = NoHistory;
+};
+
+using state_machine_config = default_state_machine_config;
+
+// User-defined config
+struct CustomStateMachineConfig : public state_machine_config
+{
+    using compile_policy = favor_compile_time;
+};
+```
+
+## New state machine config setting for defining a root_sm
+
+The config setting `root_sm` defines the type of the root state machine of hierarchical state machines. The root sm depicts the uppermost state machine.
+If the `root_sm` is defined in the config, the following API becomes available to access it from within any sub-state machine as `RootSm`:
+
+```cpp
+state_machine::RootSm& get_root_sm();
+const state_machine::RootSm& get_root_sm() const;
+```
 
 ## Resolved limitations
 
@@ -38,6 +93,11 @@ Also these bugs are fixed:
 ### The targeted minimum C++ version is C++17
 
 C++11 brings the strongly needed variadic template support for MSM, but later C++ versions provide other important features - for example C++17's `if constexpr`.
+
+
+### The signature of the state machine is changed
+
+Please use the new simplified state machine signature instead.
 
 
 ### The eUML frontend is not supported
@@ -68,7 +128,7 @@ Please use the universal visitor API instead.
 If you really need to get a state by id, please use the universal visitor API to implement the function on your own.
 The backmp11 state_machine has a new method to support getting the id of a state in the visitor:
 
-```
+```cpp
 template<typename State>
 static constexpr int get_state_id(const State&);
 ```
