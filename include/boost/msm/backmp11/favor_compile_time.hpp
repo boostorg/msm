@@ -45,7 +45,7 @@ struct is_completion_event<Event, favor_compile_time>
 {
     static bool value(const Event& event)
     {
-        return (event.type() == boost::typeindex::type_id<front::none>());
+        return (event.type() == typeid(front::none));
     }
 };
 
@@ -162,7 +162,7 @@ private:
     template<typename Event, typename Row>
     static HandledEnum convert_and_execute(Fsm& fsm, int region_id, int state_id, const any_event& event)
     {
-        return Row::execute(fsm, region_id, state_id, *any_cast<Event>(&event));
+        return Row::execute(fsm, region_id, state_id, *std::any_cast<Event>(&event));
     }
 
     // Dispatch table for one state.

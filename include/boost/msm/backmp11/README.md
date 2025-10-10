@@ -9,9 +9,6 @@ The new backend has the following goals:
 
 It is named after the metaprogramming library Boost Mp11, the main contributor to the optimizations. Usages of MPL are replaced with Mp11 to get rid of the costly C++03 emulation of variadic templates.
 
-## Behavioral changes
-
-
 ## New features
 
 ### Universal visitor API
@@ -85,7 +82,12 @@ state_machine::RootSm& get_root_sm();
 const state_machine::RootSm& get_root_sm() const;
 ```
 
-## Resolved limitations
+## Behavioral changes
+
+### `boost::any` as Kleene event is deprecated and superseded by `std::any`
+
+To reduce the necessary amount of header inclusions `backmp11` only supports `std::any` for defining Kleene events instead of `boost::any`.
+You can still opt in to use `boost::any` by explicitly including `boost/msm/event_traits.h`.
 
 
 ## Breaking changes

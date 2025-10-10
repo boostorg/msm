@@ -1411,7 +1411,7 @@ protected:
         template <class Event>
         void operator()(Event const& ev)
         {
-            if (m_event.type() == boost::typeindex::type_id<decltype(ev)>().type_info())
+            if (m_event.type() == typeid(Event))
             {
                 m_found = true;
                 // to call this function, you need either a state with a deferred_events typedef
