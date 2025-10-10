@@ -77,7 +77,6 @@ public:
 
 private:
     using CompilePolicy = typename Config::compile_policy;
-    using FsmCheck = typename Config::fsm_check;
     using History = typename Config::history;
 
     typedef ::std::function<
@@ -2373,11 +2372,6 @@ private:
             );
         }
         m_root_sm = static_cast<void*>(&root_sm);
-
-        // checks that regions are truly orthogonal
-        FsmCheck::template check_orthogonality<state_machine>();
-        // checks that all states are reachable
-        FsmCheck::template check_unreachable_states<state_machine>();
 
         visit(
             [&root_sm](auto& state)

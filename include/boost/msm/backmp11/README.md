@@ -59,7 +59,6 @@ struct default_state_machine_config
     using root_sm = no_root_sm;
     template<typename T>
     using queue_container = std::deque<T>;
-    using fsm_check = no_fsm_check;
     using history = NoHistory;
 };
 
@@ -105,6 +104,11 @@ Please use the new simplified state machine signature instead.
 ### The eUML frontend is not supported
 
 The support of EUML induces longer compilation times by the need to include the Boost proto headers and applying C++03 variadic template emulation. If you want to use a UML-like syntax, please try out the new PUML frontend.
+
+
+### The fsm check support is removed
+
+The implementation of the checks depends on mpl_graph, which induces high compilation times.
 
 
 ### The backend's constructor does not allow initialization of states and `set_states` is not available

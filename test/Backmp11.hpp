@@ -67,9 +67,6 @@ struct state_machine_config_adapter : state_machine_config
         config_args, tag::compile_policy, favor_runtime_speed >::type    compile_policy;
 
     typedef typename ::boost::parameter::binding<
-        config_args, tag::fsm_check_policy, no_fsm_check >::type         fsm_check;
-
-    typedef typename ::boost::parameter::binding<
         config_args, tag::queue_container_policy,
         queue_container_deque >::type                                    QueueContainerPolicy;
     template<typename T>
