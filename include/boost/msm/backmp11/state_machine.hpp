@@ -230,23 +230,23 @@ private:
         typedef int                 no_automatic_create;
     };
     static constexpr int nr_regions = get_number_of_regions<typename FrontEnd::initial_state>::type::value;
-    // Template used to form rows in the transition table
-    template<
-        typename ROW
-    >
-    struct row_
+
+    // Template used to create transitions from rows in the transition table
+    // (normal transitions).
+    template<typename Row, bool HasAction, bool HasGuard>
+    struct Transition
     {
         //typedef typename ROW::Source T1;
-        typedef typename make_entry<typename ROW::Source,state_machine>::type T1;
-        typedef typename make_exit<typename ROW::Target,state_machine>::type T2;
-        typedef typename ROW::Evt transition_event;
+        typedef typename make_entry<typename Row::Source,state_machine>::type T1;
+        typedef typename make_exit<typename Row::Target,state_machine>::type T2;
+        typedef typename Row::Evt transition_event;
         // if the source is an exit pseudo state, then
         // current_state_type becomes the result of get_owner
         // meaning the containing SM from which the exit occurs
         typedef typename ::boost::mpl::eval_if<
                 typename has_pseudo_exit<T1>::type,
                 get_owner<T1,state_machine>,
-                ::boost::mpl::identity<typename ROW::Source> >::type current_state_type;
+                ::boost::mpl::identity<typename Row::Source> >::type current_state_type;
 
         // if Target is a sequence, then we have a fork and expect a sequence of explicit_entry
         // else if Target is an explicit_entry, next_state_type becomes the result of get_owner
@@ -263,17 +263,21 @@ private:
         // if a guard condition is here, call it to check that the event is accepted
         static bool check_guard(state_machine& fsm,transition_event const& evt)
         {
-            if ( ROW::guard_call(fsm,evt,
+            if constexpr (HasGuard)
+            {
+                return Row::guard_call(fsm,evt,
                                  fsm.get_state<current_state_type>(),
                                  fsm.get_state<next_state_type>(),
-                                 fsm.m_substate_list ) )
+                                 fsm.m_substate_list);
+            }
+            else
+            {
                 return true;
-            return false;
+            }
         }
         // Take the transition action and return the next state.
         static HandledEnum execute(state_machine& fsm, int region_index, int state, transition_event const& evt)
         {
-
             BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
             BOOST_STATIC_CONSTANT(int, next_state = (get_state_id<next_state_type>()));
             boost::ignore_unused(state); // Avoid warnings if BOOST_ASSERT expands to nothing.
@@ -289,249 +293,61 @@ private:
                 // guard rejected the event, we stay in the current one
                 return HANDLED_GUARD_REJECT;
             }
+
             fsm.m_active_state_ids[region_index] = active_state_switching::after_guard(current_state,next_state);
 
-            // the guard condition has already been checked
+            // first call the exit method of the current state
             execute_exit<current_state_type>(fsm.get_state<current_state_type>(),evt,fsm);
             fsm.m_active_state_ids[region_index] = active_state_switching::after_exit(current_state,next_state);
 
             // then call the action method
-            HandledEnum res = ROW::action_call(fsm,evt,
-                             fsm.get_state<current_state_type>(),
-                             fsm.get_state<next_state_type>(),
-                             fsm.m_substate_list);
+            HandledEnum res;
+            if constexpr (HasAction)
+            {
+                res = Row::action_call(fsm,evt,
+                                fsm.get_state<current_state_type>(),
+                                fsm.get_state<next_state_type>(),
+                                fsm.m_substate_list);
+            }
+            else
+            {
+                res = HANDLED_TRUE;
+            }
+
             fsm.m_active_state_ids[region_index] = active_state_switching::after_action(current_state,next_state);
 
             // and finally the entry method of the new current state
             convert_event_and_execute_entry<next_state_type,T2>
                 (fsm.get_state<next_state_type>(),evt,fsm);
             fsm.m_active_state_ids[region_index] = active_state_switching::after_entry(current_state,next_state);
+
             return res;
         }
     };
 
-    // row having only a guard condition
-    template<
-        typename ROW
-    >
-    struct g_row_
+    // Template used to create transitions from rows in the transition table
+    // (internal transitions).
+    template<typename Row, bool HasAction, bool HasGuard>
+    struct ITransition
     {
-        //typedef typename ROW::Source T1;
-        typedef typename make_entry<typename ROW::Source,state_machine>::type T1;
-        typedef typename make_exit<typename ROW::Target,state_machine>::type T2;
-        typedef typename ROW::Evt transition_event;
-        // if the source is an exit pseudo state, then
-        // current_state_type becomes the result of get_owner
-        // meaning the containing SM from which the exit occurs
-        typedef typename ::boost::mpl::eval_if<
-                typename has_pseudo_exit<T1>::type,
-                get_owner<T1,state_machine>,
-                ::boost::mpl::identity<typename ROW::Source> >::type current_state_type;
-
-        // if Target is a sequence, then we have a fork and expect a sequence of explicit_entry
-        // else if Target is an explicit_entry, next_state_type becomes the result of get_owner
-        // meaning the containing SM if the row is "outside" the containing SM or else the explicit_entry state itself
-        typedef typename ::boost::mpl::eval_if<
-            typename ::boost::mpl::is_sequence<T2>::type,
-            get_fork_owner<T2,state_machine>,
-            ::boost::mpl::eval_if<
-                    typename has_no_automatic_create<T2>::type,
-                    get_owner<T2,state_machine>,
-                    ::boost::mpl::identity<T2> >
-        >::type next_state_type;
-
-        // if a guard condition is defined, call it to check that the event is accepted
-        static bool check_guard(state_machine& fsm,transition_event const& evt)
-        {
-            if ( ROW::guard_call(fsm,evt,
-                                 fsm.get_state<current_state_type>(),
-                                 fsm.get_state<next_state_type>(),
-                                 fsm.m_substate_list ))
-                return true;
-            return false;
-        }
-        // Take the transition action and return the next state.
-        static HandledEnum execute(state_machine& fsm, int region_index, int state, transition_event const& evt)
-        {
-            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
-            BOOST_STATIC_CONSTANT(int, next_state = (get_state_id<next_state_type>()));
-            boost::ignore_unused(state); // Avoid warnings if BOOST_ASSERT expands to nothing.
-            BOOST_ASSERT(state == (current_state));
-            // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
-            if (has_pseudo_exit<T1>::type::value &&
-                !backmp11::is_exit_state_active<T1,get_owner<T1,state_machine> >(fsm))
-            {
-                return HANDLED_FALSE;
-            }
-            if (!check_guard(fsm,evt))
-            {
-                // guard rejected the event, we stay in the current one
-                return HANDLED_GUARD_REJECT;
-            }
-            fsm.m_active_state_ids[region_index] = active_state_switching::after_guard(current_state,next_state);
-
-            // the guard condition has already been checked
-            execute_exit<current_state_type>
-                (fsm.get_state<current_state_type>(),evt,fsm);
-            fsm.m_active_state_ids[region_index] = active_state_switching::after_exit(current_state,next_state);
-            fsm.m_active_state_ids[region_index] = active_state_switching::after_action(current_state,next_state);
-
-            // and finally the entry method of the new current state
-            convert_event_and_execute_entry<next_state_type,T2>
-                (fsm.get_state<next_state_type>(),evt,fsm);
-            fsm.m_active_state_ids[region_index] = active_state_switching::after_entry(current_state,next_state);
-            return HANDLED_TRUE;
-        }
-    };
-
-    // row having only an action method
-    template<
-        typename ROW
-    >
-    struct a_row_
-    {
-        //typedef typename ROW::Source T1;
-        typedef typename make_entry<typename ROW::Source,state_machine>::type T1;
-        typedef typename make_exit<typename ROW::Target,state_machine>::type T2;
-        typedef typename ROW::Evt transition_event;
-        // if the source is an exit pseudo state, then
-        // current_state_type becomes the result of get_owner
-        // meaning the containing SM from which the exit occurs
-        typedef typename ::boost::mpl::eval_if<
-                typename has_pseudo_exit<T1>::type,
-                get_owner<T1,state_machine>,
-                ::boost::mpl::identity<typename ROW::Source> >::type current_state_type;
-
-        // if Target is a sequence, then we have a fork and expect a sequence of explicit_entry
-        // else if Target is an explicit_entry, next_state_type becomes the result of get_owner
-        // meaning the containing SM if the row is "outside" the containing SM or else the explicit_entry state itself
-        typedef typename ::boost::mpl::eval_if<
-            typename ::boost::mpl::is_sequence<T2>::type,
-            get_fork_owner<T2,state_machine>,
-            ::boost::mpl::eval_if<
-                    typename has_no_automatic_create<T2>::type,
-                    get_owner<T2,state_machine>,
-                    ::boost::mpl::identity<T2> >
-        >::type next_state_type;
-
-        // Take the transition action and return the next state.
-        static HandledEnum execute(state_machine& fsm, int region_index, int state, transition_event const& evt)
-        {
-            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
-            BOOST_STATIC_CONSTANT(int, next_state = (get_state_id<next_state_type>()));
-            boost::ignore_unused(state); // Avoid warnings if BOOST_ASSERT expands to nothing.
-            BOOST_ASSERT(state == (current_state));
-
-            // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
-            if (has_pseudo_exit<T1>::type::value &&
-                !backmp11::is_exit_state_active<T1,get_owner<T1,state_machine> >(fsm))
-            {
-                return HANDLED_FALSE;
-            }
-            fsm.m_active_state_ids[region_index] = active_state_switching::after_guard(current_state,next_state);
-
-            // no need to check the guard condition
-            // first call the exit method of the current state
-            execute_exit<current_state_type>
-                (fsm.get_state<current_state_type>(),evt,fsm);
-            fsm.m_active_state_ids[region_index] = active_state_switching::after_exit(current_state,next_state);
-
-            // then call the action method
-            HandledEnum res = ROW::action_call(fsm,evt,
-                            fsm.get_state<current_state_type>(),
-                            fsm.get_state<next_state_type>(),
-                            fsm.m_substate_list);
-            fsm.m_active_state_ids[region_index] = active_state_switching::after_action(current_state,next_state);
-
-            // and finally the entry method of the new current state
-            convert_event_and_execute_entry<next_state_type,T2>
-                (fsm.get_state<next_state_type>(),evt,fsm);
-            fsm.m_active_state_ids[region_index] = active_state_switching::after_entry(current_state,next_state);
-            return res;
-        }
-    };
-
-    // row having no guard condition or action, simply transitions
-    template<
-        typename ROW
-    >
-    struct _row_
-    {
-        //typedef typename ROW::Source T1;
-        typedef typename make_entry<typename ROW::Source,state_machine>::type T1;
-        typedef typename make_exit<typename ROW::Target,state_machine>::type T2;
-        typedef typename ROW::Evt transition_event;
-        // if the source is an exit pseudo state, then
-        // current_state_type becomes the result of get_owner
-        // meaning the containing SM from which the exit occurs
-        typedef typename ::boost::mpl::eval_if<
-                typename has_pseudo_exit<T1>::type,
-                get_owner<T1,state_machine>,
-                ::boost::mpl::identity<typename ROW::Source> >::type current_state_type;
-
-        // if Target is a sequence, then we have a fork and expect a sequence of explicit_entry
-        // else if Target is an explicit_entry, next_state_type becomes the result of get_owner
-        // meaning the containing SM if the row is "outside" the containing SM or else the explicit_entry state itself
-        typedef typename ::boost::mpl::eval_if<
-            typename ::boost::mpl::is_sequence<T2>::type,
-            get_fork_owner<T2,state_machine>,
-            ::boost::mpl::eval_if<
-                    typename has_no_automatic_create<T2>::type,
-                    get_owner<T2,state_machine>,
-                    ::boost::mpl::identity<T2> >
-        >::type next_state_type;
-
-        // Take the transition action and return the next state.
-        static HandledEnum execute(state_machine& fsm, int region_index, int state, transition_event const& evt)
-        {
-            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
-            BOOST_STATIC_CONSTANT(int, next_state = (get_state_id<next_state_type>()));
-            boost::ignore_unused(state); // Avoid warnings if BOOST_ASSERT expands to nothing.
-            BOOST_ASSERT(state == (current_state));
-
-            // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
-            if (has_pseudo_exit<T1>::type::value &&
-                !backmp11::is_exit_state_active<T1,get_owner<T1,state_machine> >(fsm))
-            {
-                return HANDLED_FALSE;
-            }
-            fsm.m_active_state_ids[region_index] = active_state_switching::after_guard(current_state,next_state);
-
-            // first call the exit method of the current state
-            execute_exit<current_state_type>
-                (fsm.get_state<current_state_type>(),evt,fsm);
-            fsm.m_active_state_ids[region_index] = active_state_switching::after_exit(current_state,next_state);
-            fsm.m_active_state_ids[region_index] = active_state_switching::after_action(current_state,next_state);
-
-
-            // and finally the entry method of the new current state
-            convert_event_and_execute_entry<next_state_type,T2>
-                (fsm.get_state<next_state_type>(),evt,fsm);
-            fsm.m_active_state_ids[region_index] = active_state_switching::after_entry(current_state,next_state);
-            return HANDLED_TRUE;
-        }
-    };
-    // "i" rows are rows for internal transitions
-    template<
-        typename ROW
-    >
-    struct irow_
-    {
-        typedef typename make_entry<typename ROW::Source,state_machine>::type T1;
-        typedef typename make_exit<typename ROW::Target,state_machine>::type T2;
-        typedef typename ROW::Evt transition_event;
-        typedef typename ROW::Source current_state_type;
-        typedef T2 next_state_type;
+        typedef typename Row::Evt transition_event;
+        typedef typename Row::Source current_state_type;
+        typedef typename make_exit<typename Row::Target,state_machine>::type next_state_type;
 
         // if a guard condition is here, call it to check that the event is accepted
         static bool check_guard(state_machine& fsm,transition_event const& evt)
         {
-            if ( ROW::guard_call(fsm,evt,
+            if constexpr (HasGuard)
+            {
+                return Row::guard_call(fsm,evt,
                                  fsm.get_state<current_state_type>(),
                                  fsm.get_state<next_state_type>(),
-                                 fsm.m_substate_list))
+                                 fsm.m_substate_list);
+            }
+            else
+            {
                 return true;
-            return false;
+            }
         }
         // Take the transition action and return the next state.
         static HandledEnum execute(state_machine& fsm, int , int state, transition_event const& evt)
@@ -547,121 +363,53 @@ private:
             }
 
             // call the action method
-            HandledEnum res = ROW::action_call(fsm,evt,
+            if constexpr (HasAction)
+            {
+                return Row::action_call(fsm,evt,
                              fsm.get_state<current_state_type>(),
                              fsm.get_state<next_state_type>(),
                              fsm.m_substate_list);
-            return res;
-        }
-    };
-
-    // row having only a guard condition
-    template<
-        typename ROW
-    >
-    struct g_irow_
-    {
-        typedef typename make_entry<typename ROW::Source,state_machine>::type T1;
-        typedef typename make_exit<typename ROW::Target,state_machine>::type T2;
-        typedef typename ROW::Evt transition_event;
-        typedef typename ROW::Source current_state_type;
-        typedef T2 next_state_type;
-
-        // if a guard condition is defined, call it to check that the event is accepted
-        static bool check_guard(state_machine& fsm,transition_event const& evt)
-        {
-            if ( ROW::guard_call(fsm,evt,
-                                 fsm.get_state<current_state_type>(),
-                                 fsm.get_state<next_state_type>(),
-                                 fsm.m_substate_list) )
-                return true;
-            return false;
-        }
-        // Take the transition action and return the next state.
-        static HandledEnum execute(state_machine& fsm, int , int state, transition_event const& evt)
-        {
-            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
-            boost::ignore_unused(state, current_state); // Avoid warnings if BOOST_ASSERT expands to nothing.
-            BOOST_ASSERT(state == (current_state));
-            if (!check_guard(fsm,evt))
-            {
-                // guard rejected the event, we stay in the current one
-                return HANDLED_GUARD_REJECT;
             }
-            return HANDLED_TRUE;
+            else
+            {
+                return HANDLED_TRUE;
+            }
         }
     };
 
-    // row having only an action method
-    template<
-        typename ROW
-    >
-    struct a_irow_
-    {
-        typedef typename make_entry<typename ROW::Source,state_machine>::type T1;
-        typedef typename make_exit<typename ROW::Target,state_machine>::type T2;
-
-        typedef typename ROW::Evt transition_event;
-        typedef typename ROW::Source current_state_type;
-        typedef T2 next_state_type;
-
-        // Take the transition action and return the next state.
-        static HandledEnum execute(state_machine& fsm, int , int state, transition_event const& evt)
-        {
-            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
-            boost::ignore_unused(state, current_state); // Avoid warnings if BOOST_ASSERT expands to nothing.
-            BOOST_ASSERT(state == (current_state));
-
-            // call the action method
-            HandledEnum res = ROW::action_call(fsm,evt,
-                            fsm.get_state<current_state_type>(),
-                            fsm.get_state<next_state_type>(),
-                            fsm.m_substate_list);
-
-            return res;
-        }
-    };
-    // row simply ignoring the event
-    template<
-        typename ROW
-    >
-    struct _irow_
-    {
-        typedef typename make_entry<typename ROW::Source,state_machine>::type T1;
-        typedef typename make_exit<typename ROW::Target,state_machine>::type T2;
-        typedef typename ROW::Evt transition_event;
-        typedef typename ROW::Source current_state_type;
-        typedef T2 next_state_type;
-
-        // Take the transition action and return the next state.
-        static HandledEnum execute(state_machine& , int , int state, transition_event const& )
-        {
-            BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
-            boost::ignore_unused(state, current_state); // Avoid warnings if BOOST_ASSERT expands to nothing.
-            BOOST_ASSERT(state == (current_state));
-            return HANDLED_TRUE;
-        }
-    };
-    // transitions internal to this state machine (no substate involved)
-    template<
-        typename ROW,
-        typename StateType
-    >
-    struct internal_
+    // Template used to create transitions from rows in the transition table
+    // (SM-internal transitions).
+    template<typename Row, bool HasAction, bool HasGuard, typename StateType>
+    struct InternalTransition
     {
         typedef StateType current_state_type;
         typedef StateType next_state_type;
-        typedef typename ROW::Evt transition_event;
+        typedef typename Row::Evt transition_event;
 
         // if a guard condition is here, call it to check that the event is accepted
         static bool check_guard(state_machine& fsm,transition_event const& evt)
         {
-            if ( ROW::guard_call(fsm,evt,
-                fsm.get_state<StateType>(),
-                fsm.get_state<StateType>(),
-                fsm.m_substate_list) )
+            if constexpr (HasGuard)
+            {
+                if constexpr (std::is_same_v<StateType, state_machine>)
+                {
+                    return Row::guard_call(fsm,evt,
+                        fsm,
+                        fsm,
+                        fsm.m_substate_list);                    
+                }
+                else
+                {
+                    return Row::guard_call(fsm,evt,
+                        fsm.get_state<StateType>(),
+                        fsm.get_state<StateType>(),
+                        fsm.m_substate_list);
+                }
+            }
+            else
+            {
                 return true;
-            return false;
+            }
         }
         // Take the transition action and return the next state.
         static HandledEnum execute(state_machine& fsm, int , int , transition_event const& evt)
@@ -673,179 +421,30 @@ private:
             }
 
             // then call the action method
-            HandledEnum res = ROW::action_call(fsm,evt,
-                fsm.get_state<StateType>(),
-                fsm.get_state<StateType>(),
-                fsm.m_substate_list);
-            return res;
-        }
-    };
-    template<
-        typename ROW
-    >
-    struct internal_ <ROW,state_machine>
-    {
-        typedef state_machine current_state_type;
-        typedef state_machine next_state_type;
-        typedef typename ROW::Evt transition_event;
-
-        // if a guard condition is here, call it to check that the event is accepted
-        static bool check_guard(state_machine& fsm,transition_event const& evt)
-        {
-            if ( ROW::guard_call(fsm,evt,
-                fsm,
-                fsm,
-                fsm.m_substate_list) )
-                return true;
-            return false;
-        }
-        // Take the transition action and return the next state.
-        static HandledEnum execute(state_machine& fsm, int , int , transition_event const& evt)
-        {
-            if (!check_guard(fsm,evt))
+            if constexpr (HasAction)
             {
-                // guard rejected the event, we stay in the current one
-                return HANDLED_GUARD_REJECT;
+                if constexpr(std::is_same_v<StateType, state_machine>)
+                {
+                    return Row::action_call(fsm,evt,
+                        fsm,
+                        fsm,
+                        fsm.m_substate_list);
+                }
+                else
+                {
+                    return Row::action_call(fsm,evt,
+                        fsm.get_state<StateType>(),
+                        fsm.get_state<StateType>(),
+                        fsm.m_substate_list);
+                }
             }
-
-            // then call the action method
-            HandledEnum res = ROW::action_call(fsm,evt,
-                fsm,
-                fsm,
-                fsm.m_substate_list);
-            return res;
-        }
-    };
-
-    template<
-        typename ROW,
-        typename StateType
-    >
-    struct a_internal_
-    {
-        typedef StateType current_state_type;
-        typedef StateType next_state_type;
-        typedef typename ROW::Evt transition_event;
-
-        // Take the transition action and return the next state.
-        static HandledEnum execute(state_machine& fsm, int, int, transition_event const& evt)
-        {
-            // then call the action method
-            HandledEnum res = ROW::action_call(fsm,evt,
-                fsm.get_state<StateType>(),
-                fsm.get_state<StateType>(),
-                fsm.m_substate_list);
-            return res;
-        }
-    };
-    template<
-        typename ROW
-    >
-    struct a_internal_ <ROW,state_machine>
-    {
-        typedef state_machine current_state_type;
-        typedef state_machine next_state_type;
-        typedef typename ROW::Evt transition_event;
-
-        // Take the transition action and return the next state.
-        static HandledEnum execute(state_machine& fsm, int, int, transition_event const& evt)
-        {
-            // then call the action method
-            HandledEnum res = ROW::action_call(fsm,evt,
-                fsm,
-                fsm,
-                fsm.m_substate_list);
-            return res;
-        }
-    };
-    template<
-        typename ROW,
-        typename StateType
-    >
-    struct g_internal_
-    {
-        typedef StateType current_state_type;
-        typedef StateType next_state_type;
-        typedef typename ROW::Evt transition_event;
-
-        // if a guard condition is here, call it to check that the event is accepted
-        static bool check_guard(state_machine& fsm,transition_event const& evt)
-        {
-            if ( ROW::guard_call(fsm,evt,
-                fsm.get_state<StateType>(),
-                fsm.get_state<StateType>(),
-                fsm.m_substate_list) )
-                return true;
-            return false;
-        }
-        // Take the transition action and return the next state.
-        static HandledEnum execute(state_machine& fsm, int, int, transition_event const& evt)
-        {
-            if (!check_guard(fsm,evt))
+            else
             {
-                // guard rejected the event, we stay in the current one
-                return HANDLED_GUARD_REJECT;
+                return HANDLED_TRUE;
             }
-            return HANDLED_TRUE;
         }
     };
-    template<
-        typename ROW
-    >
-    struct g_internal_ <ROW,state_machine>
-    {
-        typedef state_machine current_state_type;
-        typedef state_machine next_state_type;
-        typedef typename ROW::Evt transition_event;
 
-        // if a guard condition is here, call it to check that the event is accepted
-        static bool check_guard(state_machine& fsm,transition_event const& evt)
-        {
-            if ( ROW::guard_call(fsm,evt,
-                fsm,
-                fsm,
-                fsm.m_substate_list) )
-                return true;
-            return false;
-        }
-        // Take the transition action and return the next state.
-        static HandledEnum execute(state_machine& fsm, int, int, transition_event const& evt)
-        {
-            if (!check_guard(fsm,evt))
-            {
-                // guard rejected the event, we stay in the current one
-                return HANDLED_GUARD_REJECT;
-            }
-            return HANDLED_TRUE;
-        }
-    };
-    template<
-        typename ROW,
-        typename StateType
-    >
-    struct _internal_
-    {
-        typedef StateType current_state_type;
-        typedef StateType next_state_type;
-        typedef typename ROW::Evt transition_event;
-        static HandledEnum execute(state_machine& , int , int , transition_event const& )
-        {
-            return HANDLED_TRUE;
-        }
-    };
-    template<
-        typename ROW
-    >
-    struct _internal_ <ROW,state_machine>
-    {
-        typedef state_machine current_state_type;
-        typedef state_machine next_state_type;
-        typedef typename ROW::Evt transition_event;
-        static HandledEnum execute(state_machine& , int , int , transition_event const& )
-        {
-            return HANDLED_TRUE;
-        }
-    };
     // Template used to form forwarding rows in the transition table for every row of a composite SM
     template<
         typename T1
@@ -877,75 +476,73 @@ private:
         };
     };
 
-    template <class Tag, class Transition,class StateType>
-    struct create_backend_stt
+    template <class Tag, class Row,class StateType>
+    struct create_backend_stt;
+    template <class Row,class StateType>
+    struct create_backend_stt<g_row_tag,Row,StateType>
     {
+        using type = Transition<Row, false, true>;
     };
-    template <class Transition,class StateType>
-    struct create_backend_stt<g_row_tag,Transition,StateType>
+    template <class Row,class StateType>
+    struct create_backend_stt<a_row_tag,Row,StateType>
     {
-        typedef g_row_<Transition> type;
+        using type = Transition<Row, true, false>;;
     };
-    template <class Transition,class StateType>
-    struct create_backend_stt<a_row_tag,Transition,StateType>
+    template <class Row,class StateType>
+    struct create_backend_stt<_row_tag,Row,StateType>
     {
-        typedef a_row_<Transition> type;
+        using type = Transition<Row, false, false>;
     };
-    template <class Transition,class StateType>
-    struct create_backend_stt<_row_tag,Transition,StateType>
+    template <class Row,class StateType>
+    struct create_backend_stt<row_tag,Row,StateType>
     {
-        typedef _row_<Transition> type;
-    };
-    template <class Transition,class StateType>
-    struct create_backend_stt<row_tag,Transition,StateType>
-    {
-        typedef row_<Transition> type;
+        using type = Transition<Row, true, true>;;
     };
     // internal transitions
-    template <class Transition,class StateType>
-    struct create_backend_stt<g_irow_tag,Transition,StateType>
+    template <class Row,class StateType>
+    struct create_backend_stt<g_irow_tag,Row,StateType>
     {
-        typedef g_irow_<Transition> type;
+        using type = ITransition<Row, false, true>;
     };
-    template <class Transition,class StateType>
-    struct create_backend_stt<a_irow_tag,Transition,StateType>
+    template <class Row,class StateType>
+    struct create_backend_stt<a_irow_tag,Row,StateType>
     {
-        typedef a_irow_<Transition> type;
+        using type = ITransition<Row, true, false>;
     };
-    template <class Transition,class StateType>
-    struct create_backend_stt<irow_tag,Transition,StateType>
+    template <class Row,class StateType>
+    struct create_backend_stt<irow_tag,Row,StateType>
     {
-        typedef irow_<Transition> type;
+        using type = ITransition<Row, true, true>;
     };
-    template <class Transition,class StateType>
-    struct create_backend_stt<_irow_tag,Transition,StateType>
+    template <class Row,class StateType>
+    struct create_backend_stt<_irow_tag,Row,StateType>
     {
-        typedef _irow_<Transition> type;
+        using type = ITransition<Row, false, false>;
     };
-    template <class Transition,class StateType>
-    struct create_backend_stt<sm_a_i_row_tag,Transition,StateType>
+    template <class Row,class StateType>
+    struct create_backend_stt<sm_a_i_row_tag,Row,StateType>
     {
-        typedef a_internal_<Transition,StateType> type;
+        using type = InternalTransition<Row, true, false, StateType>;
     };
-    template <class Transition,class StateType>
-    struct create_backend_stt<sm_g_i_row_tag,Transition,StateType>
+    template <class Row,class StateType>
+    struct create_backend_stt<sm_g_i_row_tag,Row,StateType>
     {
-        typedef g_internal_<Transition,StateType> type;
+        using type = InternalTransition<Row, false, true, StateType>;
     };
-    template <class Transition,class StateType>
-    struct create_backend_stt<sm_i_row_tag,Transition,StateType>
+    template <class Row,class StateType>
+    struct create_backend_stt<sm_i_row_tag,Row,StateType>
     {
-        typedef internal_<Transition,StateType> type;
+        using type = InternalTransition<Row, true, true, StateType>;
     };
-    template <class Transition,class StateType>
-    struct create_backend_stt<sm__i_row_tag,Transition,StateType>
+    template <class Row,class StateType>
+    struct create_backend_stt<sm__i_row_tag,Row,StateType>
     {
-        typedef _internal_<Transition,StateType> type;
+        using type = InternalTransition<Row, false, false, StateType>;
     };
-    template <class Transition,class StateType=void>
+    template <class Row,class StateType=void>
     struct make_row_tag
     {
-        typedef typename create_backend_stt<typename Transition::row_type_tag,Transition,StateType>::type type;
+        using type = typename create_backend_stt<typename Row::row_type_tag,Row,StateType>::type;
     };
 
     // add to the stt the initial states which could be missing (if not being involved in a transition)
