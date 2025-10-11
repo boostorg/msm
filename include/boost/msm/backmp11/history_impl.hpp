@@ -9,23 +9,24 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef BOOST_MSM_BACKMP11_HISTORY_POLICIES_H
-#define BOOST_MSM_BACKMP11_HISTORY_POLICIES_H
+#ifndef BOOST_MSM_BACKMP11_HISTORY_IMPL_H
+#define BOOST_MSM_BACKMP11_HISTORY_IMPL_H
 
-#include <boost/msm/backmp11/metafunctions.hpp>
+#include <boost/msm/front/history_policies.hpp>
+#include <boost/mp11.hpp>
 
 namespace boost { namespace msm { namespace backmp11
 {
 
-// policy classes
+// Implementations for history policies.
 
-// Default: no history used
+template<typename History, int NumberOfRegions>
+class history_impl;
+
 template <int NumberOfRegions>
-class NoHistoryImpl
+class history_impl<front::no_history, NumberOfRegions>
 {
 public:
-    NoHistoryImpl(){}
-    ~NoHistoryImpl(){}
     void set_initial_states(int* const initial_states)
     {
         for (int i=0;i<NumberOfRegions;++i)
@@ -42,7 +43,7 @@ public:
         // always come back to the original state
         return m_initialStates;
     }
-    NoHistoryImpl<NumberOfRegions>& operator=(NoHistoryImpl<NumberOfRegions> const& rhs)
+    history_impl& operator=(history_impl const& rhs)
     {
          for (int i=0; i<NumberOfRegions;++i)
          {
@@ -65,13 +66,10 @@ private:
     int m_initialStates[NumberOfRegions];
 };
 
-// not UML standard. Always activates history, no matter which event generated the transition
 template <int NumberOfRegions>
-class AlwaysHistoryImpl
+class history_impl<front::always_shallow_history, NumberOfRegions>
 {
 public:
-    AlwaysHistoryImpl(){}
-    ~AlwaysHistoryImpl(){}
     void set_initial_states(int* const initial_states)
     {
         for (int i=0;i<NumberOfRegions;++i)
@@ -89,7 +87,7 @@ public:
         // always load back the last active state
         return m_initialStates;
     }
-    AlwaysHistoryImpl<NumberOfRegions>& operator=(AlwaysHistoryImpl<NumberOfRegions> const& rhs)
+    history_impl& operator=(history_impl const& rhs)
     {
          for (int i=0; i<NumberOfRegions;++i)
          {
@@ -113,15 +111,12 @@ private:
     int m_initialStates[NumberOfRegions];
 };
 
-// UML Shallow history. For deep history, just use this policy for all the contained state machines
-template <class Events,int NumberOfRegions>
-class ShallowHistoryImpl
+template <typename... Events, int NumberOfRegions>
+class history_impl<front::shallow_history<Events...>, NumberOfRegions>
 {
-    typedef typename to_mp_list<Events>::type EventsMp11;
+    using events_mp11 = mp11::mp_list<Events...>;
 
 public:
-    ShallowHistoryImpl(){}
-    ~ShallowHistoryImpl(){}
     void set_initial_states(int* const initial_states)
     {
         for (int i=0;i<NumberOfRegions;++i)
@@ -139,14 +134,14 @@ public:
     template <class Event>
     const int* history_entry(Event const&)
     {
-        if (mp11::mp_contains<EventsMp11,Event>::value)
+        if (mp11::mp_contains<events_mp11,Event>::value)
         {
             return m_currentStates;
         }
         // not one of our events, no history
         return m_initialStates;
     }
-    ShallowHistoryImpl<Events,NumberOfRegions>& operator=(ShallowHistoryImpl<Events,NumberOfRegions> const& rhs)
+    history_impl& operator=(history_impl const& rhs)
     {
          for (int i=0; i<NumberOfRegions;++i)
          {
@@ -159,7 +154,7 @@ public:
     template <class Event>
     bool process_deferred_events(Event const&)const
     {
-        return mp11::mp_contains<EventsMp11,Event>::value;
+        return mp11::mp_contains<events_mp11,Event>::value;
     }
     template<class Archive>
     void serialize(Archive & ar, const unsigned int)
@@ -172,35 +167,6 @@ private:
     int m_currentStates[NumberOfRegions];
 };
 
-struct NoHistory
-{
-    typedef int history_policy;
-    template <int NumberOfRegions>
-    struct apply
-    {
-        typedef NoHistoryImpl<NumberOfRegions> type;
-    };
-};
-struct AlwaysHistory
-{
-    typedef int history_policy;
-    template <int NumberOfRegions>
-    struct apply
-    {
-        typedef AlwaysHistoryImpl<NumberOfRegions> type;
-    };
-};
-template <class Events>
-struct ShallowHistory
-{
-    typedef int history_policy;
-    template <int NumberOfRegions>
-    struct apply
-    {
-        typedef ShallowHistoryImpl<Events,NumberOfRegions> type;
-    };
-};
-
 }}} // boost::msm::backmp11
 
-#endif //BOOST_MSM_BACKMP11_HISTORY_POLICIES_H
+#endif // BOOST_MSM_BACKMP11_HISTORY_IMPL_H

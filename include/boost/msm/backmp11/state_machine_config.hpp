@@ -14,7 +14,6 @@
 
 #include <deque>
 
-#include <boost/msm/backmp11/history_policies.hpp>
 #include <boost/msm/back/default_compile_policy.hpp>
 
 namespace boost::msm::backmp11
@@ -30,8 +29,6 @@ struct default_state_machine_config
     using root_sm = no_root_sm;
     template<typename T>
     using queue_container = std::deque<T>;
-    // TODO: Move to front end
-    using history = NoHistory;
 };
 
 using state_machine_config = default_state_machine_config;
