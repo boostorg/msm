@@ -47,7 +47,8 @@ The signature has been simplified to facilitate sharing configurations between s
 ```cpp
 template <
     class TFrontEnd,
-    class TConfig = default_state_machine_config
+    class TConfig = default_state_machine_config,
+    class TDerived = void
 >
 class state_machine;
 ```
@@ -73,6 +74,10 @@ struct CustomStateMachineConfig : public state_machine_config
     using compile_policy = favor_compile_time;
 };
 ```
+
+The parameter `TDerived` can be omitted in most cases.
+It is only required if the `state_machine` class gets extended, and then usually only if pseudo entry/exit states are used.
+
 
 ## New state machine config setting for defining a root_sm
 
@@ -135,9 +140,9 @@ To reduce the amount of necessary header inclusions `backmp11` uses `std::any` f
 You can still opt in to use `boost::any` by explicitly including `boost/msm/event_traits.h`.
 
 
-### `current_state()` is deprecated and superseded by `get_active_state_ids()`
+### `current_state()` is replaced by `get_active_state_ids()`
 
-The new API returns an std::array to report the no. of regions together with the active state ids:
+The new API returns a std::array to report the no. of regions together with the active state ids:
 
 ```cpp
 const std::array<int, nr_regions>& get_active_state_ids() const;

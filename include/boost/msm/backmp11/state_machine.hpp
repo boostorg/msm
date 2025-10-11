@@ -61,12 +61,14 @@ struct direct_entry_event
     Event const& m_event;
 };
 
-// Back end for state machines.
-// Pass the state_machine_def as TFrontEnd and
-// a state_machine_config as TConfig.
+// Back-end for state machines.
+// Pass the state_machine_def as TFrontEnd,
+// a state_machine_config as TConfig (optional, for customization),
+// and the derived class as TDerived (required when extending the state_machine class).
 template <
     class TFrontEnd,
-    class TConfig = default_state_machine_config
+    class TConfig = default_state_machine_config,
+    class TDerived = void
 >
 class state_machine : public TFrontEnd
 {
@@ -74,6 +76,11 @@ public:
     using Config = TConfig;
     using RootSm = typename Config::root_sm;
     using FrontEnd = TFrontEnd;
+    using Derived = mp11::mp_if<
+        std::is_void<TDerived>,
+        state_machine,
+        TDerived
+    >;
 
 private:
     using CompilePolicy = typename Config::compile_policy;
@@ -97,7 +104,7 @@ private:
     typedef bool (*flag_handler)(state_machine const&);
 
     // all state machines are friend with each other to allow embedding any of them in another fsm
-    template <class, class>
+    template <class, class, class>
     friend class state_machine;
 
     template <class StateType,class Enable=int>
@@ -160,7 +167,7 @@ private:
         // tags
         typedef ExitPoint           wrapped_exit;
         typedef int                 pseudo_exit;
-        typedef state_machine       owner;
+        typedef Derived             owner;
         typedef int                 no_automatic_create;
         typedef typename
             ExitPoint::event        Event;
@@ -219,7 +226,7 @@ private:
         // tags
         typedef EntryPoint          wrapped_entry;
         typedef int                 pseudo_entry;
-        typedef state_machine       owner;
+        typedef Derived             owner;
         typedef int                 no_automatic_create;
     };
     template <class EntryPoint>
@@ -228,7 +235,7 @@ private:
         // tags
         typedef EntryPoint          wrapped_entry;
         typedef int                 explicit_entry_state;
-        typedef state_machine       owner;
+        typedef Derived             owner;
         typedef int                 no_automatic_create;
     };
 
@@ -246,7 +253,7 @@ private:
         // meaning the containing SM from which the exit occurs
         typedef typename ::boost::mpl::eval_if<
                 typename has_pseudo_exit<T1>::type,
-                get_owner<T1,state_machine>,
+                get_owner<T1,Derived>,
                 ::boost::mpl::identity<typename Row::Source> >::type current_state_type;
 
         // if Target is a sequence, then we have a fork and expect a sequence of explicit_entry
@@ -254,10 +261,10 @@ private:
         // meaning the containing SM if the row is "outside" the containing SM or else the explicit_entry state itself
         typedef typename ::boost::mpl::eval_if<
             typename ::boost::mpl::is_sequence<T2>::type,
-            get_fork_owner<T2,state_machine>,
+            get_fork_owner<T2,Derived>,
             ::boost::mpl::eval_if<
                     typename has_no_automatic_create<T2>::type,
-                    get_owner<T2,state_machine>,
+                    get_owner<T2,Derived>,
                     ::boost::mpl::identity<T2> >
         >::type next_state_type;
 
@@ -285,7 +292,7 @@ private:
             BOOST_ASSERT(state == (current_state));
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
             if (has_pseudo_exit<T1>::type::value &&
-                !backmp11::is_exit_state_active<T1,get_owner<T1,state_machine> >(fsm))
+                !backmp11::is_exit_state_active<T1,get_owner<T1,Derived> >(fsm))
             {
                 return HANDLED_FALSE;
             }
@@ -663,7 +670,7 @@ private:
 
     // Member functions
 
-    // Construct with the default initial states and forward constructor arguments to the frontend.
+    // Construct with the default initial states and forward constructor arguments to the front-end.
     template <typename... Args>
     state_machine(Args&&... args)
         : FrontEnd(std::forward<Args>(args)...)
@@ -681,8 +688,8 @@ private:
         //     std::is_base_of_v<RootSm, root_sm_t>,
         //     "The configured root_sm must match the used one."
         // );
-        if constexpr (std::is_same_v<no_root_sm, RootSm> ||
-                      std::is_base_of_v<state_machine, RootSm>)
+        if constexpr (std::is_same_v<RootSm, no_root_sm> ||
+                      std::is_base_of_v<RootSm, Derived>)
         {
             // create states
             init(*this);
@@ -828,11 +835,6 @@ private:
     const active_state_ids_t& get_active_state_ids() const
     {
         return m_active_state_ids;
-    }
-    // Temporary API for compatibility.
-    const int* current_state() const
-    {
-        return &this->get_active_state_ids()[0];
     }
 
     template <class Archive>
@@ -1944,7 +1946,7 @@ private:
         if constexpr (!std::is_same_v<RootSm, no_root_sm>)
         {
             static_assert(
-                std::is_base_of_v<TRootSm, RootSm>,
+                std::is_base_of_v<RootSm, TRootSm>,
                 "The configured root_sm must match the used one."
             );
         }
