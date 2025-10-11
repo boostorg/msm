@@ -23,7 +23,6 @@
 #include <boost/type_traits/is_base_of.hpp>
 #include <boost/type_traits/is_same.hpp>
 
-#include <boost/msm/back/traits.hpp>
 #include <boost/msm/back/default_compile_policy.hpp>
 #include <boost/msm/backmp11/event_traits.hpp>
 #include <boost/msm/backmp11/metafunctions.hpp>

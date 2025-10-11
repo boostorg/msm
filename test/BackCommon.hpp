@@ -19,35 +19,47 @@
 #include <boost/msm/backmp11/favor_compile_time.hpp>
 #else
     #define BOOST_MSM_TEST_SKIP_BACKMP11
-#endif
+#endif // BOOST_CXX_VERSION
+
+#ifdef BOOST_MSM_TEST_ONLY_BACKMP11
+    #define BOOST_MSM_TEST_MAYBE_COMMA
+#else
+    #define BOOST_MSM_TEST_MAYBE_COMMA ,
+#endif // BOOST_MSM_TEST_ONLY_BACKMP11
 
 #ifndef BOOST_MSM_TEST_SKIP_BACKMP11
-
 #include "Backmp11.hpp"
-
-#endif
+#endif // BOOST_MSM_TEST_SKIP_BACKMP11
 
 template<typename Front>
 using get_test_machines = boost::mpl::vector<
-    boost::msm::back::state_machine<Front>,
-    boost::msm::back::state_machine<Front, boost::msm::back::favor_compile_time>,
 #if !defined(BOOST_MSM_TEST_SKIP_BACKMP11)
     boost::msm::backmp11::state_machine_adapter<Front>,
-    boost::msm::backmp11::state_machine_adapter<Front, boost::msm::backmp11::favor_compile_time>,
+    boost::msm::backmp11::state_machine_adapter<Front, boost::msm::backmp11::favor_compile_time>
+    BOOST_MSM_TEST_MAYBE_COMMA
 #endif // BOOST_MSM_TEST_SKIP_BACKMP11
+#if !defined(BOOST_MSM_TEST_ONLY_BACKMP11)
+    boost::msm::back::state_machine<Front>,
+    boost::msm::back::state_machine<Front, boost::msm::back::favor_compile_time>,
     boost::msm::back11::state_machine<Front>
+#endif // BOOST_MSM_TEST_ONLY_BACKMP11
     >;
 
 template <template <template <typename...> class, typename = void> class hierarchical>
 using get_hierarchical_test_machines = boost::mpl::vector<
-    hierarchical<boost::msm::back::state_machine>,
-    hierarchical<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>,
 #if !defined(BOOST_MSM_TEST_SKIP_BACKMP11)
     hierarchical<boost::msm::backmp11::state_machine_adapter>,
-    hierarchical<boost::msm::backmp11::state_machine_adapter, boost::msm::backmp11::favor_compile_time>,
+    hierarchical<boost::msm::backmp11::state_machine_adapter, boost::msm::backmp11::favor_compile_time>
+    BOOST_MSM_TEST_MAYBE_COMMA
 #endif // BOOST_MSM_TEST_SKIP_BACKMP11
+#if !defined(BOOST_MSM_TEST_ONLY_BACKMP11)
+    hierarchical<boost::msm::back::state_machine>,
+    hierarchical<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>,
     hierarchical<boost::msm::back11::state_machine>
+#endif // BOOST_MSM_TEST_ONLY_BACKMP11
 >;
+
+#undef BOOST_MSM_TEST_MAYBE_COMMA
 
 #define BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(frontname)                          \
     using base = msm::front::state_machine_def<frontname>;                            \

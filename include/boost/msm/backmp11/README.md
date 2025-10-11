@@ -47,7 +47,8 @@ The signature has been simplified to facilitate sharing configurations between s
 ```cpp
 template <
     class TFrontEnd,
-    class TConfig = default_state_machine_config
+    class TConfig = default_state_machine_config,
+    class TDerived = void
 >
 class state_machine;
 ```
@@ -74,6 +75,10 @@ struct CustomStateMachineConfig : public state_machine_config
 };
 ```
 
+The parameter `TDerived` can be omitted in most cases.
+It is only required if the `state_machine` class gets extended, and then usually only if pseudo entry/exit states are used.
+
+
 ## New state machine config setting for defining a root_sm
 
 The config setting `root_sm` defines the type of the root state machine of hierarchical state machines. The root sm depicts the uppermost state machine.
@@ -90,12 +95,6 @@ const state_machine::RootSm& get_root_sm() const;
 ### The required minimum C++ version is C++17
 
 C++11 brings the strongly needed variadic template support for MSM, but later C++ versions provide other important features - for example C++17's `if constexpr`.
-
-
-### `boost::any` as Kleene event is replaced by `std::any`
-
-To reduce the amount of necessary header inclusions `backmp11` uses `std::any` for defining Kleene events instead of `boost::any`.
-You can still opt in to use `boost::any` by explicitly including `boost/msm/event_traits.h`.
 
 
 ### The signature of the state machine is changed
@@ -124,6 +123,29 @@ struct Playing_ : public msm::front::state_machine_def<Playing_>
     using history = msm::front::shallow_history<end_pause>;
     ...
 };
+```
+
+
+### The public API of `state_machine` is reduced to the necessary minimum
+
+All methods that should not be part of the public API are removed from it. This includes the following:
+
+- `get_history()` (implementation detail of the state machine, should be encapsulated)
+- `get_message_queue_size()` (can be accessed with `get_message_queue().size()`)
+
+
+### `boost::any` as Kleene event is replaced by `std::any`
+
+To reduce the amount of necessary header inclusions `backmp11` uses `std::any` for defining Kleene events instead of `boost::any`.
+You can still opt in to use `boost::any` by explicitly including `boost/msm/event_traits.h`.
+
+
+### `current_state()` is replaced by `get_active_state_ids()`
+
+The new API returns a std::array to report the no. of regions together with the active state ids:
+
+```cpp
+const std::array<int, nr_regions>& get_active_state_ids() const;
 ```
 
 

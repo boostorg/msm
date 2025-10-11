@@ -8,6 +8,10 @@ endif()
 
 link_libraries(Boost::msm Boost::unit_test_framework)
 add_compile_definitions("BOOST_MSM_NONSTANDALONE_TEST")
+if(BOOST_MSM_TEST_ONLY_BACKMP11)
+    add_compile_definitions("BOOST_MSM_TEST_ONLY_BACKMP11")
+endif()
+
 
 add_executable(boost_msm_tests
     EXCLUDE_FROM_ALL

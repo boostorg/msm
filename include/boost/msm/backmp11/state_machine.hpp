@@ -35,10 +35,10 @@
 #include <boost/type_traits/is_convertible.hpp>
 
 #include <boost/serialization/base_object.hpp>
+#include <boost/serialization/array.hpp>
 
 #include <boost/msm/active_state_switching_policies.hpp>
 #include <boost/msm/row_tags.hpp>
-#include <boost/msm/back/traits.hpp>
 #include <boost/msm/backmp11/metafunctions.hpp>
 #include <boost/msm/backmp11/history_impl.hpp>
 #include <boost/msm/backmp11/common_types.hpp>
@@ -61,12 +61,14 @@ struct direct_entry_event
     Event const& m_event;
 };
 
-// Back end for state machines.
-// Pass the state_machine_def as TFrontEnd and
-// a state_machine_config as TConfig.
+// Back-end for state machines.
+// Pass the state_machine_def as TFrontEnd,
+// a state_machine_config as TConfig (optional, for customization),
+// and the derived class as TDerived (required when extending the state_machine class).
 template <
     class TFrontEnd,
-    class TConfig = default_state_machine_config
+    class TConfig = default_state_machine_config,
+    class TDerived = void
 >
 class state_machine : public TFrontEnd
 {
@@ -74,14 +76,19 @@ public:
     using Config = TConfig;
     using RootSm = typename Config::root_sm;
     using FrontEnd = TFrontEnd;
+    using Derived = mp11::mp_if<
+        std::is_void<TDerived>,
+        state_machine,
+        TDerived
+    >;
 
 private:
     using CompilePolicy = typename Config::compile_policy;
 
     typedef ::std::function<
-        execute_return ()>                          transition_fct;
+        HandledEnum ()>                          transition_fct;
     typedef ::std::function<
-        execute_return () >                         deferred_fct;
+        HandledEnum () >                         deferred_fct;
     using deferred_events_queue_t = typename Config::template queue_container<
         std::pair<deferred_fct, char>>;
     using events_queue_t =
@@ -97,7 +104,7 @@ private:
     typedef bool (*flag_handler)(state_machine const&);
 
     // all state machines are friend with each other to allow embedding any of them in another fsm
-    template <class, class>
+    template <class, class, class>
     friend class state_machine;
 
     template <class StateType,class Enable=int>
@@ -119,6 +126,9 @@ private:
         deferred_events_queue_t         m_deferred_events_queue;
         char m_cur_seq;
     };
+
+    static constexpr int nr_regions = get_number_of_regions<typename FrontEnd::initial_state>::type::value;
+    using active_state_ids_t = std::array<int, nr_regions>;
 
  public:
     // tags
@@ -157,11 +167,11 @@ private:
         // tags
         typedef ExitPoint           wrapped_exit;
         typedef int                 pseudo_exit;
-        typedef state_machine       owner;
+        typedef Derived             owner;
         typedef int                 no_automatic_create;
         typedef typename
             ExitPoint::event        Event;
-        typedef std::function<execute_return (Event const&)>
+        typedef std::function<HandledEnum (Event const&)>
                                     forward_function;
 
         // forward event to the higher-level FSM
@@ -216,7 +226,7 @@ private:
         // tags
         typedef EntryPoint          wrapped_entry;
         typedef int                 pseudo_entry;
-        typedef state_machine       owner;
+        typedef Derived             owner;
         typedef int                 no_automatic_create;
     };
     template <class EntryPoint>
@@ -225,10 +235,9 @@ private:
         // tags
         typedef EntryPoint          wrapped_entry;
         typedef int                 explicit_entry_state;
-        typedef state_machine       owner;
+        typedef Derived             owner;
         typedef int                 no_automatic_create;
     };
-    static constexpr int nr_regions = get_number_of_regions<typename FrontEnd::initial_state>::type::value;
 
     // Template used to create transitions from rows in the transition table
     // (normal transitions).
@@ -244,7 +253,7 @@ private:
         // meaning the containing SM from which the exit occurs
         typedef typename ::boost::mpl::eval_if<
                 typename has_pseudo_exit<T1>::type,
-                get_owner<T1,state_machine>,
+                get_owner<T1,Derived>,
                 ::boost::mpl::identity<typename Row::Source> >::type current_state_type;
 
         // if Target is a sequence, then we have a fork and expect a sequence of explicit_entry
@@ -252,10 +261,10 @@ private:
         // meaning the containing SM if the row is "outside" the containing SM or else the explicit_entry state itself
         typedef typename ::boost::mpl::eval_if<
             typename ::boost::mpl::is_sequence<T2>::type,
-            get_fork_owner<T2,state_machine>,
+            get_fork_owner<T2,Derived>,
             ::boost::mpl::eval_if<
                     typename has_no_automatic_create<T2>::type,
-                    get_owner<T2,state_machine>,
+                    get_owner<T2,Derived>,
                     ::boost::mpl::identity<T2> >
         >::type next_state_type;
 
@@ -283,7 +292,7 @@ private:
             BOOST_ASSERT(state == (current_state));
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
             if (has_pseudo_exit<T1>::type::value &&
-                !backmp11::is_exit_state_active<T1,get_owner<T1,state_machine> >(fsm))
+                !backmp11::is_exit_state_active<T1,get_owner<T1,Derived> >(fsm))
             {
                 return HANDLED_FALSE;
             }
@@ -461,7 +470,7 @@ private:
         static HandledEnum execute(state_machine& fsm, int region_index, int , transition_event const& evt)
         {
             // false as second parameter because this event is forwarded from outer fsm
-            execute_return res =
+            HandledEnum res =
                 (fsm.get_state<current_state_type>()).process_event_internal(evt);
             fsm.m_active_state_ids[region_index]=get_state_id<T1>();
             return res;
@@ -661,6 +670,53 @@ private:
 
     // Member functions
 
+    // Construct with the default initial states and forward constructor arguments to the front-end.
+    template <typename... Args>
+    state_machine(Args&&... args)
+        : FrontEnd(std::forward<Args>(args)...)
+    {
+        // initialize our list of states with the ones defined in FrontEnd::initial_state
+        ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
+                       (set_initial_states_helper(m_active_state_ids));
+        m_history.set_initial_states(m_active_state_ids);
+        // TODO:
+        // Wrong root_sm configuration cannot be detected.
+        // Detection could work if we can use a tag contained_sm_t to forward at construction time
+        // and a wrapper for non-composite states, that accept the tag gracefully.
+        // Then include below check in the init function:
+        // static_assert(
+        //     std::is_base_of_v<RootSm, root_sm_t>,
+        //     "The configured root_sm must match the used one."
+        // );
+        if constexpr (std::is_same_v<RootSm, no_root_sm> ||
+                      std::is_base_of_v<RootSm, Derived>)
+        {
+            // create states
+            init(*this);
+        }
+    }
+
+    // assignment operator using the copy policy to decide if non_copyable, shallow or deep copying is necessary
+    state_machine& operator= (state_machine const& rhs)
+    {
+        if (this != &rhs)
+        {
+           FrontEnd::operator=(rhs);
+           do_copy(rhs);
+        }
+       return *this;
+    }
+    state_machine(state_machine const& rhs)
+        : FrontEnd(rhs)
+    {
+       if (this != &rhs)
+       {
+           // initialize our list of states with the ones defined in FrontEnd::initial_state
+           init(*this);
+           do_copy(rhs);
+       }
+    }
+
     // start the state machine (calls entry of the initial state)
     void start()
     {
@@ -706,44 +762,11 @@ private:
 
     // Main function used by clients of the derived FSM to make transitions.
     template<class Event>
-    execute_return process_event(Event const& evt)
+    HandledEnum process_event(Event const& evt)
     {
         return process_event_internal(evt, EVENT_SOURCE_DIRECT);
     }
 
-    template <class EventType>
-    void enqueue_event_helper(EventType const& evt, ::boost::mpl::false_ const &)
-    {
-        m_events_queue.m_events_queue.push_back(
-            [this, evt] {return process_event_internal(evt, static_cast<EventSource>(EVENT_SOURCE_MSG_QUEUE));});
-    }
-    template <class EventType>
-    void enqueue_event_helper(EventType const& , ::boost::mpl::true_ const &)
-    {
-        // no queue
-    }
-
-    void execute_queued_events_helper(::boost::mpl::false_ const &)
-    {
-        while(!m_events_queue.m_events_queue.empty())
-        {
-            execute_single_queued_event_helper(::boost::mpl::false_{});
-        }
-    }
-    void execute_queued_events_helper(::boost::mpl::true_ const &)
-    {
-        // no queue required
-    }
-    void execute_single_queued_event_helper(::boost::mpl::false_ const &)
-    {
-        transition_fct to_call = m_events_queue.m_events_queue.front();
-        m_events_queue.m_events_queue.pop_front();
-        to_call();
-    }
-    void execute_single_queued_event_helper(::boost::mpl::true_ const &)
-    {
-        // no queue required
-    }
     // enqueues an event in the message queue
     // call execute_queued_events to process all queued events.
     // Be careful if you do this during event processing, the event will be processed immediately
@@ -751,21 +774,36 @@ private:
     template <class EventType>
     void enqueue_event(EventType const& evt)
     {
-        enqueue_event_helper<EventType>(evt, typename is_no_message_queue<state_machine>::type());
+        if constexpr (!is_no_message_queue<state_machine>::type::value)
+        {
+            m_events_queue.m_events_queue.push_back(
+                [this, evt]
+                {
+                    return process_event_internal(evt, static_cast<EventSource>(EVENT_SOURCE_MSG_QUEUE));
+                }
+            );
+        }
     }
 
     // empty the queue and process events
     void execute_queued_events()
     {
-        execute_queued_events_helper(typename is_no_message_queue<state_machine>::type());
+        if constexpr (!is_no_message_queue<state_machine>::type::value)
+        {
+            while(!m_events_queue.m_events_queue.empty())
+            {
+                execute_single_queued_event();
+            }
+        }
     }
     void execute_single_queued_event()
     {
-        execute_single_queued_event_helper(typename is_no_message_queue<state_machine>::type());
-    }
-    typename events_queue_t::size_type get_message_queue_size() const
-    {
-        return m_events_queue.m_events_queue.size();
+        if constexpr (!is_no_message_queue<state_machine>::type::value)
+        {
+            transition_fct to_call = m_events_queue.m_events_queue.front();
+            m_events_queue.m_events_queue.pop_front();
+            to_call();
+        }
     }
 
     events_queue_t& get_message_queue()
@@ -793,10 +831,10 @@ private:
         return m_deferred_events_queue.m_deferred_events_queue;
     }
 
-    // Getter that returns the current state of the FSM
-    const int* current_state() const
+    // Getter that returns the currently active state IDS of the FSM.
+    const active_state_ids_t& get_active_state_ids() const
     {
-        return this->m_active_state_ids;
+        return m_active_state_ids;
     }
 
     template <class Archive>
@@ -909,21 +947,6 @@ private:
     bool is_flag_active() const
     {
         return FlagHelper<Flag,(nr_regions>1)>::helper(*this,get_entries_for_flag<Flag>());
-    }
-
-    // Checks if an event is an end interrupt event.
-    template <class Event, class Policy = CompilePolicy>
-    typename std::enable_if<std::is_same<Policy, favor_runtime_speed>::value, bool>::type
-    is_end_interrupt_event(const Event&)
-    {
-        return is_flag_active<EndInterruptFlag<Event>>();
-    }
-    template <class Policy = CompilePolicy>
-    typename std::enable_if<std::is_same<Policy, favor_compile_time>::value, bool>::type
-    is_end_interrupt_event(const any_event& event)
-    {
-        static end_interrupt_event_helper helper{*this};
-        return helper.is_end_interrupt_event(event);
     }
 
     // Visit the states (only active states).
@@ -1049,10 +1072,25 @@ public:
 
  protected:    // interface for the derived class
 
+    // Checks if an event is an end interrupt event.
+    template <class Event, class Policy = CompilePolicy>
+    typename std::enable_if<std::is_same<Policy, favor_runtime_speed>::value, bool>::type
+    is_end_interrupt_event(const Event&)
+    {
+        return is_flag_active<EndInterruptFlag<Event>>();
+    }
+    template <class Policy = CompilePolicy>
+    typename std::enable_if<std::is_same<Policy, favor_compile_time>::value, bool>::type
+    is_end_interrupt_event(const any_event& event)
+    {
+        static end_interrupt_event_helper helper{*this};
+        return helper.is_end_interrupt_event(event);
+    }
+
      // helper used to fill the initial states
      struct set_initial_states_helper
      {
-         set_initial_states_helper(int* const init):m_initial_states(init),m_index(-1){}
+         set_initial_states_helper(active_state_ids_t& init):m_initial_states(init),m_index(-1){}
 
          // History initializer function object, used with mpl::for_each
          template <class State>
@@ -1060,58 +1098,9 @@ public:
          {
              m_initial_states[++m_index]=get_state_id<State>();
          }
-         int* const m_initial_states;
+         active_state_ids_t& m_initial_states;
          int m_index;
      };
-
- public:
-
-    // Construct with the default initial states and forward constructor arguments to the frontend.
-    template <typename... Args>
-    state_machine(Args&&... args)
-        : FrontEnd(std::forward<Args>(args)...)
-    {
-        // initialize our list of states with the ones defined in FrontEnd::initial_state
-        ::boost::mpl::for_each< seq_initial_states, ::boost::msm::wrap<mpl::placeholders::_1> >
-                       (set_initial_states_helper(m_active_state_ids));
-        m_history.set_initial_states(m_active_state_ids);
-        // TODO:
-        // Wrong root_sm configuration cannot be detected.
-        // Detection could work if we can use a tag contained_sm_t to forward at construction time
-        // and a wrapper for non-composite states, that accept the tag gracefully.
-        // Then include below check in the init function:
-        // static_assert(
-        //     std::is_base_of_v<RootSm, root_sm_t>,
-        //     "The configured root_sm must match the used one."
-        // );
-        if constexpr (std::is_same_v<no_root_sm, RootSm> ||
-                      std::is_base_of_v<state_machine, RootSm>)
-        {
-            // create states
-            init(*this);
-        }
-    }
-
-    // assignment operator using the copy policy to decide if non_copyable, shallow or deep copying is necessary
-    state_machine& operator= (state_machine const& rhs)
-    {
-        if (this != &rhs)
-        {
-           FrontEnd::operator=(rhs);
-           do_copy(rhs);
-        }
-       return *this;
-    }
-    state_machine(state_machine const& rhs)
-        : FrontEnd(rhs)
-    {
-       if (this != &rhs)
-       {
-           // initialize our list of states with the ones defined in FrontEnd::initial_state
-           init(*this);
-           do_copy(rhs);
-       }
-    }
 
     // the following 2 functions handle the terminate/interrupt states handling
     // if one of these states is found, the first one is used
@@ -1261,8 +1250,8 @@ public:
 
                 deferred_fct next = pair.first;
                 m_events_queue.m_deferred_events_queue.pop_front();
-                boost::msm::back::execute_return res = next();
-                if (res != ::boost::msm::back::HANDLED_FALSE && res != ::boost::msm::back::HANDLED_DEFERRED)
+                HandledEnum res = next();
+                if (res != HANDLED_FALSE && res != HANDLED_DEFERRED)
                 {
                     not_only_deferred = true;
                 }
@@ -1334,7 +1323,7 @@ public:
     // Main function used internally to make transitions
     // Can only be called for internally (for example in an action method) generated events.
     template<class Event>
-    execute_return process_event_internal(Event const& evt,
+    HandledEnum process_event_internal(Event const& evt,
                            EventSource source = EVENT_SOURCE_DEFAULT)
     {
         if constexpr (std::is_same_v<CompilePolicy, favor_compile_time>)
@@ -1354,7 +1343,7 @@ public:
         }
     }
     template<class Event>
-    execute_return process_event_internal_impl(Event const& evt, EventSource source)
+    HandledEnum process_event_internal_impl(Event const& evt, EventSource source)
     {
         // if the state machine has terminate or interrupt flags, check them, otherwise skip
         if (is_event_handling_blocked_helper
@@ -1479,7 +1468,7 @@ private:
         static bool helper(state_machine const& sm,flag_handler* flags_entries)
         {
             // just one active state, so we can call operator[] with 0
-            return flags_entries[sm.current_state()[0]](sm);
+            return flags_entries[sm.get_active_state_ids()[0]](sm);
         }
     };
     // handling of flag
@@ -1825,8 +1814,7 @@ private:
      }
 
     // the IBM and VC<8 compilers seem to have problems with the friend declaration of dispatch_table
-    // also clang seems to have a problem with the defer_transition indirection in preprocess_state
-#if defined (__IBMCPP__) || (defined(_MSC_VER) && (_MSC_VER < 1400) || defined(__clang__ ))
+#if defined (__IBMCPP__) || (defined(_MSC_VER) && (_MSC_VER < 1400))
      public:
 #endif
     // no transition for event.
@@ -1843,6 +1831,10 @@ private:
         //return HANDLED_GUARD_REJECT;
         return HANDLED_FALSE;
     }
+    // clang seems to have a problem with the defer_transition indirection in preprocess_state
+#if defined (__clang__ )
+     public:
+#endif
     // called for deferred events. Address set in the dispatch_table at init
     template <class Event>
     static HandledEnum defer_transition(state_machine& fsm, int , int , Event const& e)
@@ -1954,7 +1946,7 @@ private:
         if constexpr (!std::is_same_v<RootSm, no_root_sm>)
         {
             static_assert(
-                std::is_base_of_v<TRootSm, RootSm>,
+                std::is_base_of_v<RootSm, TRootSm>,
                 "The configured root_sm must match the used one."
             );
         }
@@ -2065,7 +2057,7 @@ private:
     };
 
     // data members
-    int                             m_active_state_ids[nr_regions];
+    active_state_ids_t              m_active_state_ids;
     msg_queue_helper<state_machine> m_events_queue{};
     deferred_msg_queue_helper
         <state_machine>             m_deferred_events_queue{};

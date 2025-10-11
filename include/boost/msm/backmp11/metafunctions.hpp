@@ -661,6 +661,8 @@ struct is_no_message_queue
         typename has_no_message_queue<StateType>::type,
         found
     >::type type;
+
+    static constexpr typename type::value_type value = type::value;
 };
 
 template <class StateType>
@@ -825,10 +827,9 @@ is_exit_state_active(FSM& fsm)
     typedef typename OwnerFct::type Composite;
     Composite& comp = fsm.template get_state<Composite&>();
     const int state_id = comp.template get_state_id<StateType>();
-    const int* active_state_ids = comp.current_state();
-    for (int nr_region=0; nr_region<Composite::nr_regions; nr_region++)
+    for (const auto active_state_id : comp.get_active_state_ids())
     {
-        if (active_state_ids[nr_region] == state_id)
+        if (active_state_id == state_id)
         {
             return true;
         }

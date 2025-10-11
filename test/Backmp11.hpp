@@ -70,26 +70,29 @@ struct state_machine_config_adapter : state_machine_config
     using queue_container = typename QueueContainerPolicy::template In<T>::type;
 };
 
-// TODO:
-// Doesn't work, would also fail with inheritance in state_machine.
-// template <class A0,
-//           class A1 = parameter::void_,
-//           class A2 = parameter::void_,
-//           class A3 = parameter::void_,
-//           class A4 = parameter::void_>
-// class state_machine_adapter
-//     : public state_machine<A0, state_machine_config_adapter<A1, A2, A3, A4>>
-// {
-//     using Base = state_machine<A0, state_machine_config_adapter<A1, A2, A3, A4>>;
-//   public:
-//     using Base::Base;
-// };
-
 template <class A0,
           class A1 = parameter::void_,
           class A2 = parameter::void_,
           class A3 = parameter::void_,
           class A4 = parameter::void_>
-using state_machine_adapter = state_machine<A0, state_machine_config_adapter<A1, A2, A3, A4>>;
+class state_machine_adapter
+    : public state_machine<A0, state_machine_config_adapter<A1, A2, A3, A4>, state_machine_adapter<A0, A1, A2, A3, A4>>
+{
+    using Base = state_machine<A0, state_machine_config_adapter<A1, A2, A3, A4>, state_machine_adapter<A0, A1, A2, A3, A4>>;
+  public:
+    using Base::Base;
+
+    const int* current_state() const
+    {
+        return &this->get_active_state_ids()[0];
+    }
+};
+
+// template <class A0,
+//           class A1 = parameter::void_,
+//           class A2 = parameter::void_,
+//           class A3 = parameter::void_,
+//           class A4 = parameter::void_>
+// using state_machine_adapter = state_machine<A0, state_machine_config_adapter<A1, A2, A3, A4>>;
 
 } // boost::msm::backmp11

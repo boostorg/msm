@@ -27,18 +27,18 @@ template <int NumberOfRegions>
 class history_impl<front::no_history, NumberOfRegions>
 {
 public:
-    void set_initial_states(int* const initial_states)
+    void set_initial_states(const std::array<int, NumberOfRegions>& initial_states)
     {
         for (int i=0;i<NumberOfRegions;++i)
             m_initialStates[i] = initial_states[i];
     }
-    void history_exit(int* const )
+    void history_exit(const std::array<int, NumberOfRegions>&)
     {
         // ignore
     }
     // returns the state where the state machine should be at start
     template <class Event>
-    const int* history_entry(Event const& )
+    const std::array<int, NumberOfRegions>& history_entry(Event const& )
     {
         // always come back to the original state
         return m_initialStates;
@@ -63,26 +63,26 @@ public:
         ar & m_initialStates;
     }
 private:
-    int m_initialStates[NumberOfRegions];
+    std::array<int, NumberOfRegions> m_initialStates;
 };
 
 template <int NumberOfRegions>
 class history_impl<front::always_shallow_history, NumberOfRegions>
 {
 public:
-    void set_initial_states(int* const initial_states)
+    void set_initial_states(const std::array<int, NumberOfRegions>& initial_states)
     {
         for (int i=0;i<NumberOfRegions;++i)
             m_initialStates[i] = initial_states[i];
     }
-    void history_exit(int* const current_states)
+    void history_exit(const std::array<int, NumberOfRegions>& current_states)
     {
         for (int i=0;i<NumberOfRegions;++i)
             m_initialStates[i] = current_states[i];
     }
     // returns the state where the state machine should be at start
     template <class Event>
-    const int* history_entry(Event const& )
+    const std::array<int, NumberOfRegions>& history_entry(Event const& )
     {
         // always load back the last active state
         return m_initialStates;
@@ -108,7 +108,7 @@ public:
         ar & m_initialStates;
     }
 private:
-    int m_initialStates[NumberOfRegions];
+    std::array<int, NumberOfRegions> m_initialStates;
 };
 
 template <typename... Events, int NumberOfRegions>
@@ -117,7 +117,7 @@ class history_impl<front::shallow_history<Events...>, NumberOfRegions>
     using events_mp11 = mp11::mp_list<Events...>;
 
 public:
-    void set_initial_states(int* const initial_states)
+    void set_initial_states(const std::array<int, NumberOfRegions>& initial_states)
     {
         for (int i=0;i<NumberOfRegions;++i)
         {
@@ -125,14 +125,14 @@ public:
             m_initialStates[i] = initial_states[i];
         }
     }
-    void history_exit(int* const current_states)
+    void history_exit(const std::array<int, NumberOfRegions>& current_states)
     {
         for (int i=0;i<NumberOfRegions;++i)
             m_currentStates[i] = current_states[i];
     }
     // returns the state where the state machine should be at start
     template <class Event>
-    const int* history_entry(Event const&)
+    const std::array<int, NumberOfRegions>& history_entry(Event const&)
     {
         if (mp11::mp_contains<events_mp11,Event>::value)
         {
@@ -163,8 +163,8 @@ public:
         ar & m_currentStates;
     }
 private:
-    int m_initialStates[NumberOfRegions];
-    int m_currentStates[NumberOfRegions];
+    std::array<int, NumberOfRegions> m_initialStates;
+    std::array<int, NumberOfRegions> m_currentStates;
 };
 
 }}} // boost::msm::backmp11
