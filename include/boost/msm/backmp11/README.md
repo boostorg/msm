@@ -9,9 +9,6 @@ The new backend has the following goals:
 
 It is named after the metaprogramming library Boost Mp11, the main contributor to the optimizations. Usages of MPL are replaced with Mp11 to get rid of the costly C++03 emulation of variadic templates.
 
-## Behavioral changes
-
-
 ## New features
 
 ### Universal visitor API
@@ -62,7 +59,6 @@ struct default_state_machine_config
     using root_sm = no_root_sm;
     template<typename T>
     using queue_container = std::deque<T>;
-    using fsm_check = no_fsm_check;
     using history = NoHistory;
 };
 
@@ -85,7 +81,12 @@ state_machine::RootSm& get_root_sm();
 const state_machine::RootSm& get_root_sm() const;
 ```
 
-## Resolved limitations
+## Behavioral changes
+
+### `boost::any` as Kleene event is deprecated and superseded by `std::any`
+
+To reduce the necessary amount of header inclusions `backmp11` only supports `std::any` for defining Kleene events instead of `boost::any`.
+You can still opt in to use `boost::any` by explicitly including `boost/msm/event_traits.h`.
 
 
 ## Breaking changes
@@ -103,6 +104,11 @@ Please use the new simplified state machine signature instead.
 ### The eUML frontend is not supported
 
 The support of EUML induces longer compilation times by the need to include the Boost proto headers and applying C++03 variadic template emulation. If you want to use a UML-like syntax, please try out the new PUML frontend.
+
+
+### The fsm check support is removed
+
+The implementation of the checks depends on mpl_graph, which induces high compilation times.
 
 
 ### The backend's constructor does not allow initialization of states and `set_states` is not available

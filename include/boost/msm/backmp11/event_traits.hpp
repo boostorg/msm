@@ -1,3 +1,4 @@
+// Copyright 2025 Christian Granzin
 // Copyright 2008 Christophe Henry
 // henry UNDERSCORE christophe AT hotmail DOT com
 // This is an extended version of the state machine available in the boost::mpl library
@@ -8,22 +9,23 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef BOOST_MSM_EVENT_TRAITS_H
-#define BOOST_MSM_EVENT_TRAITS_H
+#ifndef BOOST_MSM_BACKMP11_EVENT_TRAITS_H
+#define BOOST_MSM_BACKMP11_EVENT_TRAITS_H
 
 #include <boost/msm/kleene_event.hpp>
-#include <boost/any.hpp>
+#include <any>
 
-namespace boost { namespace msm
+namespace boost::msm
 {
 
 // add this way in this namespace specializations for events which you want to use as kleene
 // requirement: a copy-constructor matching the events which will be converted to this kleene
 template<> 
-struct is_kleene_event< boost::any >
+struct is_kleene_event<std::any>
 { 
   typedef ::boost::mpl::true_ type;
 };
 
-} } // boost::msm
+} // boost::msm
+
 #endif //BOOST_MSM_EVENT_TRAITS_H
