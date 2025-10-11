@@ -88,6 +88,9 @@ namespace
         {
             BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(Playing_)
 
+            // History for backmp11
+            using history = msm::front::shallow_history<end_pause>;
+
             template <class Event,class FSM>
             void on_entry(Event const&,FSM& ) {++entry_counter;}
             template <class Event,class FSM>

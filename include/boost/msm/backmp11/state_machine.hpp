@@ -40,7 +40,7 @@
 #include <boost/msm/row_tags.hpp>
 #include <boost/msm/back/traits.hpp>
 #include <boost/msm/backmp11/metafunctions.hpp>
-#include <boost/msm/backmp11/history_policies.hpp>
+#include <boost/msm/backmp11/history_impl.hpp>
 #include <boost/msm/backmp11/common_types.hpp>
 #include <boost/msm/backmp11/dispatch_table.hpp>
 #include <boost/msm/backmp11/favor_compile_time.hpp>
@@ -77,7 +77,6 @@ public:
 
 private:
     using CompilePolicy = typename Config::compile_policy;
-    using History = typename Config::history;
 
     typedef ::std::function<
         execute_return ()>                          transition_fct;
@@ -609,7 +608,7 @@ private:
     typedef typename generate_state_set<stt>::state_set_mp11 state_set_mp11;
     typedef typename generate_state_map<stt>::type state_map_mp11;
     typedef typename generate_event_set<stt>::event_set_mp11 event_set_mp11;
-    typedef typename History::template apply<nr_regions>::type concrete_history;
+    typedef history_impl<typename FrontEnd::history, nr_regions> concrete_history;
 
     typedef mp11::mp_rename<state_set_mp11, std::tuple> substate_list;
     typedef typename generate_event_set<
@@ -878,15 +877,6 @@ private:
     bool is_contained() const
     {
         return (static_cast<const void*>(this) != m_root_sm);
-    }
-    // get the history policy class
-    concrete_history& get_history()
-    {
-        return m_history;
-    }
-    concrete_history const& get_history() const
-    {
-        return m_history;
     }
 
     // Get a state.

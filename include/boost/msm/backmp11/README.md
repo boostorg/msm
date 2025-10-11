@@ -1,13 +1,15 @@
-# Boost MSM backmp11 backend
+# Boost MSM backmp11 back-end
 
-This README file is temporary and contains information about `backmp11`, a new backend that is mostly backwards-compatible with `back`. It is currently in **experimental** stage, thus some details about the compatibility might change (feedback welcome!). This file's contents should eventually move into the MSM documentation.
+This README file is temporary and contains information about `backmp11`, a new back-end that is mostly backwards-compatible with `back`. It is currently in **experimental** stage, thus some details about the compatibility might change (feedback welcome!). This file's contents should eventually move into the MSM documentation.
 
-The new backend has the following goals:
+The new back-end has the following goals:
 
 - reduce compilation runtime and RAM usage
 - reduce state machine runtime
+- provide new features
 
 It is named after the metaprogramming library Boost Mp11, the main contributor to the optimizations. Usages of MPL are replaced with Mp11 to get rid of the costly C++03 emulation of variadic templates.
+
 
 ## New features
 
@@ -21,9 +23,9 @@ Instead there is a universal visitor API that supports two overloads via tag dis
 template<typename Visitor>
 void state_machine::visit(Visitor&& visitor); // Same as with active_states_t
 template<typename Visitor>
-void state_machine::visit(Visitor&& visitor, back::active_states_t);
+void state_machine::visit(Visitor&& visitor, backmp11::active_states_t);
 template<typename Visitor>
-void state_machine::visit(Visitor&& visitor, back::all_states_t);
+void state_machine::visit(Visitor&& visitor, backmp11::all_states_t);
 ```
 
 The visitor needs to fulfill the signature requirement for all sub-states present in the state machine:
@@ -50,7 +52,7 @@ template <
 class state_machine;
 ```
 
-The configuration of the state machine can be defined via a config structure. The default config looks as follows:
+The configuration of the state machine can be defined with a config structure. The default config looks as follows:
 
 ```cpp
 struct default_state_machine_config
@@ -59,10 +61,11 @@ struct default_state_machine_config
     using root_sm = no_root_sm;
     template<typename T>
     using queue_container = std::deque<T>;
-    using history = NoHistory;
 };
 
 using state_machine_config = default_state_machine_config;
+
+...
 
 // User-defined config
 struct CustomStateMachineConfig : public state_machine_config
@@ -81,27 +84,50 @@ state_machine::RootSm& get_root_sm();
 const state_machine::RootSm& get_root_sm() const;
 ```
 
-## Behavioral changes
 
-### `boost::any` as Kleene event is deprecated and superseded by `std::any`
+## Changes with respect to `back`
 
-To reduce the necessary amount of header inclusions `backmp11` only supports `std::any` for defining Kleene events instead of `boost::any`.
-You can still opt in to use `boost::any` by explicitly including `boost/msm/event_traits.h`.
-
-
-## Breaking changes
-
-### The targeted minimum C++ version is C++17
+### The required minimum C++ version is C++17
 
 C++11 brings the strongly needed variadic template support for MSM, but later C++ versions provide other important features - for example C++17's `if constexpr`.
 
 
+### `boost::any` as Kleene event is replaced by `std::any`
+
+To reduce the amount of necessary header inclusions `backmp11` uses `std::any` for defining Kleene events instead of `boost::any`.
+You can still opt in to use `boost::any` by explicitly including `boost/msm/event_traits.h`.
+
+
 ### The signature of the state machine is changed
 
-Please use the new simplified state machine signature instead.
+Please refer to the simplified state machine signature above for more information.
 
 
-### The eUML frontend is not supported
+### The history policy of a state machine is defined in the front-end instead of the back-end
+
+The definition of the history policy is closer related to the front-end, and defining it there ensures that state machine configs can be shared between back-ends.
+The definition looks as follows:
+
+```cpp
+struct no_history {};
+
+template <typename... Events>
+struct shallow_history {};
+
+struct always_shallow_history {};
+
+...
+
+// User-defined state machine
+struct Playing_ : public msm::front::state_machine_def<Playing_>
+{
+    using history = msm::front::shallow_history<end_pause>;
+    ...
+};
+```
+
+
+### The eUML frontend support is removed
 
 The support of EUML induces longer compilation times by the need to include the Boost proto headers and applying C++03 variadic template emulation. If you want to use a UML-like syntax, please try out the new PUML frontend.
 
@@ -111,17 +137,17 @@ The support of EUML induces longer compilation times by the need to include the 
 The implementation of the checks depends on mpl_graph, which induces high compilation times.
 
 
-### The backend's constructor does not allow initialization of states and `set_states` is not available
+### The back-end's constructor does not allow initialization of states and `set_states` is not available
 
 There were some caveats with one constructor that was used for different use cases: On the one hand some arguments were immediately forwarded to the frontend's constructor, on the other hand the stream operator was used to identify other arguments in the constructor as states, to copy them into the state machine. Besides the syntax of the later being rather unusual, when doing both at once the syntax becomes too difficult to understand; even more so if states within hierarchical sub state machines were initialized in this fashion.
 
-In order to keep API of the constructor simpler and less ambiguous, it only supports forwarding arguments to the frontend and no more.
+In order to keep the API of the constructor simpler and less ambiguous, it only supports forwarding arguments to the frontend and no more.
 Also the `set_states` API is removed. If setting a state is required, this can still be done (in a little more verbose, but also more direct & explicit fashion) by getting a reference to the desired state via `get_state` and then assigning the desired new state to it.
 
 
 ### `sm_ptr` support is removed
 
-Not needed with the functor frontend and was already deprecated in MSM, thus removed in MSM2.
+Not needed with the functor frontend and was already deprecated, thus removed in `backmp11`.
 
 
 ### The method `visit_current_states` is removed
@@ -148,9 +174,12 @@ If you need to get a state by its address, use the address operator after you ha
 
 ## How to use it
 
-The backend and both its policies `favor_runtime_speed` and `favor_compile_time` should be compatible with existing code. Required replacements to try it out:
-- use `boost::msm::backmp11::state_machine` in place of `boost::msm::back::state_machine` and
-- use `boost::msm::backmp11::favor_compile_time` in place of `boost::msm::back::favor_compile_time`
+The back-end with both its compile policies `favor_runtime_speed` and `favor_compile_time` should be mostly compatible with existing code.
+
+Required replacements to try it out:
+- for the state machine use `boost::msm::backmp11::state_machine` in place of `boost::msm::back::state_machine` and
+- for configuring the compile policy and more use `boost::msm::backmp11::state_machine_config`
+- if you encounter API-incompatibilities please check the [details above](#changes-with-respect-to-back) for reference
 
 When using the `favor_compile_time` policy, a different macro to generate missing parts of a SM is needed:
 - use `BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(<fsmname>)` in place of `BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(<fsmname>)`

@@ -61,9 +61,6 @@ struct state_machine_config_adapter : state_machine_config
         config_args;
 
     typedef typename ::boost::parameter::binding<
-        config_args, tag::history_policy, NoHistory >::type              history;
-
-    typedef typename ::boost::parameter::binding<
         config_args, tag::compile_policy, favor_runtime_speed >::type    compile_policy;
 
     typedef typename ::boost::parameter::binding<
