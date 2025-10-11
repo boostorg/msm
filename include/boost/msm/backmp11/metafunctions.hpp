@@ -661,6 +661,8 @@ struct is_no_message_queue
         typename has_no_message_queue<StateType>::type,
         found
     >::type type;
+
+    static constexpr typename type::value_type value = type::value;
 };
 
 template <class StateType>

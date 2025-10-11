@@ -24,8 +24,6 @@ using back::HANDLED_TRUE;
 using back::HANDLED_GUARD_REJECT;
 using back::HANDLED_DEFERRED;
 
-using back::execute_return;
-
 using back::EVENT_SOURCE_DEFAULT;
 using back::EVENT_SOURCE_DIRECT;
 using back::EVENT_SOURCE_DEFERRED;
