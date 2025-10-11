@@ -377,9 +377,11 @@ namespace
 // this is to get rid of warning because p is not const
 // BOOST_CLASS_TRACKING(player, boost::serialization::track_never)
 
+#if !defined(BOOST_MSM_TEST_ONLY_BACKMP11)
 using back0 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::player;
 using back1 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::player_::Playing;
 BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back1);
+#endif
 
 #if !defined(BOOST_MSM_TEST_SKIP_BACKMP11)
 using backmp11_0 = hierarchical_state_machine<boost::msm::backmp11::state_machine_adapter, boost::msm::backmp11::favor_compile_time>::player;
