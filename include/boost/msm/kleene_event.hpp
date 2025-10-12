@@ -12,17 +12,15 @@
 #define BOOST_MSM_KLEENE_EVENT_H
 
 #include <boost/mpl/bool.hpp>
+#include <type_traits>
 
 namespace boost { namespace msm
 {
 
-template< typename Event > 
-struct is_kleene_event
-{
-  // default: no event is a kleene event (kleene: matches any event in a transitions)
-  typedef ::boost::mpl::false_ type;
-};
+// default: no event is a kleene event (kleene: matches any event in a transitions)
+template <typename Event>
+struct is_kleene_event : std::false_type {};
 
-} } // boost::msm
+}} // boost::msm
 
 #endif // BOOST_MSM_KLEENE_EVENT_H

@@ -82,10 +82,60 @@ class state_machine_adapter
   public:
     using Base::Base;
 
+    // The new API returns a const std::array<...>&.
     const int* current_state() const
     {
         return &this->get_active_state_ids()[0];
     }
+
+    // The history can be accessed like this,
+    // but it has to be configured in the front-end.
+    auto& get_history()
+    {
+        return this->m_history;
+    }
+
+    auto& get_message_queue()
+    {
+        return this->get_events_queue();
+    }
+
+    size_t get_message_queue_size() const
+    {
+        return this->get_events_queue().size();
+    }
+
+    void execute_queued_events()
+    {
+        this->process_queued_events();
+    }
+
+    void execute_single_queued_event()
+    {
+        this->process_single_queued_event();
+    }
+
+    auto& get_deferred_queue()
+    {
+        return this->get_deferred_events_queue();
+    }
+
+    void clear_deferred_queue()
+    {
+        this->get_deferred_events_queue().clear();
+    }
+
+    // No adapter.
+    // Superseded by the visitor API.
+    // void visit_current_states(...) {...}
+
+    // No adapter.
+    // States can be set with `get_state<...>()` or the visitor API.
+    // void set_states(...) {...}
+
+    // No adapter.
+    // Could be implemented with the visitor API.
+    // auto get_state_by_id(int id) {...}
 };
 
 // template <class A0,
