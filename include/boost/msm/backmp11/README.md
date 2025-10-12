@@ -59,6 +59,7 @@ The configuration of the state machine can be defined with a config structure. T
 struct default_state_machine_config
 {
     using compile_policy = favor_runtime_speed;
+    using context = no_context;
     using root_sm = no_root_sm;
     template<typename T>
     using queue_container = std::deque<T>;
@@ -75,19 +76,39 @@ struct CustomStateMachineConfig : public state_machine_config
 };
 ```
 
-The parameter `TDerived` can be omitted in most cases.
-It is only required if the `state_machine` class gets extended, and then usually only if pseudo entry/exit states are used.
+**IMPORTANT:** The parameter `TDerived` has to be set to the derived class, if the `state_machine` class gets extended.
 
 
-## New state machine config setting for defining a root_sm
+## New state machine config setting for defining a context
 
-The config setting `root_sm` defines the type of the root state machine of hierarchical state machines. The root sm depicts the uppermost state machine.
-If the `root_sm` is defined in the config, the following API becomes available to access it from within any sub-state machine as `RootSm`:
+The config setting `context` sets up a context member in the state machine for dependency injection.
+
+If `using context = Context;` is defined in the config, a reference to it has to be passed to the state machine constructor as first argument.
+The following API becomes available to access it from within the state machine:
 
 ```cpp
-state_machine::RootSm& get_root_sm();
-const state_machine::RootSm& get_root_sm() const;
+Context& state_machine::get_context();
+const Context& state_machine::get_context() const;
 ```
+
+
+## New state machine config setting for defining a root sm
+
+The config setting `root_sm` defines the type of the root state machine of hierarchical state machines. The root sm depicts the uppermost state machine.
+
+If `using root_sm = RootSm;` is defined in the config, the following API becomes available to access it from within any sub-state machine:
+
+```cpp
+RootSm& state_machine::get_root_sm();
+const RootSm& state_machine::get_root_sm() const;
+```
+
+It is strongly recommended to configure the `root_sm` in hierarchical state machines, even if access to it is not required.
+It reduces the compilation time, because it enables the back-end to instantiate the full set of construction-related methods
+only for the root and it can omit them for sub-state machines.
+
+**IMPORTANT:** If a `context` is used in a hierarchical state machine, then the `root_sm` must be set.
+The `context` is then automatically accessed through the `root_sm`.
 
 
 ## Changes with respect to `back`
@@ -126,27 +147,106 @@ struct Playing_ : public msm::front::state_machine_def<Playing_>
 ```
 
 
-### The public API of `state_machine` is reduced to the necessary minimum
+### The public API of `state_machine` is refactored
 
-All methods that should not be part of the public API are removed from it. This includes the following:
+All methods that should not be part of the public API are removed from it, redundant methods are removed as well. A few other methods have been renamed.
+The following adapter pseudo-code showcases the differences to the `back` API:
 
-- `get_history()` (implementation detail of the state machine, should be encapsulated)
-- `get_message_queue_size()` (can be accessed with `get_message_queue().size()`)
+```cpp
+class state_machine_adapter
+{
+    // The new API returns a const std::array<...>&.
+    const int* current_state() const
+    {
+        return &this->get_active_state_ids()[0];
+    }
+
+    // The history can be accessed like this,
+    // but it has to be configured in the front-end.
+    auto& get_history()
+    {
+        return this->m_history;
+    }
+
+    auto& get_message_queue()
+    {
+        return this->get_events_queue();
+    }
+
+    size_t get_message_queue_size() const
+    {
+        return this->get_events_queue().size();
+    }
+
+    void execute_queued_events()
+    {
+        this->process_queued_events();
+    }
+
+    void execute_single_queued_event()
+    {
+        this->process_single_queued_event();
+    }
+
+    auto& get_deferred_queue()
+    {
+        return this->get_deferred_events_queue();
+    }
+
+    void clear_deferred_queue()
+    {
+        this->get_deferred_events_queue().clear();
+    }
+
+    // No adapter.
+    // Superseded by the visitor API.
+    // void visit_current_states(...) {...}
+
+    // No adapter.
+    // States can be set with `get_state<...>()` or the visitor API.
+    // void set_states(...) {...}
+
+    // No adapter.
+    // Could be implemented with the visitor API.
+    // auto get_state_by_id(int id) {...}
+};
+```
+
+A working code example of such an adapter is available in [the tests](../../../../test/Backmp11.hpp).
+It can be copied and adapted if needed, though this class is internal to the tests and not planned to be supported officially.
+
+Further details about the applied API changes:
+
+#### The back-end's constructor does not allow initialization of states and `set_states` is not available
+
+There were some caveats with one constructor that was used for different use cases: On the one hand some arguments were immediately forwarded to the frontend's constructor, on the other hand the stream operator was used to identify other arguments in the constructor as states, to copy them into the state machine. Besides the syntax of the later being rather unusual, when doing both at once the syntax becomes too difficult to understand; even more so if states within hierarchical sub state machines were initialized in this fashion.
+
+In order to keep the API of the constructor simpler and less ambiguous, it only supports forwarding arguments to the frontend and no more.
+Also the `set_states` API is removed. If setting a state is required, this can still be done (in a little more verbose, but also more direct & explicit fashion) by getting a reference to the desired state via `get_state` and then assigning the desired new state to it.
+
+
+#### The method `get_state_by_id` is removed
+
+If you really need to get a state by id, please use the universal visitor API to implement the function on your own.
+The backmp11 state_machine has a new method to support getting the id of a state in the visitor:
+
+```cpp
+template<typename State>
+static constexpr int state_machine::get_state_id(const State&);
+```
+
+
+#### The pointer overload of `get_state` is removed
+
+Similarly to the STL's `std::get` of a tuple, the only sensible template parameter for `get_state` is `T` returning a `T&`.
+The overload for a `T*` is removed and the `T&` is discouraged, although still supported.
+If you need to get a state by its address, use the address operator after you have received the state.
 
 
 ### `boost::any` as Kleene event is replaced by `std::any`
 
 To reduce the amount of necessary header inclusions `backmp11` uses `std::any` for defining Kleene events instead of `boost::any`.
 You can still opt in to use `boost::any` by explicitly including `boost/msm/event_traits.h`.
-
-
-### `current_state()` is replaced by `get_active_state_ids()`
-
-The new API returns a std::array to report the no. of regions together with the active state ids:
-
-```cpp
-const std::array<int, nr_regions>& get_active_state_ids() const;
-```
 
 
 ### The eUML frontend support is removed
@@ -159,39 +259,9 @@ The support of EUML induces longer compilation times by the need to include the 
 The implementation of the checks depends on mpl_graph, which induces high compilation times.
 
 
-### The back-end's constructor does not allow initialization of states and `set_states` is not available
-
-There were some caveats with one constructor that was used for different use cases: On the one hand some arguments were immediately forwarded to the frontend's constructor, on the other hand the stream operator was used to identify other arguments in the constructor as states, to copy them into the state machine. Besides the syntax of the later being rather unusual, when doing both at once the syntax becomes too difficult to understand; even more so if states within hierarchical sub state machines were initialized in this fashion.
-
-In order to keep the API of the constructor simpler and less ambiguous, it only supports forwarding arguments to the frontend and no more.
-Also the `set_states` API is removed. If setting a state is required, this can still be done (in a little more verbose, but also more direct & explicit fashion) by getting a reference to the desired state via `get_state` and then assigning the desired new state to it.
-
-
 ### `sm_ptr` support is removed
 
 Not needed with the functor frontend and was already deprecated, thus removed in `backmp11`.
-
-
-### The method `visit_current_states` is removed
-
-Please use the universal visitor API instead.
-
-
-### The method `get_state_by_id` is removed
-
-If you really need to get a state by id, please use the universal visitor API to implement the function on your own.
-The backmp11 state_machine has a new method to support getting the id of a state in the visitor:
-
-```cpp
-template<typename State>
-static constexpr int get_state_id(const State&);
-```
-
-### The pointer overload of `get_state` is removed
-
-Similarly to the STL's `std::get` of a tuple, the only sensible template parameter for `get_state` is `T` returning a `T&`.
-The overload for a `T*` is removed and the `T&` is discouraged, although still supported.
-If you need to get a state by its address, use the address operator after you have received the state,
 
 
 ## How to use it

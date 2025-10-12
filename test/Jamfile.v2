@@ -77,6 +77,8 @@ test-suite msm-unit-tests
 test-suite msm-unit-tests-cxxstd17
     :
     [ run Backmp11Constructor.cpp ]
+    [ run Backmp11Context.cpp ]
+    [ run Backmp11Members.cpp ]
     [ run Backmp11Visitor.cpp ]
     [ run Backmp11RootSm.cpp ]
     :

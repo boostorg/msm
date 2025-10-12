@@ -31,6 +31,41 @@
 namespace boost { namespace msm { namespace backmp11
 {
 
+// Call a functor on all elements of List, until the functor returns true.
+template <typename List, typename Func>
+constexpr bool for_each_until(Func&& func)
+{
+    bool condition = false;
+
+    boost::mp11::mp_for_each<List>(
+        [&func, &condition](auto&& item)
+        {
+            if (!condition)
+            {
+                condition = func(std::forward<decltype(item)>(item));
+            }
+        }
+    );
+    return condition;
+}
+
+// Wrapper for an instance of a type, which might not be present.
+template<typename T, bool C>
+struct optional_instance;
+template <typename T>
+struct optional_instance<T, true>
+{
+    using type = T;
+    type instance;
+    static constexpr bool value = true;
+};
+template<typename T>
+struct optional_instance<T, false>
+{
+    using type = T;
+    static constexpr bool value = false;
+};
+
 using back::favor_runtime_speed;
 
 template <typename Sequence, typename Range>
@@ -479,6 +514,7 @@ struct has_fsm_deferred_events
             has_state_delayed_events_mp11
             >
         > type;
+    static constexpr bool value = type::value;
 };
 
 struct favor_compile_time;

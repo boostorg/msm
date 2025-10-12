@@ -19,11 +19,9 @@ namespace boost { namespace msm
 
 // add this way in this namespace specializations for events which you want to use as kleene
 // requirement: a copy-constructor matching the events which will be converted to this kleene
-template<> 
-struct is_kleene_event< boost::any >
-{ 
-  typedef ::boost::mpl::true_ type;
-};
+template <>
+struct is_kleene_event<boost::any> : std::true_type {};
 
-} } // boost::msm
+}} // boost::msm
+
 #endif //BOOST_MSM_EVENT_TRAITS_H

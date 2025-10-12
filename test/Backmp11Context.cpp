@@ -19,7 +19,7 @@
 #include <boost/msm/back/history_policies.hpp>
 
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE backmp11_upper_fsm_test
+#define BOOST_TEST_MODULE backmp11_context_test
 #endif
 #include <boost/test/unit_test.hpp>
 
@@ -35,16 +35,29 @@ namespace
     struct EnterSubFsm{};
     struct ExitSubFsm{};
 
+    // Context.
+    struct Context
+    {
+        uint32_t machine_entries = 0;
+        uint32_t machine_exits = 0;
+    };
+    template<typename Fsm>
+    static Context& get_context(Fsm& fsm)
+    {
+        return fsm.get_context();
+    }
+
     // States.
     struct Default : public state<>{};
 
     // Forward-declare the upper machine,
     // so we can set a root_sm.
-    struct UpperMachine_;
+    struct UpperMachine;
 
     struct SmConfig : state_machine_config
     {
-        using root_sm = state_machine<UpperMachine_, SmConfig>;
+        using context = Context;
+        using root_sm = UpperMachine;
     };
 
     template<typename T>
@@ -53,13 +66,14 @@ namespace
         template <typename Event, typename Fsm>
         void on_entry(const Event& /*event*/, Fsm& fsm)
         {
-            fsm.get_root_sm().machine_entries++;
+            Context& context = get_context(fsm);
+            context.machine_entries++;
         };
 
         template <typename Event, typename Fsm>
         void on_exit(const Event& /*event*/, Fsm& fsm)
         {
-            fsm.get_root_sm().machine_exits++;
+            get_context(fsm).machine_exits++;
         };
 
         using initial_state = Default;
@@ -83,34 +97,36 @@ namespace
             Row< Default       , EnterSubFsm , MiddleMachine>,
             Row< MiddleMachine , ExitSubFsm  , Default>
         >;
-
-        uint32_t machine_entries = 0;
-        uint32_t machine_exits = 0;
     };
-    using UpperMachine = state_machine<UpperMachine_, SmConfig>;
-
-
-    BOOST_AUTO_TEST_CASE( backmp11_upper_fsm_test )
+    class UpperMachine : public state_machine<UpperMachine_, SmConfig, UpperMachine>
     {
-        UpperMachine test_machine{};
+      public:
+        using Base = state_machine<UpperMachine_, SmConfig, UpperMachine>;
+        using Base::Base;
+    };
+
+    BOOST_AUTO_TEST_CASE( backmp11_context_test )
+    {
+        Context context;
+        UpperMachine test_machine{context};
 
         test_machine.start(); 
-        BOOST_CHECK_MESSAGE(test_machine.machine_entries == 1, "SM entry not called correctly");
+        BOOST_CHECK_MESSAGE(test_machine.get_context().machine_entries == 1, "SM entry not called correctly");
 
         test_machine.process_event(EnterSubFsm()); 
-        BOOST_CHECK_MESSAGE(test_machine.machine_entries == 2, "SM entry not called correctly");
+        BOOST_CHECK_MESSAGE(test_machine.get_context().machine_entries == 2, "SM entry not called correctly");
 
         test_machine.process_event(EnterSubFsm()); 
-        BOOST_CHECK_MESSAGE(test_machine.machine_entries == 3, "SM entry not called correctly");
+        BOOST_CHECK_MESSAGE(test_machine.get_context().machine_entries == 3, "SM entry not called correctly");
 
         test_machine.process_event(ExitSubFsm()); 
-        BOOST_CHECK_MESSAGE(test_machine.machine_exits == 1, "SM exit not called correctly");
+        BOOST_CHECK_MESSAGE(test_machine.get_context().machine_exits == 1, "SM exit not called correctly");
 
         test_machine.process_event(ExitSubFsm()); 
-        BOOST_CHECK_MESSAGE(test_machine.machine_exits == 2, "SM exit not called correctly");
+        BOOST_CHECK_MESSAGE(test_machine.get_context().machine_exits == 2, "SM exit not called correctly");
 
         test_machine.stop(); 
-        BOOST_CHECK_MESSAGE(test_machine.machine_exits == 3, "SM exit not called correctly");
+        BOOST_CHECK_MESSAGE(test_machine.get_context().machine_exits == 3, "SM exit not called correctly");
     }
 }
 
