@@ -544,6 +544,7 @@ struct has_fsm_eventless_transition
     typedef typename generate_event_set<Stt>::event_set_mp11 event_list;
 
     typedef mp11::mp_any_of<event_list, has_completion_event> type;
+    static constexpr bool value = type::value;
 };
 template <class Derived>
 struct find_completion_events 
@@ -669,6 +670,7 @@ struct has_fsm_blocking_states
         state_set_mp11,
         is_state_blocking_mp11
         > type;
+    static constexpr bool value = type::value;
 };
 
 template <class StateType>
