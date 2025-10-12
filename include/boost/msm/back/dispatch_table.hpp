@@ -57,7 +57,7 @@ struct dispatch_table
             template <class Sequence>
             static
             HandledEnum
-            execute(Fsm& , int, int, Event& , ::boost::mpl::true_ const & )
+            execute(Fsm& , int, int, Event const& , ::boost::mpl::true_ const & )
             {
                 // if at least one guard rejected, this will be ignored, otherwise will generate an error
                 return HANDLED_FALSE;
@@ -66,7 +66,7 @@ struct dispatch_table
             template <class Sequence>
             static
             HandledEnum
-            execute(Fsm& fsm, int region_index , int state, Event& evt,
+            execute(Fsm& fsm, int region_index , int state, Event const& evt,
                     ::boost::mpl::false_ const & )
             {
                  // try the first guard
@@ -89,7 +89,7 @@ struct dispatch_table
             }
         };
         // Take the transition action and return the next state.
-        static HandledEnum execute(Fsm& fsm, int region_index, int state, Event& evt)
+        static HandledEnum execute(Fsm& fsm, int region_index, int state, Event const& evt)
         {
             // forward to helper
             return execute_helper::template execute<Seq>(fsm,region_index,state,evt,
