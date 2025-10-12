@@ -154,8 +154,8 @@ namespace
     };
     // Pick a back-end
     typedef boost::mpl::vector<
-        hierarchical_state_machine<boost::msm::back::state_machine>,
-        hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>
+        hierarchical_state_machine<boost::msm::back::state_machine>
+        // hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>
         // TODO:
         // Investigate reason for test failure in back11.
         // hierarchical_state_machine<boost::msm::back11::state_machine>

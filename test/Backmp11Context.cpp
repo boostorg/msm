@@ -52,7 +52,7 @@ namespace
 
     // Forward-declare the upper machine,
     // so we can set a root_sm.
-    struct UpperMachine;
+    class UpperMachine;
 
     struct SmConfig : state_machine_config
     {
