@@ -9,8 +9,8 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef BOOST_MSM_BACKMP11_STATEMACHINE_H
-#define BOOST_MSM_BACKMP11_STATEMACHINE_H
+#ifndef BOOST_MSM_BACKMP11_STATE_MACHINE_H
+#define BOOST_MSM_BACKMP11_STATE_MACHINE_H
 
 #include <algorithm>
 #include <exception>
@@ -481,7 +481,7 @@ private:
     template <class Row,class StateType>
     struct create_backend_stt<a_row_tag,Row,StateType>
     {
-        using type = Transition<Row, true, false>;;
+        using type = Transition<Row, true, false>;
     };
     template <class Row,class StateType>
     struct create_backend_stt<_row_tag,Row,StateType>
@@ -491,7 +491,7 @@ private:
     template <class Row,class StateType>
     struct create_backend_stt<row_tag,Row,StateType>
     {
-        using type = Transition<Row, true, true>;;
+        using type = Transition<Row, true, true>;
     };
     // internal transitions
     template <class Row,class StateType>
@@ -1200,7 +1200,7 @@ public:
                 std::for_each(
                     deferred_events.queue.begin(),
                     deferred_events.queue.end(),
-                    [this, &deferred_events](deferred_event_t& deferred_event)
+                    [&deferred_events](deferred_event_t& deferred_event)
                     {
                         deferred_event.seq_cnt = deferred_events.cur_seq_cnt + 1;
                     }
@@ -2040,4 +2040,4 @@ private:
 
 }}} // boost::msm::backmp11
 
-#endif //BOOST_MSM_BACKMP11_STATEMACHINE_H
+#endif //BOOST_MSM_BACKMP11_STATE_MACHINE_H

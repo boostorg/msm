@@ -2034,10 +2034,11 @@ protected:    // interface for the derived class
                     }
                 );
                 // reset sequence number for all
+                auto seq = m_events_queue.m_cur_seq;
                 std::for_each(
                     m_events_queue.m_deferred_events_queue.begin(),
                     m_events_queue.m_deferred_events_queue.end(), 
-                    [seq = m_events_queue.m_cur_seq](typename deferred_events_queue_t::value_type& d)
+                    [seq](typename deferred_events_queue_t::value_type& d)
                     {
                         d.second = seq+1;
                     }

@@ -38,7 +38,7 @@ namespace
     struct MyAction
     {
         template<typename Event, typename Fsm, typename Source, typename Target>
-        void operator()(const Event& event, Fsm& fsm, Source& source, Target& target)
+        void operator()(const Event&, Fsm&, Source&, Target&)
         {
             // TODO
             // fsm.action_calls++;
@@ -47,7 +47,7 @@ namespace
     struct MyGuard
     {
         template<typename Event, typename Fsm, typename Source, typename Target>
-        bool operator()(const Event& event, Fsm& fsm, Source& source, Target& target) const
+        bool operator()(const Event&, Fsm&, Source&, Target&) const
         {
             // TODO
             // fsm.guard_calls++;
@@ -60,7 +60,7 @@ namespace
     
     // States.
     struct Default : public state<>{};
-    struct StateMachine;
+    class StateMachine;
 
     struct SmConfig : state_machine_config
     {
@@ -79,7 +79,7 @@ namespace
         };
 
         template <typename Event, typename Fsm>
-        void on_exit(const Event& /*event*/, Fsm& fsm)
+        void on_exit(const Event& /*event*/, Fsm& /*fsm*/)
         {
             // TODO
             // fsm.machine_exits++;
@@ -106,12 +106,12 @@ namespace
     {
         Context context;
         StateMachine test_machine{context};
-        auto& events_queue = test_machine.get_events_queue();
-        const auto& const_events_queue = static_cast<const StateMachine*>(&test_machine)->get_events_queue();
-        auto& deferred_events_queue = test_machine.get_deferred_events_queue();
-        const auto& const_deferred_events_queue = static_cast<const StateMachine*>(&test_machine)->get_deferred_events_queue();
-        auto& sm_context = test_machine.get_context();
-        const auto& const_sm_context = static_cast<const StateMachine*>(&test_machine)->get_context();
+        [[maybe_unused]] auto& events_queue = test_machine.get_events_queue();
+        [[maybe_unused]] const auto& const_events_queue = static_cast<const StateMachine*>(&test_machine)->get_events_queue();
+        [[maybe_unused]] auto& deferred_events_queue = test_machine.get_deferred_events_queue();
+        [[maybe_unused]] const auto& const_deferred_events_queue = static_cast<const StateMachine*>(&test_machine)->get_deferred_events_queue();
+        [[maybe_unused]] auto& sm_context = test_machine.get_context();
+        [[maybe_unused]] const auto& const_sm_context = static_cast<const StateMachine*>(&test_machine)->get_context();
         BOOST_CHECK_MESSAGE(&sm_context == &context, "SM context not set up correctly");
 
         test_machine.start();

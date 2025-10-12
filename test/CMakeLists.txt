@@ -11,6 +11,9 @@ add_compile_definitions("BOOST_MSM_NONSTANDALONE_TEST")
 if(BOOST_MSM_TEST_ONLY_BACKMP11)
     add_compile_definitions("BOOST_MSM_TEST_ONLY_BACKMP11")
 endif()
+if(BOOST_MSM_TEST_STRICT)
+    add_compile_options(-Wall -Wextra -Werror -Wno-language-extension-token)
+endif()
 
 
 add_executable(boost_msm_tests
