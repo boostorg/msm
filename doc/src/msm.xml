@@ -240,9 +240,9 @@
                         </inlinemediaobject></para>
                     <para>UML also defines a number of pseudo states, which are considered important
                         concepts to model, but not enough to make them first-class citizens. The
-                        terminate pseudo state terminates the execution of a state machine. (MSM
-                        handles this slightly differently. The state machine is not destroyed but no
-                        further event processing occurs.) </para>
+                        terminate pseudo state terminates the execution of a state machine (MSM
+                        handles this slightly differently; the state machine is not destroyed but no
+                        further event processing occurs). </para>
                     <para><inlinemediaobject>
                             <imageobject>
                                 <imagedata fileref="images/terminate.gif"/>
