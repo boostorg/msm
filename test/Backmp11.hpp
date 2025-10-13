@@ -15,6 +15,8 @@
 #include <boost/msm/back/queue_container_deque.hpp>
 #define BOOST_PARAMETER_CAN_USE_MP11
 #include <boost/parameter.hpp>
+#include <boost/serialization/base_object.hpp>
+#include <boost/serialization/array.hpp>
 
 namespace boost::msm::backmp11
 {
@@ -138,11 +140,89 @@ class state_machine_adapter
     // auto get_state_by_id(int id) {...}
 };
 
-// template <class A0,
-//           class A1 = parameter::void_,
-//           class A2 = parameter::void_,
-//           class A3 = parameter::void_,
-//           class A4 = parameter::void_>
-// using state_machine_adapter = state_machine<A0, state_machine_config_adapter<A1, A2, A3, A4>>;
+template <class Archive>
+struct serialize_state
+{
+    serialize_state(Archive& ar):ar_(ar){}
+
+    template<typename T>
+    typename ::boost::enable_if<
+        typename ::boost::mpl::or_<
+            typename has_do_serialize<T>::type,
+            typename is_composite_state<T>::type
+        >::type
+        ,void
+    >::type
+    operator()(T& t) const
+    {
+        ar_ & t;
+    }
+    template<typename T>
+    typename ::boost::disable_if<
+        typename ::boost::mpl::or_<
+            typename has_do_serialize<T>::type,
+            typename is_composite_state<T>::type
+        >::type
+        ,void
+    >::type
+    operator()(T&) const
+    {
+        // no state to serialize
+    }
+    Archive& ar_;
+};
+
+template <class Archive, class FrontEnd, class Config, class Derived>
+void serialize(Archive& ar,
+               msm::backmp11::state_machine<FrontEnd, Config, Derived>& sm)
+{
+    (serialize_state<Archive>(ar))(boost::serialization::base_object<FrontEnd>(sm));
+    ar & sm.m_active_state_ids;
+    ar & sm.m_history;
+    ar & sm.m_event_processing;
+    mp11::tuple_for_each(sm.m_states, serialize_state<Archive>(ar));
+}
+
+template<typename T, int N>
+void serialize(T& ar, history_impl<front::no_history, N>& history)
+{
+    ar & history.m_initial_state_ids;
+}
+
+template<typename T, typename... Es, int N>
+void serialize(T& ar, history_impl<front::shallow_history<Es...>, N>& history)
+{
+    ar & history.m_initial_state_ids;
+    ar & history.m_last_active_state_ids;
+}
 
 } // boost::msm::backmp11
+
+namespace boost::serialization
+{
+
+template <class Archive, class A0, class A1, class A2, class A3, class A4>
+void serialize(Archive& ar,
+               msm::backmp11::state_machine_adapter<A0, A1, A2, A3, A4>& sm,
+               const unsigned int /*version*/)
+{
+    msm::backmp11::serialize(ar, sm);
+}
+
+template<typename T, int N>
+void serialize(T& ar,
+               msm::backmp11::history_impl<msm::front::no_history, N>& history,
+               const unsigned int /*version*/)
+{
+    msm::backmp11::serialize(ar, history);
+}
+
+template<typename T, typename... Es, int N>
+void serialize(T& ar,
+               msm::backmp11::history_impl<msm::front::shallow_history<Es...>, N>& history,
+               const unsigned int /*version*/)
+{
+    msm::backmp11::serialize(ar, history);
+}
+
+} // boost::serialization

@@ -15,7 +15,7 @@
 #include <boost/msm/front/history_policies.hpp>
 #include <boost/mp11.hpp>
 
-namespace boost { namespace msm { namespace backmp11
+namespace boost::msm::backmp11
 {
 
 // Implementations for history policies.
@@ -26,75 +26,58 @@ class history_impl;
 template <int NumberOfRegions>
 class history_impl<front::no_history, NumberOfRegions>
 {
-public:
-    void set_initial_states(const std::array<int, NumberOfRegions>& initial_states)
+  public:
+    void set_initial_states(const std::array<int, NumberOfRegions>& initial_state_ids)
     {
-        for (int i=0;i<NumberOfRegions;++i)
-            m_initialStates[i] = initial_states[i];
+        m_initial_state_ids = initial_state_ids;
     }
+
+    template <class Event>
+    const std::array<int, NumberOfRegions>& history_entry(Event const&)
+    {
+        return m_initial_state_ids;
+    }
+
     void history_exit(const std::array<int, NumberOfRegions>&)
     {
         // ignore
     }
-    // returns the state where the state machine should be at start
-    template <class Event>
-    const std::array<int, NumberOfRegions>& history_entry(Event const& )
-    {
-        // always come back to the original state
-        return m_initialStates;
-    }
-    history_impl& operator=(history_impl const& rhs)
-    {
-         for (int i=0; i<NumberOfRegions;++i)
-         {
-             m_initialStates[i] = rhs.m_initialStates[i];
-         }
-         return *this;
-    }
+
     // this policy deletes all waiting deferred events
     template <class Event>
-    bool process_deferred_events(Event const&)const
+    bool process_deferred_events(Event const&) const
     {
         return false;
     }
-    template<class Archive>
-    void serialize(Archive & ar, const unsigned int)
-    {
-        ar & m_initialStates;
-    }
-private:
-    std::array<int, NumberOfRegions> m_initialStates;
+
+  private:
+    // Allow access to private members for serialization.
+    template<typename T, int N>
+    friend void serialize(T&, history_impl<front::no_history, N>&);
+
+    std::array<int, NumberOfRegions> m_initial_state_ids;
 };
 
 template <int NumberOfRegions>
 class history_impl<front::always_shallow_history, NumberOfRegions>
 {
 public:
-    void set_initial_states(const std::array<int, NumberOfRegions>& initial_states)
+    void set_initial_states(const std::array<int, NumberOfRegions>& initial_state_ids)
     {
-        for (int i=0;i<NumberOfRegions;++i)
-            m_initialStates[i] = initial_states[i];
+        m_last_active_state_ids = initial_state_ids;
     }
-    void history_exit(const std::array<int, NumberOfRegions>& current_states)
-    {
-        for (int i=0;i<NumberOfRegions;++i)
-            m_initialStates[i] = current_states[i];
-    }
-    // returns the state where the state machine should be at start
+
     template <class Event>
     const std::array<int, NumberOfRegions>& history_entry(Event const& )
     {
-        // always load back the last active state
-        return m_initialStates;
+        return m_last_active_state_ids;
     }
-    history_impl& operator=(history_impl const& rhs)
+
+    void history_exit(const std::array<int, NumberOfRegions>& active_state_ids)
     {
-         for (int i=0; i<NumberOfRegions;++i)
-         {
-             m_initialStates[i] = rhs.m_initialStates[i];
-         }
-         return *this;
+        m_last_active_state_ids = active_state_ids;
     }
+
     // the history policy keeps all deferred events until next reentry
     template <class Event>
     bool process_deferred_events(Event const&)const
@@ -102,13 +85,12 @@ public:
         return true;
     }
 
-    template<class Archive>
-    void serialize(Archive & ar, const unsigned int)
-    {
-        ar & m_initialStates;
-    }
 private:
-    std::array<int, NumberOfRegions> m_initialStates;
+    // Allow access to private members for serialization.
+    template<typename T, int N>
+    friend void serialize(T&, history_impl<front::always_shallow_history, N>&);
+
+    std::array<int, NumberOfRegions> m_last_active_state_ids;
 };
 
 template <typename... Events, int NumberOfRegions>
@@ -117,56 +99,43 @@ class history_impl<front::shallow_history<Events...>, NumberOfRegions>
     using events_mp11 = mp11::mp_list<Events...>;
 
 public:
-    void set_initial_states(const std::array<int, NumberOfRegions>& initial_states)
+    void set_initial_states(const std::array<int, NumberOfRegions>& initial_state_ids)
     {
-        for (int i=0;i<NumberOfRegions;++i)
-        {
-            m_currentStates[i] = initial_states[i];
-            m_initialStates[i] = initial_states[i];
-        }
+        m_initial_state_ids = initial_state_ids;
+        m_last_active_state_ids = initial_state_ids;
     }
-    void history_exit(const std::array<int, NumberOfRegions>& current_states)
-    {
-        for (int i=0;i<NumberOfRegions;++i)
-            m_currentStates[i] = current_states[i];
-    }
-    // returns the state where the state machine should be at start
+
     template <class Event>
     const std::array<int, NumberOfRegions>& history_entry(Event const&)
     {
-        if (mp11::mp_contains<events_mp11,Event>::value)
+        if constexpr (mp11::mp_contains<events_mp11,Event>::value)
         {
-            return m_currentStates;
+            return m_last_active_state_ids;
         }
-        // not one of our events, no history
-        return m_initialStates;
+        return m_initial_state_ids;
     }
-    history_impl& operator=(history_impl const& rhs)
+
+    void history_exit(const std::array<int, NumberOfRegions>& active_state_ids)
     {
-         for (int i=0; i<NumberOfRegions;++i)
-         {
-             m_initialStates[i] = rhs.m_initialStates[i];
-             m_currentStates[i] = rhs.m_currentStates[i];
-         }
-         return *this;
+        m_last_active_state_ids = active_state_ids;
     }
+
     // the history policy keeps deferred events until next reentry if coming from our history event
     template <class Event>
-    bool process_deferred_events(Event const&)const
+    bool process_deferred_events(Event const&) const
     {
         return mp11::mp_contains<events_mp11,Event>::value;
     }
-    template<class Archive>
-    void serialize(Archive & ar, const unsigned int)
-    {
-        ar & m_initialStates;
-        ar & m_currentStates;
-    }
-private:
-    std::array<int, NumberOfRegions> m_initialStates;
-    std::array<int, NumberOfRegions> m_currentStates;
+
+  private:
+    // Allow access to private members for serialization.
+    template<typename T, typename... Es, int N>
+    friend void serialize(T&, history_impl<front::shallow_history<Es...>, N>&);
+
+    std::array<int, NumberOfRegions> m_initial_state_ids;
+    std::array<int, NumberOfRegions> m_last_active_state_ids;
 };
 
-}}} // boost::msm::backmp11
+} // boost::msm::backmp11
 
 #endif // BOOST_MSM_BACKMP11_HISTORY_IMPL_H
