@@ -37,6 +37,7 @@ add_executable(boost_msm_tests
     SetStates.cpp
     SimpleInternal.cpp
     SimpleInternalFunctors.cpp
+    SimpleKleene.cpp
     SimpleMachine.cpp
     SimpleWithFunctors.cpp
     Test2RegionsAnonymous.cpp

@@ -98,6 +98,9 @@ namespace
     };
     // Pick a back-end
     typedef mpl::vector<
+#ifndef BOOST_MSM_TEST_SKIP_BACKMP11
+        boost::msm::backmp11::state_machine_adapter<fsm_>,
+#endif // BOOST_MSM_TEST_SKIP_BACKMP11
         boost::msm::back::state_machine<fsm_>,
         boost::msm::back11::state_machine<fsm_>
         > Fsms;
