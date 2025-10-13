@@ -162,7 +162,7 @@ private:
     template<typename Event, typename Row>
     static HandledEnum convert_and_execute(Fsm& fsm, int region_id, int state_id, const any_event& event)
     {
-        return Row::execute(fsm, region_id, state_id, *std::any_cast<Event>(&event));
+        return Row::execute(fsm, region_id, state_id, *any_cast<Event>(&event));
     }
 
     // Dispatch table for one state.

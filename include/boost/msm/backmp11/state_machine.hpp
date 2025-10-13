@@ -1089,7 +1089,7 @@ public:
                         using KnownEvent = typename decltype(event_identity)::type;
                         if (event.type() == typeid(KnownEvent))
                         {
-                            do_defer_event(event);
+                            this->do_defer_event(*any_cast<KnownEvent>(&event));
                             return true;
                         }
                         return false;
