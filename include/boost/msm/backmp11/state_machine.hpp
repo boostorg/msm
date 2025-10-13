@@ -13,6 +13,7 @@
 #define BOOST_MSM_BACKMP11_STATE_MACHINE_H
 
 #include <algorithm>
+#include <array>
 #include <exception>
 #include <functional>
 #include <utility>
@@ -33,9 +34,6 @@
 #include <boost/type_traits/add_reference.hpp>
 #include <boost/utility/enable_if.hpp>
 #include <boost/type_traits/is_convertible.hpp>
-
-#include <boost/serialization/base_object.hpp>
-#include <boost/serialization/array.hpp>
 
 #include <boost/msm/active_state_switching_policies.hpp>
 #include <boost/msm/row_tags.hpp>
@@ -113,6 +111,10 @@ private:
     // all state machines are friend with each other to allow embedding any of them in another fsm
     template <class, class, class>
     friend class state_machine;
+
+    // Allow access to private members for serialization.
+    template<typename T, typename A0, typename A1, typename A2>
+    friend void serialize(T&, state_machine<A0, A1, A2>&);
 
     static constexpr int nr_regions = get_number_of_regions<typename FrontEnd::initial_state>::type::value;
     using active_state_ids_t = std::array<int, nr_regions>;
@@ -263,7 +265,7 @@ private:
                 return Row::guard_call(fsm,evt,
                                  fsm.get_state<current_state_type>(),
                                  fsm.get_state<next_state_type>(),
-                                 fsm.m_substate_list);
+                                 fsm.m_states);
             }
             else
             {
@@ -302,7 +304,7 @@ private:
                 res = Row::action_call(fsm,evt,
                                 fsm.get_state<current_state_type>(),
                                 fsm.get_state<next_state_type>(),
-                                fsm.m_substate_list);
+                                fsm.m_states);
             }
             else
             {
@@ -337,7 +339,7 @@ private:
                 return Row::guard_call(fsm,evt,
                                  fsm.get_state<current_state_type>(),
                                  fsm.get_state<next_state_type>(),
-                                 fsm.m_substate_list);
+                                 fsm.m_states);
             }
             else
             {
@@ -363,7 +365,7 @@ private:
                 return Row::action_call(fsm,evt,
                              fsm.get_state<current_state_type>(),
                              fsm.get_state<next_state_type>(),
-                             fsm.m_substate_list);
+                             fsm.m_states);
             }
             else
             {
@@ -391,14 +393,14 @@ private:
                     return Row::guard_call(fsm,evt,
                         fsm,
                         fsm,
-                        fsm.m_substate_list);                    
+                        fsm.m_states);                    
                 }
                 else
                 {
                     return Row::guard_call(fsm,evt,
                         fsm.get_state<StateType>(),
                         fsm.get_state<StateType>(),
-                        fsm.m_substate_list);
+                        fsm.m_states);
                 }
             }
             else
@@ -423,14 +425,14 @@ private:
                     return Row::action_call(fsm,evt,
                         fsm,
                         fsm,
-                        fsm.m_substate_list);
+                        fsm.m_states);
                 }
                 else
                 {
                     return Row::action_call(fsm,evt,
                         fsm.get_state<StateType>(),
                         fsm.get_state<StateType>(),
-                        fsm.m_substate_list);
+                        fsm.m_states);
                 }
             }
             else
@@ -897,52 +899,6 @@ private:
         return m_active_state_ids;
     }
 
-    template <class Archive>
-    struct serialize_state
-    {
-        serialize_state(Archive& ar):ar_(ar){}
-
-        template<typename T>
-        typename ::boost::enable_if<
-            typename ::boost::mpl::or_<
-                typename has_do_serialize<T>::type,
-                typename is_composite_state<T>::type
-            >::type
-            ,void
-        >::type
-        operator()(T& t) const
-        {
-            ar_ & t;
-        }
-        template<typename T>
-        typename ::boost::disable_if<
-            typename ::boost::mpl::or_<
-                typename has_do_serialize<T>::type,
-                typename is_composite_state<T>::type
-            >::type
-            ,void
-        >::type
-        operator()(T&) const
-        {
-            // no state to serialize
-        }
-        Archive& ar_;
-    };
-
-    template<class Archive>
-    void serialize(Archive & ar, const unsigned int)
-    {
-        // invoke serialization of the base class
-        (serialize_state<Archive>(ar))(boost::serialization::base_object<FrontEnd>(*this));
-        // now our attributes
-        ar & m_active_state_ids;
-        // TODO: Serialize the optional members
-        // ar & m_optional_members;
-        ar & m_history;
-        ar & m_event_processing;
-        mp11::tuple_for_each(m_substate_list, serialize_state<Archive>(ar));
-    }
-
     // Get the root sm.
     template <typename T = RootSm, 
               typename = std::enable_if_t<!std::is_same_v<T, no_root_sm>>>
@@ -981,13 +937,13 @@ private:
     template <class State>
     State& get_state()
     {
-        return std::get<std::remove_reference_t<State>>(m_substate_list);
+        return std::get<std::remove_reference_t<State>>(m_states);
     }
     // Get a state (const version).
     template <class State>
     const State& get_state() const
     {
-        return std::get<std::remove_reference_t<State>>(m_substate_list);
+        return std::get<std::remove_reference_t<State>>(m_states);
     }
 
     // checks if a flag is active using the BinaryOp as folding function
@@ -1033,7 +989,7 @@ private:
     template <typename Visitor>
     void visit(Visitor&& visitor, all_states_t)
     {
-        mp11::tuple_for_each(m_substate_list,
+        mp11::tuple_for_each(m_states,
             [&visitor](auto& state)
             {
                 std::invoke(std::forward<Visitor>(visitor), state);
@@ -1534,7 +1490,7 @@ private:
          m_optional_members = rhs.m_optional_members;
          m_history = rhs.m_history;
          m_event_processing = rhs.m_event_processing;
-         m_substate_list = rhs.m_substate_list;
+         m_states = rhs.m_states;
          m_running = rhs.m_running;
          // except for the states themselves, which get duplicated
 
@@ -1558,7 +1514,7 @@ private:
              BOOST_STATIC_CONSTANT(int, id = (Id::value));
              if (id == state_id)
              {
-                 execute_entry<State>(std::get<Id::value>(self->m_substate_list),evt,*self);
+                 execute_entry<State>(std::get<Id::value>(self->m_states),evt,*self);
              }
          }
      private:
@@ -1583,7 +1539,7 @@ private:
              BOOST_STATIC_CONSTANT(int, id = (Id::value));
              if (id == state_id)
              {
-                 execute_exit<State>(std::get<Id::value>(self->m_substate_list),evt,*self);
+                 execute_exit<State>(std::get<Id::value>(self->m_states),evt,*self);
              }
          }
      private:
@@ -2034,7 +1990,7 @@ private:
     concrete_history                m_history{};
     bool                            m_event_processing{false};
     void*                           m_root_sm{nullptr};
-    substate_list                   m_substate_list{};
+    substate_list                   m_states{};
     bool                            m_running{false};
 };
 

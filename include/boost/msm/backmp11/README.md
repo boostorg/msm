@@ -111,6 +111,19 @@ only for the root and it can omit them for sub-state machines.
 The `context` is then automatically accessed through the `root_sm`.
 
 
+## Generic support for serializers
+
+The `state_machine` allows access to its private members for serialization purposes with a friend:
+
+```cpp
+// Class boost::msm::backmp11::state_machine
+template<typename T, typename A0, typename A1, typename A2>
+friend void serialize(T&, state_machine<A0, A1, A2>&);
+```
+
+A similar friend declaration is available in the `history_impl` classes.
+
+
 ## Changes with respect to `back`
 
 ### The required minimum C++ version is C++17
@@ -217,7 +230,13 @@ It can be copied and adapted if needed, though this class is internal to the tes
 
 Further details about the applied API changes:
 
-#### The back-end's constructor does not allow initialization of states and `set_states` is not available
+#### Support for `boost::serialization` is removed
+
+The back-end aims to support serialization in general, but without providing a concrete implementation for a specific serialization library.
+If you want to use `boost::serialization` for your state machine, you can look into the [state machine adapter](../../../../test/Backmp11.hpp) from the tests for an example how to set it up.
+
+
+#### The back-end's constructor does not allow initialization of states and `set_states` is removed
 
 There were some caveats with one constructor that was used for different use cases: On the one hand some arguments were immediately forwarded to the frontend's constructor, on the other hand the stream operator was used to identify other arguments in the constructor as states, to copy them into the state machine. Besides the syntax of the later being rather unusual, when doing both at once the syntax becomes too difficult to understand; even more so if states within hierarchical sub state machines were initialized in this fashion.
 
