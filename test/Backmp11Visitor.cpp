@@ -133,12 +133,18 @@ namespace
             BOOST_REQUIRE(visits == 0);
             
             upper_machine.start();
+            BOOST_REQUIRE(upper_machine.template is_state_active<DefaultState>() == true);
+            BOOST_REQUIRE(upper_machine.template is_state_active<MiddleMachine>() == false);
             upper_machine.visit(count_visitor);
             BOOST_REQUIRE(upper_machine_state.visits == 1);
             BOOST_REQUIRE(visits == 1);
             upper_machine.visit(reset_count_visitor);
 
             upper_machine.process_event(EnterSubFsm());
+            BOOST_REQUIRE(upper_machine.template is_state_active<DefaultState>() == true);
+            BOOST_REQUIRE(upper_machine.template is_state_active<MiddleMachine>() == true);
+            BOOST_REQUIRE(middle_machine.template is_state_active<DefaultState>() == true);
+            BOOST_REQUIRE(middle_machine.template is_state_active<LowerMachine>() == false);
             upper_machine.visit(count_visitor);
             BOOST_REQUIRE(middle_machine.visits == 1);
             BOOST_REQUIRE(middle_machine_state.visits == 1);
@@ -146,6 +152,10 @@ namespace
             upper_machine.visit(reset_count_visitor);
 
             upper_machine.process_event(EnterSubFsm());
+            BOOST_REQUIRE(upper_machine.template is_state_active<MiddleMachine>() == true);
+            BOOST_REQUIRE(upper_machine.template is_state_active<LowerMachine>() == true);
+            BOOST_REQUIRE(middle_machine.template is_state_active<LowerMachine>() == true);
+            BOOST_REQUIRE(lower_machine.template is_state_active<DefaultState>() == true);
             upper_machine.visit(count_visitor);
             BOOST_REQUIRE(middle_machine.visits == 1);
             BOOST_REQUIRE(lower_machine.visits == 1);

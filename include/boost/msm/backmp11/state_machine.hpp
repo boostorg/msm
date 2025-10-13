@@ -722,6 +722,20 @@ private:
         m_running = false;
     }
 
+    template <typename State>
+    bool is_state_active() const
+    {
+        bool found = false;
+        const_cast<state_machine*>(this)->visit(
+            [&found](const auto& state)
+            {
+                using StateToCheck = std::decay_t<decltype(state)>;
+                found |= std::is_same_v<State, StateToCheck>;
+            }
+        );
+        return found;
+    }
+
     // Main function used by clients of the derived FSM to make transitions.
     template<class Event>
     HandledEnum process_event(Event const& evt)
@@ -940,7 +954,7 @@ private:
             {
                 std::invoke(std::forward<Visitor>(visitor), state);
 
-                using State = std::remove_reference_t<decltype(state)>;
+                using State = std::decay_t<decltype(state)>;
                 if constexpr (is_composite_state<State>::value)
                 {
                     state.visit(std::forward<Visitor>(visitor), all_states);
@@ -1780,7 +1794,7 @@ private:
         visit(
             [&root_sm](auto& state)
             {
-                using State = std::remove_reference_t<decltype(state)>;
+                using State = std::decay_t<decltype(state)>;
 
                 if constexpr (is_pseudo_exit<State>::value)
                 {

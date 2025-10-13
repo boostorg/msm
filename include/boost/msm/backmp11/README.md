@@ -40,6 +40,18 @@ Also these bugs are fixed:
 - If the SM is stopped, no active state is visited instead of the last active state(s)
 
 
+### Method to check whether a state is active
+
+A new method `is_state_active` can be used to check whether a state is currently active:
+
+```cpp
+template <typename State>
+bool state_machine::is_state_active() const
+```
+
+If the type of the state appears multiple times in a hierarchical state machine, the method returns true if any of the states are active.
+
+
 ### Simplified state machine signature
 
 The signature has been simplified to facilitate sharing configurations between state machines. The new signature looks as follows:
