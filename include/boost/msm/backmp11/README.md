@@ -254,9 +254,9 @@ You can still opt in to use `boost::any` by explicitly including `boost/msm/even
 The support of EUML induces longer compilation times by the need to include the Boost proto headers and applying C++03 variadic template emulation. If you want to use a UML-like syntax, please try out the new PUML frontend.
 
 
-### The fsm check support is removed
+### The fsm check and find region support is removed
 
-The implementation of the checks depends on mpl_graph, which induces high compilation times.
+The implementation of these two features depends on mpl_graph, which induces high compilation times.
 
 
 ### `sm_ptr` support is removed

@@ -1615,17 +1615,7 @@ private:
          {
              enum {region_index=region};
          };
-         // if the user provides no region, find it!
-         template<int Dummy>
-         struct In<-1,Dummy>
-         {
-             typedef typename build_orthogonal_regions<
-                 state_machine,
-                 initial_states
-             >::type all_regions;
-             enum {region_index= find_region_index<all_regions,StateType>::value };
-         };
-         enum {region_index = In<StateType::zone_index>::region_index };
+        enum {region_index = In<StateType::zone_index>::region_index };
      };
      // helper used to set the correct state as active state upon entry into a fsm
      struct direct_event_start_helper

@@ -14,16 +14,22 @@
 
 #include <boost/mp11.hpp>
 #include <boost/mp11/mpl_list.hpp>
+
+#include <boost/mpl/copy.hpp>
 #include <boost/mpl/count_if.hpp>
+#include <boost/mpl/find_if.hpp>
+#include <boost/mpl/has_key.hpp>
+#include <boost/mpl/insert.hpp>
+#include <boost/mpl/insert_range.hpp>
+#include <boost/mpl/is_sequence.hpp>
+#include <boost/mpl/transform.hpp>
+#include <boost/mpl/vector.hpp>
+
 
 #include <boost/type_traits/is_same.hpp>
 #include <boost/utility/enable_if.hpp>
 
 #include <boost/msm/row_tags.hpp>
-
-// mpl_graph graph implementation and depth first search
-#include <boost/msm/mpl_graph/incidence_list_graph.hpp>
-#include <boost/msm/mpl_graph/depth_first_search.hpp>
 
 #include <boost/msm/back/traits.hpp>
 #include <boost/msm/back/default_compile_policy.hpp>
@@ -728,46 +734,6 @@ struct get_final_event
     typedef typename StateType::final_event type;
 };
 
-template <class TransitionTable, class InitState>
-struct build_one_orthogonal_region 
-{
-     template<typename Row>
-     struct row_to_incidence :
-         mp11::mp_list<
-                ::boost::mpl::pair<
-                    typename Row::next_state_type, 
-                    typename Row::transition_event>, 
-                typename Row::current_state_type, 
-                typename Row::next_state_type
-         > {};
-
-     typedef typename mp11::mp_transform<
-        row_to_incidence,
-        typename to_mp_list<TransitionTable>::type
-        > transition_incidence_list;
-
-     typedef ::boost::msm::mpl_graph::incidence_list_graph<transition_incidence_list>
-         transition_graph;
-
-     struct preordering_dfs_visitor : 
-         ::boost::msm::mpl_graph::dfs_default_visitor_operations 
-     {    
-         template<typename Node, typename Graph, typename State>
-         struct discover_vertex :
-             ::boost::mpl::insert<State, Node>
-         {};
-     };
-
-     typedef typename mpl::first< 
-         typename ::boost::msm::mpl_graph::depth_first_search<
-            transition_graph, 
-            preordering_dfs_visitor,
-            ::boost::mpl::set<>,
-            InitState
-         >::type
-     >::type type;
-};
-
 template <class Fsm>
 struct find_entry_states 
 {
@@ -803,33 +769,6 @@ struct add_entry_region
             set_insert_range< ::boost::mpl::placeholders::_1, EntryRegion>,
             ::boost::mpl::placeholders::_1
         >
-    >::type type;
-};
-
-// build a vector of regions states (as a set)
-// one set of states for every region
-template <class Fsm, class InitStates>
-struct build_orthogonal_regions 
-{
-    typedef typename 
-        ::boost::mpl::fold<
-            InitStates, ::boost::mpl::vector0<>,
-            ::boost::mpl::push_back< 
-                ::boost::mpl::placeholders::_1, 
-                build_one_orthogonal_region< typename Fsm::stt, ::boost::mpl::placeholders::_2 > >
-        >::type without_entries;
-
-    typedef typename 
-        ::boost::mpl::fold<
-        typename find_entry_states<Fsm>::type, ::boost::mpl::vector0<>,
-            ::boost::mpl::push_back< 
-                ::boost::mpl::placeholders::_1, 
-                build_one_orthogonal_region< typename Fsm::stt, ::boost::mpl::placeholders::_2 > >
-        >::type only_entries;
-
-    typedef typename ::boost::mpl::fold<
-        only_entries , without_entries,
-        add_entry_region< ::boost::mpl::placeholders::_2, ::boost::mpl::placeholders::_1>
     >::type type;
 };
 
