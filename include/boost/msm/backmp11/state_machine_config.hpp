@@ -21,11 +21,17 @@ namespace boost::msm::backmp11
 
 using back::favor_runtime_speed;
 
-// Config for no context.
+// Config for the default context parameter
+// (no context).
 struct no_context {};
 
-// Config for no root sm.
+// Config for the default root sm parameter
+// (no root sm).
 struct no_root_sm {};
+
+// Config for the default fsm parameter
+// (processing fsm)
+struct processing_sm{};
 
 // Default state machine config.
 struct default_state_machine_config
@@ -33,6 +39,7 @@ struct default_state_machine_config
     using compile_policy = favor_runtime_speed;
     using context = no_context;
     using root_sm = no_root_sm;
+    using fsm_parameter = processing_sm;
     template<typename T>
     using queue_container = std::deque<T>;
 };
