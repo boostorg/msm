@@ -80,9 +80,9 @@ add_executable(boost_msm_cxx17_tests
     main.cpp
 )
 target_compile_features(boost_msm_cxx17_tests PRIVATE cxx_std_17)
-add_test(NAME boost_msm_cxx17_tests COMMAND boost_msm_cxx17_tests)
 if(((DEFINED CMAKE_CXX_STANDARD)     AND (CMAKE_CXX_STANDARD GREATER_EQUAL 17)) OR
    ((NOT DEFINED CMAKE_CXX_STANDARD) AND ("cxx_std_17" IN_LIST CMAKE_CXX_COMPILE_FEATURES)))
+    add_test(NAME boost_msm_cxx17_tests COMMAND boost_msm_cxx17_tests)
     add_dependencies(tests boost_msm_cxx17_tests)
 endif()
 
@@ -98,8 +98,8 @@ add_executable(boost_msm_cxx20_tests
     main.cpp
 )
 target_compile_features(boost_msm_cxx20_tests PRIVATE cxx_std_20)
-add_test(NAME boost_msm_cxx20_tests COMMAND boost_msm_cxx20_tests)
 if(((DEFINED CMAKE_CXX_STANDARD)     AND (CMAKE_CXX_STANDARD GREATER_EQUAL 20)) OR
    ((NOT DEFINED CMAKE_CXX_STANDARD) AND ("cxx_std_20" IN_LIST CMAKE_CXX_COMPILE_FEATURES)))
+    add_test(NAME boost_msm_cxx20_tests COMMAND boost_msm_cxx20_tests)
     add_dependencies(tests boost_msm_cxx20_tests)
 endif()

@@ -18,6 +18,8 @@
 #include <boost/mp11/mpl_list.hpp>
 
 #include <boost/mpl/empty.hpp>
+#include <boost/mpl/erase.hpp>
+#include <boost/mpl/front.hpp>
 #include <boost/mpl/pop_front.hpp>
 
 #include <boost/type_traits/is_base_of.hpp>
