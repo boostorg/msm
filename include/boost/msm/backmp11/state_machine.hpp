@@ -228,6 +228,31 @@ private:
         typedef int                 no_automatic_create;
     };
 
+    template<typename Row, bool HasGuard, typename Event, typename Source, typename Target>
+    static bool try_call_guard(state_machine& sm, const Event& event, Source& source, Target& target)
+    {
+        if constexpr (HasGuard)
+        {
+            return Row::guard_call(sm.get_fsm_argument(), event, source, target, sm.m_states);
+        }
+        else
+        {
+            return true;
+        }
+    }
+    template<typename Row, bool HasAction, typename Event, typename Source, typename Target>
+    static HandledEnum try_call_action(state_machine& sm, const Event& event, Source& source, Target& target)
+    {
+        if constexpr (HasAction)
+        {
+            return Row::action_call(sm.get_fsm_argument(), event, source, target, sm.m_states);
+        }
+        else
+        {
+            return HANDLED_TRUE;
+        }
+    }
+
     // Template used to create transitions from rows in the transition table
     // (normal transitions).
     template<typename Row, bool HasAction, bool HasGuard>
@@ -257,23 +282,8 @@ private:
                     ::boost::mpl::identity<T2> >
         >::type next_state_type;
 
-        // if a guard condition is here, call it to check that the event is accepted
-        static bool check_guard(state_machine& fsm,transition_event const& evt)
-        {
-            if constexpr (HasGuard)
-            {
-                return Row::guard_call(fsm,evt,
-                                 fsm.get_state<current_state_type>(),
-                                 fsm.get_state<next_state_type>(),
-                                 fsm.m_states);
-            }
-            else
-            {
-                return true;
-            }
-        }
-        // Take the transition action and return the next state.
-        static HandledEnum execute(state_machine& fsm, int region_index, int state, transition_event const& evt)
+         // Take the transition action and return the next state.
+        static HandledEnum execute(state_machine& sm, int region_index, int state, transition_event const& event)
         {
             BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
             BOOST_STATIC_CONSTANT(int, next_state = (get_state_id<next_state_type>()));
@@ -281,42 +291,32 @@ private:
             BOOST_ASSERT(state == (current_state));
             // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
             if (has_pseudo_exit<T1>::type::value &&
-                !backmp11::is_exit_state_active<T1,get_owner<T1,Derived> >(fsm))
+                !backmp11::is_exit_state_active<T1,get_owner<T1,Derived> >(sm))
             {
                 return HANDLED_FALSE;
             }
-            if (!check_guard(fsm,evt))
+
+            auto& source = sm.get_state<current_state_type>();
+            auto& target = sm.get_state<next_state_type>();
+
+            if (!try_call_guard<Row, HasGuard>(sm, event, source, target))
             {
                 // guard rejected the event, we stay in the current one
                 return HANDLED_GUARD_REJECT;
             }
-
-            fsm.m_active_state_ids[region_index] = active_state_switching::after_guard(current_state,next_state);
+            sm.m_active_state_ids[region_index] = active_state_switching::after_guard(current_state,next_state);
 
             // first call the exit method of the current state
-            execute_exit<current_state_type>(fsm.get_state<current_state_type>(),evt,fsm);
-            fsm.m_active_state_ids[region_index] = active_state_switching::after_exit(current_state,next_state);
+            source.on_exit(event, sm.get_fsm_argument());
+            sm.m_active_state_ids[region_index] = active_state_switching::after_exit(current_state,next_state);
 
             // then call the action method
-            HandledEnum res;
-            if constexpr (HasAction)
-            {
-                res = Row::action_call(fsm,evt,
-                                fsm.get_state<current_state_type>(),
-                                fsm.get_state<next_state_type>(),
-                                fsm.m_states);
-            }
-            else
-            {
-                res = HANDLED_TRUE;
-            }
-
-            fsm.m_active_state_ids[region_index] = active_state_switching::after_action(current_state,next_state);
+            HandledEnum res = try_call_action<Row, HasAction>(sm, event, source, target);
+            sm.m_active_state_ids[region_index] = active_state_switching::after_action(current_state,next_state);
 
             // and finally the entry method of the new current state
-            convert_event_and_execute_entry<next_state_type,T2>
-                (fsm.get_state<next_state_type>(),evt,fsm);
-            fsm.m_active_state_ids[region_index] = active_state_switching::after_entry(current_state,next_state);
+            convert_event_and_execute_entry<T2>(target,event,sm);
+            sm.m_active_state_ids[region_index] = active_state_switching::after_entry(current_state,next_state);
 
             return res;
         }
@@ -331,46 +331,25 @@ private:
         typedef typename Row::Source current_state_type;
         typedef typename make_exit<typename Row::Target,state_machine>::type next_state_type;
 
-        // if a guard condition is here, call it to check that the event is accepted
-        static bool check_guard(state_machine& fsm,transition_event const& evt)
-        {
-            if constexpr (HasGuard)
-            {
-                return Row::guard_call(fsm,evt,
-                                 fsm.get_state<current_state_type>(),
-                                 fsm.get_state<next_state_type>(),
-                                 fsm.m_states);
-            }
-            else
-            {
-                return true;
-            }
-        }
         // Take the transition action and return the next state.
-        static HandledEnum execute(state_machine& fsm, int , int state, transition_event const& evt)
+        static HandledEnum execute(state_machine& sm, int , int state, transition_event const& event)
         {
 
             BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
             boost::ignore_unused(state, current_state); // Avoid warnings if BOOST_ASSERT expands to nothing.
             BOOST_ASSERT(state == (current_state));
-            if (!check_guard(fsm,evt))
+
+            auto& source = sm.get_state<current_state_type>();
+            auto& target = sm.get_state<next_state_type>();
+
+            if (!try_call_guard<Row, HasGuard>(sm, event, source, target))
             {
                 // guard rejected the event, we stay in the current one
                 return HANDLED_GUARD_REJECT;
             }
 
             // call the action method
-            if constexpr (HasAction)
-            {
-                return Row::action_call(fsm,evt,
-                             fsm.get_state<current_state_type>(),
-                             fsm.get_state<next_state_type>(),
-                             fsm.m_states);
-            }
-            else
-            {
-                return HANDLED_TRUE;
-            }
+            return try_call_action<Row, HasAction>(sm, event, source, target);
         }
     };
 
@@ -383,70 +362,37 @@ private:
         typedef StateType next_state_type;
         typedef typename Row::Evt transition_event;
 
-        // if a guard condition is here, call it to check that the event is accepted
-        static bool check_guard(state_machine& fsm,transition_event const& evt)
+        static auto& get_fsm(state_machine& sm)
         {
-            if constexpr (HasGuard)
+            if constexpr (std::is_same_v<StateType, state_machine>)
             {
-                if constexpr (std::is_same_v<StateType, state_machine>)
-                {
-                    return Row::guard_call(fsm,evt,
-                        fsm,
-                        fsm,
-                        fsm.m_states);                    
-                }
-                else
-                {
-                    return Row::guard_call(fsm,evt,
-                        fsm.get_state<StateType>(),
-                        fsm.get_state<StateType>(),
-                        fsm.m_states);
-                }
+                return sm;
             }
             else
             {
-                return true;
+                return sm.get_state<StateType>();
             }
         }
+
         // Take the transition action and return the next state.
-        static HandledEnum execute(state_machine& fsm, int , int , transition_event const& evt)
+        static HandledEnum execute(state_machine& sm, int , int , transition_event const& event)
         {
-            if (!check_guard(fsm,evt))
+            auto& source = get_fsm(sm);
+            auto& target = source;
+
+            if (!try_call_guard<Row, HasGuard>(sm, event, source, target))
             {
                 // guard rejected the event, we stay in the current one
                 return HANDLED_GUARD_REJECT;
             }
 
             // then call the action method
-            if constexpr (HasAction)
-            {
-                if constexpr(std::is_same_v<StateType, state_machine>)
-                {
-                    return Row::action_call(fsm,evt,
-                        fsm,
-                        fsm,
-                        fsm.m_states);
-                }
-                else
-                {
-                    return Row::action_call(fsm,evt,
-                        fsm.get_state<StateType>(),
-                        fsm.get_state<StateType>(),
-                        fsm.m_states);
-                }
-            }
-            else
-            {
-                return HANDLED_TRUE;
-            }
+            return try_call_action<Row, HasAction>(sm, event, source, target);
         }
     };
 
     // Template used to form forwarding rows in the transition table for every row of a composite SM
-    template<
-        typename T1
-        , class Evt
-    >
+    template <typename T1, class Evt>
     struct frow
     {
         typedef T1                  current_state_type;
@@ -772,8 +718,22 @@ private:
     template <class Event>
     void stop(Event const& finalEvent)
     {
-        do_exit(finalEvent,*this);
+        on_exit(finalEvent,*this);
         m_running = false;
+    }
+
+    template <typename State>
+    bool is_state_active() const
+    {
+        bool found = false;
+        const_cast<state_machine*>(this)->visit(
+            [&found](const auto& state)
+            {
+                using StateToCheck = std::decay_t<decltype(state)>;
+                found |= std::is_same_v<State, StateToCheck>;
+            }
+        );
+        return found;
     }
 
     // Main function used by clients of the derived FSM to make transitions.
@@ -994,7 +954,7 @@ private:
             {
                 std::invoke(std::forward<Visitor>(visitor), state);
 
-                using State = std::remove_reference_t<decltype(state)>;
+                using State = std::decay_t<decltype(state)>;
                 if constexpr (is_composite_state<State>::value)
                 {
                     state.visit(std::forward<Visitor>(visitor), all_states);
@@ -1066,6 +1026,24 @@ public:
     }
 
  protected:    // interface for the derived class
+    static_assert(std::is_same_v<typename Config::fsm_parameter, processing_sm> ||
+                    (std::is_same_v<typename Config::fsm_parameter, typename Config::root_sm> &&
+                     !std::is_same_v<typename Config::root_sm, no_root_sm>),
+                  "fsm_parameter must be processing_sm or root_sm."
+                 );
+    using fsm_parameter_t = mp11::mp_if_c<std::is_same_v<typename Config::fsm_parameter, processing_sm>, state_machine, typename Config::root_sm>;
+
+    fsm_parameter_t& get_fsm_argument()
+    {
+        if constexpr (std::is_same_v<typename Config::fsm_parameter, processing_sm>)
+        {
+            return *this;
+        }
+        else
+        {
+            return get_root_sm();
+        }
+    }
 
     // Checks if an event is an end interrupt event.
     template <class Event, class Policy = CompilePolicy>
@@ -1514,7 +1492,7 @@ private:
              BOOST_STATIC_CONSTANT(int, id = (Id::value));
              if (id == state_id)
              {
-                 execute_entry<State>(std::get<Id::value>(self->m_states),evt,*self);
+                 execute_entry((*self).template get_state<State>(),evt,(*self).get_fsm_argument());
              }
          }
      private:
@@ -1539,7 +1517,7 @@ private:
              BOOST_STATIC_CONSTANT(int, id = (Id::value));
              if (id == state_id)
              {
-                 execute_exit<State>(std::get<Id::value>(self->m_states),evt,*self);
+                 (*self).template get_state<State>().on_exit(evt, (*self).get_fsm_argument());
              }
          }
      private:
@@ -1691,7 +1669,7 @@ private:
         try_process_queued_events();
      }
      template <class Event,class FsmType>
-     void do_exit(Event const& incomingEvent,FsmType& fsm)
+     void on_exit(Event const& incomingEvent,FsmType& fsm)
      {
         // first recursively exit the sub machines
         // forward the event for handling by sub state machines
@@ -1753,91 +1731,51 @@ private:
 #if defined (__IBMCPP__) || (defined(_MSC_VER) && (_MSC_VER < 1400) || defined(__clang__ ))
      private:
 #endif
-    // helper function. In cases where the event is wrapped (target is a direct entry states)
-    // we want to send only the real event to on_entry, not the wrapper.
-    template <class EventType>
-    static
-    typename boost::enable_if<typename has_direct_entry<EventType>::type,typename EventType::contained_event const& >::type
-    remove_direct_entry_event_wrapper(EventType const& evt,boost::msm::back::dummy<0> = 0)
-    {
-        return evt.m_event;
-    }
-    template <class EventType>
-    static typename boost::disable_if<typename has_direct_entry<EventType>::type,EventType const& >::type
-    remove_direct_entry_event_wrapper(EventType const& evt,boost::msm::back::dummy<1> = 0)
-    {
-        // identity. No wrapper
-        return evt;
-    }
-    // calls the entry/exit or on_entry/on_exit depending on the state type
-    // (avoids calling virtually)
-    // variant for FSMs
-    template <class StateType,class EventType,class FsmType>
-    static
-        typename boost::enable_if<typename is_composite_state<StateType>::type,void >::type
-        execute_entry(StateType& astate,EventType const& evt,FsmType& fsm,boost::msm::back::dummy<0> = 0)
+    // calls entry or on_entry depending on the state type
+    template <class State, class Event, class Fsm>
+    static void execute_entry(State& state, Event const& event, Fsm& fsm)
     {
         // calls on_entry on the fsm then handles direct entries, fork, entry pseudo state
-        astate.do_entry(evt,fsm);
-    }
-    // variant for states
-    template <class StateType,class EventType,class FsmType>
-    static
-        typename ::boost::disable_if<
-            typename ::boost::mpl::or_<typename is_composite_state<StateType>::type,
-                                       typename is_pseudo_exit<StateType>::type >::type,void >::type
-    execute_entry(StateType& astate,EventType const& evt,FsmType& fsm, ::boost::msm::back::dummy<1> = 0)
-    {
-        // simple call to on_entry
-        astate.on_entry(remove_direct_entry_event_wrapper(evt),fsm);
-    }
-    // variant for exit pseudo states
-    template <class StateType,class EventType,class FsmType>
-    static
-        typename ::boost::enable_if<typename is_pseudo_exit<StateType>::type,void >::type
-    execute_entry(StateType& astate,EventType const& evt,FsmType& fsm, ::boost::msm::back::dummy<2> = 0)
-    {
-        // calls on_entry on the state then forward the event to the transition which should be defined inside the
-        // contained fsm
-        astate.on_entry(evt,fsm);
-        astate.forward_event(evt);
-    }
-    template <class StateType,class EventType,class FsmType>
-    static
-        typename ::boost::enable_if<typename is_composite_state<StateType>::type,void >::type
-    execute_exit(StateType& astate,EventType const& evt,FsmType& fsm, ::boost::msm::back::dummy<0> = 0)
-    {
-        astate.do_exit(evt,fsm);
-    }
-    template <class StateType,class EventType,class FsmType>
-    static
-        typename ::boost::disable_if<typename is_composite_state<StateType>::type,void >::type
-    execute_exit(StateType& astate,EventType const& evt,FsmType& fsm, ::boost::msm::back::dummy<1> = 0)
-    {
-        // simple call to on_exit
-        astate.on_exit(evt,fsm);
+        if constexpr (is_composite_state<State>::value)
+        {
+            state.do_entry(event,fsm);
+        }
+        else if constexpr (is_pseudo_exit<State>::value)
+        {
+            // calls on_entry on the state then forward the event to the transition which should be defined inside the
+            // contained fsm
+            state.on_entry(event,fsm);
+            state.forward_event(event);
+        }
+        else
+        {
+            // simple call to on_entry
+            if constexpr (has_direct_entry<Event>::value)
+            {
+                state.on_entry(event.m_event, fsm);
+            }
+            else
+            {
+                state.on_entry(event, fsm);
+            }
+        }
     }
 
     // helper allowing special handling of direct entries / fork
-    template <class StateType,class TargetType,class EventType,class FsmType>
-    static
-        typename ::boost::disable_if<
-            typename ::boost::mpl::or_<typename has_explicit_entry_state<TargetType>::type,
-                                       ::boost::mpl::is_sequence<TargetType> >::type,void>::type
-    convert_event_and_execute_entry(StateType& astate,EventType const& evt, FsmType& fsm, ::boost::msm::back::dummy<1> = 0)
+    template <class TargetType,class StateType,class EventType>
+    static void convert_event_and_execute_entry(StateType& astate,EventType const& evt, state_machine& sm)
     {
-        // if the target is a normal state, do the standard entry handling
-        execute_entry<StateType>(astate,evt,fsm);
-    }
-    template <class StateType,class TargetType,class EventType,class FsmType>
-    static
-        typename ::boost::enable_if<
-            typename ::boost::mpl::or_<typename has_explicit_entry_state<TargetType>::type,
-                                       ::boost::mpl::is_sequence<TargetType> >::type,void >::type
-    convert_event_and_execute_entry(StateType& astate,EventType const& evt, FsmType& fsm, ::boost::msm::back::dummy<0> = 0)
-    {
-        // for the direct entry, pack the event in a wrapper so that we handle it differently during fsm entry
-        execute_entry(astate,direct_entry_event<TargetType,EventType>(evt),fsm);
+        auto& fsm = sm.get_fsm_argument();
+        if constexpr (has_explicit_entry_state<TargetType>::value || mpl::is_sequence<TargetType>::value)
+        {
+            // for the direct entry, pack the event in a wrapper so that we handle it differently during fsm entry
+            execute_entry(astate,direct_entry_event<TargetType,EventType>(evt),fsm);
+        }
+        else
+        {
+            // if the target is a normal state, do the standard entry handling
+            execute_entry(astate,evt,fsm);
+        }
     }
 
     // initializes the SM
@@ -1856,7 +1794,7 @@ private:
         visit(
             [&root_sm](auto& state)
             {
-                using State = std::remove_reference_t<decltype(state)>;
+                using State = std::decay_t<decltype(state)>;
 
                 if constexpr (is_pseudo_exit<State>::value)
                 {

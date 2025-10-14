@@ -40,6 +40,18 @@ Also these bugs are fixed:
 - If the SM is stopped, no active state is visited instead of the last active state(s)
 
 
+### Method to check whether a state is active
+
+A new method `is_state_active` can be used to check whether a state is currently active:
+
+```cpp
+template <typename State>
+bool state_machine::is_state_active() const
+```
+
+If the type of the state appears multiple times in a hierarchical state machine, the method returns true if any of the states are active.
+
+
 ### Simplified state machine signature
 
 The signature has been simplified to facilitate sharing configurations between state machines. The new signature looks as follows:
@@ -61,6 +73,7 @@ struct default_state_machine_config
     using compile_policy = favor_runtime_speed;
     using context = no_context;
     using root_sm = no_root_sm;
+    using fsm_parameter = processing_sm;
     template<typename T>
     using queue_container = std::deque<T>;
 };
@@ -79,9 +92,9 @@ struct CustomStateMachineConfig : public state_machine_config
 **IMPORTANT:** The parameter `TDerived` has to be set to the derived class, if the `state_machine` class gets extended.
 
 
-## New state machine config setting for defining a context
+## New state machine config for defining a context
 
-The config setting `context` sets up a context member in the state machine for dependency injection.
+The config `context` sets up a context member in the state machine for dependency injection.
 
 If `using context = Context;` is defined in the config, a reference to it has to be passed to the state machine constructor as first argument.
 The following API becomes available to access it from within the state machine:
@@ -92,9 +105,9 @@ const Context& state_machine::get_context() const;
 ```
 
 
-## New state machine config setting for defining a root sm
+## New state machine config for defining a root sm
 
-The config setting `root_sm` defines the type of the root state machine of hierarchical state machines. The root sm depicts the uppermost state machine.
+The config `root_sm` defines the type of the root state machine of hierarchical state machines. The root sm depicts the uppermost state machine.
 
 If `using root_sm = RootSm;` is defined in the config, the following API becomes available to access it from within any sub-state machine:
 
@@ -107,8 +120,18 @@ It is strongly recommended to configure the `root_sm` in hierarchical state mach
 It reduces the compilation time, because it enables the back-end to instantiate the full set of construction-related methods
 only for the root and it can omit them for sub-state machines.
 
-**IMPORTANT:** If a `context` is used in a hierarchical state machine, then the `root_sm` must be set.
+**IMPORTANT:** If a `context` is used in a hierarchical state machine, then also the `root_sm` must be set.
 The `context` is then automatically accessed through the `root_sm`.
+
+
+## New state machine config for defining the `Fsm` parameter of actions and guards
+
+The config `fsm_parameter` defines the instance of the `Fsm& fsm` parameter that is passed to actions and guards in hierarchical state machines.
+It can be either the `processing_fsm` (the `state_machine` processing the event, default) or the `root_sm`.
+
+If `using processing_fsm = root_sm;` is defined in the config, the setting takes effect.
+
+**IMPORTANT:** If the `processing_fsm` is set to `root_sm`, then also the `root_sm` must be set.
 
 
 ## Generic support for serializers
