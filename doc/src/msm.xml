@@ -11,7 +11,7 @@
             <year>2008-2024</year>
             <holder>
                 <phrase> Distributed under the Boost Software License, Version 1.0. (See
-                    accompanying file LICENSE_1_0.txt or copy at <link xlink:href="http://www.boost.org/LICENSE_1_0.txt">http://www.boost.org/LICENSE_1_0.txt</link> ) </phrase>
+                    accompanying file LICENSE_1_0.txt or copy at <link xlink:href="http://www.boost.org/LICENSE_1_0.txt">http://www.boost.org/LICENSE_1_0.txt</link>)</phrase>
             </holder>
         </copyright>
     </info>
@@ -24,7 +24,7 @@
             <itemizedlist>
                 <listitem>
                     <para>When do I need a state machine?</para>
-                    <para>More often that you think. Very often, one defined a state machine
+                    <para>More often than you think. Very often, one defined a state machine
                         informally without even noticing it. For example, one declares inside a
                         class some boolean attribute, say to remember that a task has been
                         completed. Later the boolean actually needs a third value, so it becomes an
@@ -119,7 +119,7 @@
         </para>
     </preface>
     <part>
-        <title>User' guide</title>
+        <title>User guide</title>
         <chapter>
             <title>Founding idea</title>
             <para>Let's start with an example taken from the C++ Template Metaprogramming
@@ -241,8 +241,8 @@
                     <para>UML also defines a number of pseudo states, which are considered important
                         concepts to model, but not enough to make them first-class citizens. The
                         terminate pseudo state terminates the execution of a state machine (MSM
-                        handles this slightly differently. The state machine is not destroyed but no
-                        further event processing occurs.). </para>
+                        handles this slightly differently; the state machine is not destroyed but no
+                        further event processing occurs). </para>
                     <para><inlinemediaobject>
                             <imageobject>
                                 <imagedata fileref="images/terminate.gif"/>
@@ -501,7 +501,7 @@
             <title>Tutorial</title>
             <sect1>
                 <title>Design</title>
-                <para>MSM is divided between front–ends and back-ends. At the moment, there is just
+                <para>MSM is divided between front-ends and back-ends. At the moment, there is just
                     one back-end. On the front-end side, you will find three of them which are as
                     many state machine description languages, with many more possible. For potential
                     language writers, this document contains a <link xlink:href="#internals-front-back-interface">description of the interface
@@ -581,7 +581,7 @@ a_row&lt; Paused  , open_close ,  Open     , &amp;player_::stop_and_open        
                                 <para><code>_row</code> allows omitting action and guard.</para>
                             </listitem>
                         </itemizedlist></para>
-                    <para>The signature for an action methods is void method_name (event
+                    <para>The signature for an action method is void method_name (event
                         const&amp;), for example:</para>
                     <programlisting>void stop_playback(stop const&amp;)</programlisting>
                     <para>Action methods return nothing and take the argument as const reference. Of
@@ -722,7 +722,7 @@ template &lt;class Fire> void send_rocket(Fire const&amp; evt)
                     </para>
                     <para>And that is about all of what is absolutely needed. In the example, the
                         states are declared inside the state machine for readability but this is not
-                        a requirements, states can be declared wherever you like.</para>
+                        a requirement, states can be declared wherever you like.</para>
                     <para>All what is left to do is to pick a back-end (which is quite simple as
                         there is only one at the moment):</para>
                     <para>
@@ -739,7 +739,7 @@ template &lt;class Fire> void send_rocket(Fire const&amp; evt)
                     <para>State objects are built automatically with the state machine. They will
                         exist until state machine destruction. </para>
                     <para>When an unexpected event is fired, the <code>no_transition(event, state
-                            machine, state id)</code> method of the state machine is called . By
+                            machine, state id)</code> method of the state machine is called. By
                         default, this method simply asserts when called. It is possible to overwrite
                         the <code>no_transition</code> method to define a different handling:</para>
                     <para>
@@ -813,7 +813,7 @@ struct event1
    // the method required by this property
    void some_property(){...}
 };
-// this event does not supports some_event_property
+// this event does not support some_event_property
 struct event2
 {
 };
@@ -907,7 +907,7 @@ struct some_state : public msm::front::state&lt;>
                     <para>While this is wanted by UML and is simple, it is not always practical
                         because one could wish to defer only in certain conditions. One could also
                         want to make this be part of a transition action with the added bonus of a
-                        guard for more sophisticated behaviors. It would also be conform to the MSM
+                        guard for more sophisticated behaviors. It would also conform to the MSM
                         philosophy to get as much as possible in the transition table, where you
                         have the whole state machine structure. This is also possible but not
                         practical with this front-end so we will need to pick a different row from
@@ -927,7 +927,7 @@ struct some_state : public msm::front::state&lt;>
                     <para>
                         <programlisting>Row &lt; Empty , play , none , Defer , none ></programlisting>
                     </para>
-                    <para>This is an internal transition row(see <command xlink:href="#internal-transitions">internal transitions</command>) but
+                    <para>This is an internal transition row (see <command xlink:href="#internal-transitions">internal transitions</command>) but
                         you can ignore this for the moment. It just means that we are not leaving
                         the Empty state. What matters is that we use Defer as action. This is
                         roughly equivalent to the previous syntax but has the advantage of giving
@@ -1004,7 +1004,7 @@ g_row &lt; Empty , play , Playing , &amp;player_::condition2 ></programlisting>
                         main choice) which always activates history, whatever event triggers the
                         submachine activation. Deep history is not available as a policy (but could
                         be added). The reason is that it would conflict with policies which
-                        submachines could define. Of course, if for example, Song1 were a state
+                        submachines could define. Of course, if, for example, Song1 were a state
                         machine itself, it could use the ShallowHistory policy itself thus creating
                         Deep History for itself. An <link xlink:href="examples/History.cpp">example</link> is also provided.</para>
                 </sect2>
@@ -1061,11 +1061,11 @@ g_row &lt; Empty , play , Playing , &amp;player_::condition2 ></programlisting>
                         transitions. While it makes sense for a submachine with exit points, it is
                         surprising for a simple state. MSM lets you define the transition priority
                         by setting the transition’s position inside the transition table (see
-                            <command xlink:href="#run-to-completion">internals</command> ). The
+                            <command xlink:href="#run-to-completion">internals</command>). The
                         difference between "normal" and internal transitions is that internal
                         transitions have no target state, therefore we need new row types. We had
                         a_row, g_row, _row and row, we now add a_irow, g_irow, _irow and irow which
-                        are like normal transitions but define no target state. For, example an
+                        are like normal transitions but define no target state. For example, an
                         internal transition with a guard condition could be:</para>
                     <para>
                         <programlisting>g_irow &lt; Empty /*state*/,cd_detected/*event*/,&amp;p::internal_guard/* guard */></programlisting>
@@ -1088,11 +1088,11 @@ g_row &lt; Empty , play , Playing , &amp;player_::condition2 ></programlisting>
                         internal_transition_table and reacting on the event cd_detected by calling
                         internal_action on Empty. Let us note a few points:<itemizedlist>
                             <listitem>
-                                <para>internal tables are NOT called transition_table but
-                                    internal_transition_table</para>
+                                <para>Internal tables are NOT called transition_table but
+                                    internal_transition_table.</para>
                             </listitem>
                             <listitem>
-                                <para>they use different but similar row types: a_internal,
+                                <para>They use different but similar row types: a_internal,
                                     g_internal, _internal and internal.</para>
                             </listitem>
                             <listitem>
@@ -1108,7 +1108,7 @@ g_row &lt; Empty , play , Playing , &amp;player_::condition2 ></programlisting>
                                     itself.</para>
                             </listitem>
                             <listitem>
-                                <para>submachines can have an internal transition table and a
+                                <para>Submachines can have an internal transition table and a
                                     classical transition table.</para>
                             </listitem>
                         </itemizedlist></para>
@@ -1161,7 +1161,7 @@ g_row &lt; Empty , play , Playing , &amp;player_::condition2 ></programlisting>
                         submachine from a state. It is also slightly faster than the standard
                         alternative, adding orthogonal regions, because event dispatching will, if
                         accepted by the internal table, not continue to the subregions. This gives
-                        you a O(1) dispatch instead of O(number of regions). While the example is
+                        you an O(1) dispatch instead of O(number of regions). While the example is
                         with eUML, the same is also possible with any front-end.</para>
                 </sect2>
                 <sect2>
@@ -1170,7 +1170,7 @@ g_row &lt; Empty , play , Playing , &amp;player_::condition2 ></programlisting>
                         from the state machine but also from its contained states. In this case, one
                         must specify not just a method pointer but also the object on which to call
                         it. This transition row is called, not very originally, <code>row2</code>.
-                        They come, like normal transitions in four flavors: <code>a_row2, g_row2,
+                        They come, like normal transitions, in four flavors: <code>a_row2, g_row2,
                             _row2 and row2</code>. For example, a transition calling an action from
                         the state Empty could be:</para>
                     <para>
@@ -1193,8 +1193,8 @@ g_row &lt; Empty , play , Playing , &amp;player_::condition2 ></programlisting>
                     <para>MSM (almost) fully supports these features, described in the <command xlink:href="#uml-history">small UML tutorial</command>. Almost because
                         there are currently two limitations: <itemizedlist>
                             <listitem>
-                                <para>it is only possible to explicitly enter a sub- state of the
-                                    target but not a sub-sub state.</para>
+                                <para>it is only possible to explicitly enter a sub-state of the
+                                    target but not a sub-sub-state.</para>
                             </listitem>
                             <listitem>
                                 <para>it is not possible to explicitly exit. Exit points must be
@@ -1273,7 +1273,7 @@ g_row &lt; Empty , play , Playing , &amp;player_::condition2 ></programlisting>
                             backend instance (SubFsm2). SubFsm2::direct states that an explicit
                             entry is desired.</para>
                         <para><command xml:id="explicit-entry-no-region-id"/>Thanks to the <command xlink:href="#backend-compile-time-analysis">mpl_graph</command> library you can also omit to provide the region
-                            index and let MSM find out for you. The are however two points to note:<itemizedlist>
+                            index and let MSM find out for you. There are however two points to note:<itemizedlist>
                                 <listitem>
                                     <para>MSM can only find out the region index if the explicit
                                         entry state is somehow connected to an initial state through
@@ -1283,7 +1283,7 @@ g_row &lt; Empty , play , Playing , &amp;player_::condition2 ></programlisting>
                                     <para>There is a compile-time cost for this feature.</para>
                                 </listitem>
                             </itemizedlist></para>
-                        <para><emphasis role="underline">Note (also valid for forks)</emphasis>: in
+                        <para><emphasis role="underline">Note (also valid for forks)</emphasis>: In
                             order to make compile time more bearable for the more standard cases,
                             and unlike initial states, explicit entry states which are also not
                             found in the transition table of the entered submachine (a rare case) do
@@ -1312,7 +1312,7 @@ g_row &lt; Empty , play , Playing , &amp;player_::condition2 ></programlisting>
      ></programlisting>
                         </para>
                         <para>With SubState2 defined as before and SubState2b defined as being in
-                            the second region (Caution: MSM does not check that the region is
+                            the second region (caution: MSM does not check that the region is
                             correct):</para>
                         <para>
                             <programlisting>struct SubState2b : public msm::front::state&lt;> , 
@@ -1321,7 +1321,7 @@ g_row &lt; Empty , play , Playing , &amp;player_::condition2 ></programlisting>
                     </sect3>
                     <sect3>
                         <title>Entry pseudo states</title>
-                        <para> To define an entry pseudo state, you need derive from the
+                        <para> To define an entry pseudo state, you need to derive from the
                             corresponding class and give the region id:</para>
                         <para>
                             <programlisting>struct PseudoEntry1 : public msm::front::entry_pseudo_state&lt;0></programlisting>
@@ -1521,7 +1521,7 @@ struct char_0 : public digit {}; </programlisting>
                         This is done with two simple typedefs:<itemizedlist>
                             <listitem>
                                 <para><code>no_exception_thrown</code> indicates that behaviors will
-                                    never throw and MSM does not need to catch anything</para>
+                                    never throw and MSM does not need to catch anything.</para>
                             </listitem>
                             <listitem>
                                 <para><code>no_message_queue</code> indicates that no action will
@@ -1565,7 +1565,7 @@ typedef my_initial_event initial_event;
                 <sect2>
                     <title> Containing state machine (deprecated)</title>
                     <para>This feature is still supported in MSM for backward compatibility but made
-                        obsolete by the fact that every guard/action/entry action/exit action get
+                        obsolete by the fact that every guard/action/entry action/exit action gets
                         the state machine passed as argument and might be removed at a later
                         time.</para>
                     <para>All of the states defined in the state machine are created upon state
@@ -1603,7 +1603,7 @@ typedef my_initial_event initial_event;
                         <listitem>
                             <para>The action/guard signature is limited and does not allow for more
                                 variations of parameters (source state, target state, current state
-                                machine, etc.)</para>
+                                machine, etc.).</para>
                         </listitem>
                         <listitem>
                             <para>It is not easy to reuse action code from a state machine to
@@ -1652,7 +1652,7 @@ Row  &lt; Paused  , open_close ,  Open     , stop_and_open             , none   
         fsm.process_event(play());
     } 
 }; </programlisting>
-                    <para>The advantage of functors compared to functions are that functors are
+                    <para>The advantage of functors compared to functions is that functors are
                         generic and reusable. They also allow passing more parameters than just
                         events. The guard functors are the same but have an operator() returning a
                         bool.</para>
@@ -1685,7 +1685,7 @@ Row  &lt; Paused  , open_close ,  Open     , stop_and_open             , none   
                         doing this as it is the simplest solution. You still enjoy the simplicity of
                         the first front-end with the extended power of the new transition types.
                         This <link xlink:href="examples/SimpleWithFunctors.cpp">tutorial</link>,
-                        adapted from the earlier example does just this.</para>
+                        adapted from the earlier example, does just this.</para>
                     <para>Of course, it is also possible to define states where entry and exit
                         actions are also provided as functors as these are generated by eUML and
                         both front-ends are equivalent. For example, we can define a state
@@ -1744,7 +1744,7 @@ struct Empty : public msm::front::euml::func_state&lt;Empty_tag,Empty_Entry,Empt
                     <title>Defining a simple state machine</title>
                     <para>Like states, state machines can be defined using the previous front-end,
                         as the previous example showed, or with the functor front-end, which allows
-                        you to define a state machine entry and exit functions as functors, as in
+                        you to define state machine entry and exit functions as functors, as in
                             <link xlink:href="examples/SimpleWithFunctors2.cpp">this
                         example</link>.</para>
                 </sect2>
@@ -1780,15 +1780,14 @@ struct Empty : public msm::front::euml::func_state&lt;Empty_tag,Empty_Entry,Empt
                             <listitem>
                                 <para>providing an <code>internal_transition_table</code> made of
                                         <code>Internal</code> rows inside a state or submachine
-                                    defines UML-conform internal transitions with higher
+                                    defines UML-conforming internal transitions with higher
                                     priority.</para>
                             </listitem>
                             <listitem>
                                 <para>transitions defined inside
                                         <code>internal_transition_table</code> require no source or
                                     target state as the source state is known (<code>Internal</code>
-                                    really are <code>Row</code> without a source or target state)
-                                    .</para>
+                                    really are <code>Row</code> without a source or target state).</para>
                             </listitem>
                         </itemizedlist>Like for the <command xlink:href="#internal-transitions-note">standard front-end internal transitions</command>, internal transition
                         tables are added into the main state machine's table, thus allowing you to
@@ -1798,17 +1797,17 @@ struct Empty : public msm::front::euml::func_state&lt;Empty_tag,Empty_Entry,Empt
                         priority). This makes it easier if you decide to make a full submachine from
                         a state later. It is also slightly faster than the standard alternative,
                         adding orthogonal regions, because event dispatching will, if accepted by
-                        the internal table, not continue to the subregions. This gives you a O(1)
+                        the internal table, not continue to the subregions. This gives you an O(1)
                         dispatch instead of O(number of regions). While the example is with eUML,
                         the same is also possible with this front-end.</para>
                 </sect2>
                 <sect2>
                     <title><command xml:id="any-event"/>Kleene (any) event</title>
                     <para>Normally, MSM requires an event to fire a transition. But there are cases,
-                        where any event, no matter which one would do:<itemizedlist>
+                        where any event, no matter which one, would do:<itemizedlist>
                             <listitem>
                                 <para>If you want to reduce the number of transitions: any event
-                                    would do, possibly will guards decide what happens</para>
+                                    would do, possibly will guards decide what happens.</para>
                             </listitem>
                             <listitem>
                                 <para>Pseudo entry states do not necessarily want to know the event
@@ -1820,7 +1819,7 @@ struct Empty : public msm::front::euml::func_state&lt;Empty_tag,Empty_Entry,Empt
                         any event, meaning that if a transition with boost::any as event originates
                         from the current state, this transition would fire (provided no guards or
                         transition with a higher priority fires first). This event is named Kleene,
-                        as reference top the Kleene star used in a regex.</para>
+                        as a reference to the Kleene star used in a regex.</para>
                     <para>For example, this transition on a state machine instance named fsm:</para>
                     <programlisting>Row &lt; State1, boost::any, State2></programlisting>
                     <para>will fire if State1 is active and an event is processed:</para>
@@ -1882,11 +1881,11 @@ struct Empty : public msm::front::euml::func_state&lt;Empty_tag,Empty_Entry,Empt
                             <para>Terminal states are marked with Terminal -> [*]</para>
                         </listitem>
                         <listitem>
-                            <para>Transitions floow the syntax: Source State -> Target State : event
+                            <para>Transitions follow the syntax: Source State -> Target State : event
                                 / Action1,Action2 [guard conditions]</para>
                         </listitem>
                         <listitem>
-                            <para>Varying the number of "-" will make the layouter use longe arrows
+                            <para>Varying the number of "-" will make the layouter use longer arrows
                                 for transitions</para>
                         </listitem>
                         <listitem>
@@ -1923,7 +1922,7 @@ struct Empty : public msm::front::euml::func_state&lt;Empty_tag,Empty_Entry,Empt
                             </listitem>
                             <listitem>
                                 <para>
-                                    An internal Kleen would then be: <programlisting>Empty       -> Empty        : -*            / defer               [is_play_event]</programlisting></para>
+                                    An internal Kleene would then be: <programlisting>Empty       -> Empty        : -*            / defer               [is_play_event]</programlisting></para>
                             </listitem>
                     </itemizedlist></para>
                 <para>Before PUML one had to convert this syntax in the classical MSM transition
@@ -1984,8 +1983,8 @@ struct Empty : public msm::front::euml::func_state&lt;Empty_tag,Empty_Entry,Empt
                 <para>The PlantUML string is parsed at compile-time and generates a classical
                     Functor front-end.</para>
                 <para>States and event do not need to be defined any more, unless one needs to
-                    provide them with attributes, or if the state are submachines. Actions and
-                    Guards do need to be implemented to reduced bugs because of typos:</para>
+                    provide them with attributes, or if the states are submachines. Actions and
+                    Guards do need to be implemented to reduce bugs because of typos:</para>
                 <programlisting>namespace boost::msm::front::puml {
     template&lt;>
     struct Action&lt;by_name("close_drawer")>
@@ -2055,7 +2054,7 @@ namespace boost::msm::front::puml {
     };
 }
                 </programlisting>
-                <para>We can the reference the submachine within the upper state machine:</para>
+                <para>We can reference the submachine within the upper state machine:</para>
                 <programlisting>PlayingFsm  --> Stopped       : stop          / stop_playback</programlisting>
                 <para>Again, <link xlink:href="examples/OrthogonalDeferredPuml.cpp">a complete
                             implementation</link> of the player is provided. Interesting are the
@@ -2183,7 +2182,7 @@ typedef boost::msm::back11::state_machine&lt;sub_front_end> sub_back_end;
 
 sub_back_end const sub; // sub can be used in a transition table.</programlisting>
                     <para>Unfortunately, there is a bug with VC, which appears from time to time and
-                        causes in a stack overflow. If you get a warning that the program is
+                        causes a stack overflow. If you get a warning that the program is
                         recursive on all paths, revert to either standard eUML or another front-end
                         as Microsoft doesn't seem to intend to fix it.</para>
                     <para>We now have a new, more readable transition table with few changes to our
@@ -2272,7 +2271,7 @@ Playing   == Stopped  + play        / start_playback() ,
                         <para>This means that Empty is defined as a state with an entry action made
                             of two sub-actions, Empty_Entry and Dummy_Entry (enclosed inside
                             parenthesis), and an exit action, Empty_Exit.</para>
-                        <para>There are several possibilitites for the <command xml:id="eUML-build-state"/> expression syntax:<itemizedlist>
+                        <para>There are several possibilities for the <command xml:id="eUML-build-state"/> expression syntax:<itemizedlist>
                                 <listitem>
                                     <para>(): state without entry or exit action.</para>
                                 </listitem>
@@ -2373,7 +2372,7 @@ Empty_impl const Empty;</programlisting>
                                 <para>(Stt, Init, Expr1, Expr2, Attributes, Flags, Deferred , Base):
                                     state machine where the transition table, initial state, entry
                                     and exit actions are defined. Furthermore, attributes (read
-                                    further on), flags , deferred events and configuration
+                                    further on), flags, deferred events and configuration
                                     capabilities (no message queue / no exception catching) are
                                     added and a non-default base state (see the <link xlink:href="#backend-base-state">back-end
                                     description</link>) is defined.</para>
@@ -2396,7 +2395,7 @@ Empty_impl const Empty;</programlisting>
                     <para>Defining a submachine (see <link xlink:href="examples/CompositeTutorialEuml.cpp">tutorial</link>) with
                         other front-ends simply means using a state which is a state machine in the
                         transition table of another state machine. This is the same with eUML. One
-                        only needs define a second state machine and reference it in the transition
+                        only needs to define a second state machine and reference it in the transition
                         table of the containing state machine.</para>
                     <para>Unlike the state or event definition macros,
                         BOOST_MSM_EUML_DECLARE_STATE_MACHINE defines a type, not an instance because
@@ -2453,7 +2452,7 @@ BOOST_MSM_EUML_DECLARE_ATTRIBUTE(DiskTypeEnum,cd_type)</programlisting>
                         you have all at hand.</para>
                     <para>MSM provides more generic objects for state machine types:<itemizedlist>
                             <listitem>
-                                <para>event_ : used inside any action, the event triggering the
+                                <para>event_: used inside any action, the event triggering the
                                     transition</para>
                             </listitem>
                             <listitem>
@@ -2499,7 +2498,7 @@ BOOST_MSM_EUML_DECLARE_ATTRIBUTE(DiskTypeEnum,cd_type)</programlisting>
                         own methods, which you also want to use inside the transition table. In the
                             <link xlink:href="examples/SimpleTutorialEuml.cpp">above
                         tutorial</link>, we provide Empty with an activate_empty method. We would
-                        like to create a eUML functor and call it from inside the transition table.
+                        like to create an eUML functor and call it from inside the transition table.
                         This is done using the MSM_EUML_METHOD / MSM_EUML_FUNCTION macros. The first
                         creates a functor to a method, the second to a free function. In the
                         tutorial, we write:</para>
@@ -2527,7 +2526,7 @@ BOOST_MSM_EUML_DECLARE_ATTRIBUTE(DiskTypeEnum,cd_type)</programlisting>
                     <title>Orthogonal regions, flags, event deferring</title>
                     <para>Defining orthogonal regions really means providing more initial states. To
                         add more initial states, “shift left” some, for example, if we had another
-                        initial state named AllOk :</para>
+                        initial state named AllOk:</para>
                     <programlisting>BOOST_MSM_EUML_DECLARE_STATE_MACHINE((transition_table,
                                      init_ &lt;&lt; Empty &lt;&lt; AllOk ),
                                     player_)</programlisting>
@@ -2550,7 +2549,7 @@ BOOST_MSM_EUML_DECLARE_ATTRIBUTE(DiskTypeEnum,cd_type)</programlisting>
                     <para><emphasis role="underline">Note</emphasis>: As we use the version of
                         BOOST_MSM_EUML_STATE's expression with 4 arguments, we need to tell eUML
                         that we need no attributes. Similarly to a <code>cout &lt;&lt; endl</code>,
-                        we need a <code>attributes_ &lt;&lt; no_attributes_</code> syntax.</para>
+                        we need an <code>attributes_ &lt;&lt; no_attributes_</code> syntax.</para>
                     <para>You can use the flag with the is_flag_active method of a state machine.
                         You can also use the provided helper function is_flag_ (returning a bool)
                         for state and transition behaviors. For example, in the <link xlink:href="examples/iPodEuml.cpp">iPod implementation with eUML</link>,
@@ -2633,7 +2632,7 @@ BOOST_MSM_EUML_DECLARE_ATTRIBUTE(DiskTypeEnum,cd_type)</programlisting>
                 </sect2>
                 <sect2>
                     <title>Completion / Anonymous transitions</title>
-                    <para>Anonymous transitions (See <command xlink:href="#uml-anonymous">UML
+                    <para>Anonymous transitions (see <command xlink:href="#uml-anonymous">UML
                             tutorial</command>) are transitions without a named event, which are
                         therefore triggered immediately when the source state becomes active,
                         provided a guard allows it. As there is no event, to define such a
@@ -2677,13 +2676,13 @@ struct Open_impl : public Open_def
                                     full submachine from a state. It is also slightly faster than
                                     the standard alternative, adding orthogonal regions, because
                                     event dispatching will, if accepted by the internal table, not
-                                    continue to the subregions. This gives you a O(1) dispatch
+                                    continue to the subregions. This gives you an O(1) dispatch
                                     instead of O(number of regions).</para>
                             </listitem>
                         </itemizedlist></para>
                 </sect2>
                 <sect2>
-                    <title><command xml:id="kleene-event"/>Kleene(any) event)</title>
+                    <title><command xml:id="kleene-event"/>Kleene (any) event</title>
                     <para>As for the functor front-end, eUML supports the concept of an <emphasis role="italic"><command xlink:href="#any-event">any</command></emphasis>
                         event, but boost::any is not an acceptable eUML terminal. If you need an
                             <emphasis role="italic">any</emphasis> event, use
@@ -2762,7 +2761,7 @@ struct Open_impl : public Open_def
                     <title>Helper functions</title>
                     <para>We saw a few helpers but there are more, so let us have a more complete description:<itemizedlist>
                             <listitem>
-                                <para>event_ : used inside any action, the event triggering the
+                                <para>event_: used inside any action, the event triggering the
                                     transition</para>
                             </listitem>
                             <listitem>
@@ -2826,7 +2825,7 @@ struct Open_impl : public Open_def
                                 <para>process_(some_event [, some state machine] [, some state
                                     machine] [, some state machine] [, some state machine]) will
                                     call process_event (some_event) on the current state machine or
-                                    on the one(s) passed as 2nd , 3rd, 4th, 5th argument. This allow
+                                    on the one(s) passed as 2nd, 3rd, 4th, 5th argument. This allows
                                     sending events to several external machines</para>
                             </listitem>
                             <listitem>
@@ -2859,7 +2858,7 @@ struct Open_impl : public Open_def
                  (fsm_(m_SongIndex)=Int_&lt;1>(),process_(EndPlay))/*else clause*/
                  ) 
   )</programlisting>
-                    <para>means: if (fsm.SongIndex > 0, call show_playing_song else
+                    <para>means: if (fsm.SongIndex > 0), call show_playing_song, else
                         {fsm.SongIndex=1; process EndPlay on fsm;}</para>
                     <para>A few examples are using these features:<itemizedlist>
                             <listitem>
@@ -2895,7 +2894,7 @@ struct Open_impl : public Open_def
                         for example:<itemizedlist>
                             <listitem>
                                 <para>begin_(container), end_(container): return iterators of a
-                                    container.</para>
+                                    container</para>
                             </listitem>
                             <listitem>
                                 <para>empty_(container): returns container.empty()</para>
@@ -2904,7 +2903,7 @@ struct Open_impl : public Open_def
                                 <para>clear_(container): container.clear()</para>
                             </listitem>
                             <listitem>
-                                <para>transform_ : std::transform</para>
+                                <para>transform_: std::transform</para>
                             </listitem>
                         </itemizedlist></para>
                     <para>In a nutshell, almost every STL method or algorithm is matched by a
@@ -2978,7 +2977,7 @@ struct Open_impl : public Open_def
                         </itemizedlist>
                     </para>
                     <para>MSM also provides placeholders which make more sense in its context
-                        than arg1.. argn:</para>
+                        than arg1 .. argn:</para>
                     <para>
                         <itemizedlist>
                             <listitem>
@@ -3039,7 +3038,7 @@ struct Open_impl : public Open_def
                         back to the initial state is an algorithm call. Each call to start will make
                         the algorithm run once. The <link xlink:href="examples/iPodSearch.cpp">iPodSearch</link> example uses this possibility.</para>
                     <para>The <code>stop()</code> method works the same way. It will cause the exit
-                        actions of the currently active states(s) to be called.</para>
+                        actions of the currently active state(s) to be called.</para>
                     <para>Both methods are actually not an absolute need. Not calling them will
                         simply cause your first entry or your last exit action not to be
                         called.</para>
@@ -3075,7 +3074,7 @@ some_event e1; fsm.process_event(e1)</programlisting>
                 <sect2>
                     <title>Upper State Machine</title>
                     <para>The FSM template argument passed to functors or entry/exit actions is the
-                        current state machine, which might not be what is wanted as th upper state
+                        current state machine, which might not be what is wanted as the upper state
                         machine makes more sense. The back-end provides a get_upper() function
                         returning a pointer to the upper state machine, which is usually what you
                         want to call process_event on.</para>
@@ -3156,7 +3155,7 @@ std::ofstream ofs("fsm.txt");
                             <code>BOOST_MSM_EUML_STATE</code> cannot be used, so the state will have
                         to be implemented by directly inheriting from
                             <code>front::euml::euml_state</code>.</para>
-                    <para>The only limitiation is that the event queues cannot be serialized so
+                    <para>The only limitation is that the event queues cannot be serialized so
                         serializing must be done in a stable state, when no event is being
                         processed. You can serialize during event processing only if using no queue
                         (deferred or event queue).</para>
@@ -3210,7 +3209,7 @@ std::ofstream ofs("fsm.txt");
                         return value (unused for the moment) and parameters and provide an accept
                         method with this signature, calling visit_current_states will cause accept
                         to be called on the currently active states. Typically, you will also want
-                        to provide an empty default accept in your base state in order in order not
+                        to provide an empty default accept in your base state in order not
                         to force all your states to implement accept. For example your base state
                         could be:</para>
                     <programlisting>struct my_visitable_state
@@ -3268,7 +3267,7 @@ my_fsm.is_flag_active&lt;MyFlag,my_fsm_type::Flag_OR>()</programlisting>
                     <title>Getting a state</title>
                     <para>It is sometimes necessary to have the client code get access to the
                         states' data. After all, the states are created once for good and hang
-                        around as long as the state machine does so why not use it? You simply just
+                        around as long as the state machine does, so why not use it? You simply just
                         need sometimes to get information about any state, even inactive ones. An
                         example is if you want to write a coverage tool and know how many times a
                         state was visited. To get a state, use the get_state method giving the state
@@ -3402,12 +3401,12 @@ BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(mysubmachine)</programlisting>
                 </sect2>
                 <sect2>
                     <title><command xml:id="backend-compile-time-analysis"/>Compile-time state machine analysis </title>
-                    <para>A MSM state machine being a metaprogram, it is only logical that cheking
+                    <para>A MSM state machine being a metaprogram, it is only logical that checking
                         for the validity of a concrete state machine happens compile-time. To this
                         aim, using the compile-time graph library <link xlink:href="http://www.dynagraph.org/mpl_graph/">mpl_graph</link> (delivered at the moment
                         with MSM) from Gordon Woodhull, MSM provides several compile-time checks:<itemizedlist>
                             <listitem>
-                                <para>Check that orthogonal regions ar truly orthogonal.</para>
+                                <para>Check that orthogonal regions are truly orthogonal.</para>
                             </listitem>
                             <listitem>
                                 <para>Check that all states are either reachable from the initial
@@ -3549,7 +3548,7 @@ BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(mysubmachine)</programlisting>
                             <para>The simple test completes 46 times faster with MSM</para>
                         </listitem>
                         <listitem>
-                            <para>The composite test completes 19 times faster with Msm</para>
+                            <para>The composite test completes 19 times faster with MSM</para>
                         </listitem>
                     </itemizedlist></para>
             </sect1>
@@ -3606,7 +3605,7 @@ BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(mysubmachine)</programlisting>
                                 going to make you storm the CFO's office and make sure you get a
                                 shiny octocore with 12GB RAM by next week, unless he's interested in
                                 paying you watch the compiler agonize for hours... (Make sure you
-                                ask for dual 24" as well, it doesn't hurt).</para>
+                                ask for dual 24" as well, it doesn't hurt.)</para>
                         </listitem>
                         <listitem>
                             <para>eUML allows very long constructs but will also quickly increase
@@ -3648,13 +3647,13 @@ typename ::boost::enable_if&lt;
                 <para>I get the following error:</para>
                 <para>error C2770: invalid explicit template argument(s) for '`global
                     namespace'::boost::enable_if&lt;...>::...' </para>
-                <para>If I now remove the first “::” in ::boost::mpl , the compiler shuts up. So in
+                <para>If I now remove the first “::” in ::boost::mpl, the compiler shuts up. So in
                     this case, it is not possible to follow Boost’s guidelines.</para>
                 <para><emphasis role="underline">VC9</emphasis>:<itemizedlist>
                         <listitem>
                             <para>This one is my all times’ favorite. Do you know why the exit
                                 pseudo states are referenced in the transition table with a
-                                “submachine::exit_pt” ? Because “exit” will crash the compiler.
+                                “submachine::exit_pt”? Because “exit” will crash the compiler.
                                 “Exit” is not possible either because it will crash the compiler on
                                 one machine, but not on another (the compiler was installed from the
                                 same disk).</para>
@@ -3716,7 +3715,7 @@ typename ::boost::enable_if&lt;
                             located inside the heap.</para>
                     </listitem>
                 </itemizedlist></para>
-            <para><emphasis role="underline">Question</emphasis>: on_entry gets as argument, the
+            <para><emphasis role="underline">Question</emphasis>: on_entry gets as argument the
                 sent event. What event do I get when the state becomes default-activated (because it
                 is an initial state)?</para>
             <para>
@@ -3736,7 +3735,7 @@ typename ::boost::enable_if&lt;
             <para><emphasis role="underline">Question</emphasis>: Why do I get a compile error
                 saying something like “too few” or “too many” template arguments? </para>
             <para><emphasis role="underline">Answer</emphasis>: You probably defined a transition in
-                form of a a_row or g_row where you wanted just a _row or the other way around. With
+                form of an a_row or g_row where you wanted just a _row or the other way around. With
                 Row, it could mean that you forgot a "none". </para>
             <para><emphasis role="underline">Question</emphasis>: Why do I get a very long compile
                 error when I define more than 20 rows in the transition table? </para>
@@ -3746,7 +3745,7 @@ typename ::boost::enable_if&lt;
             <programlisting>#define BOOST_MPL_CFG_NO_PREPROCESSED_HEADERS
 #define BOOST_MPL_LIMIT_VECTOR_SIZE 30 // or whatever you need               
 #define BOOST_MPL_LIMIT_MAP_SIZE 30 // or whatever you need </programlisting>
-            <para><emphasis role="underline">Question</emphasis>: Why do I get this error: ”error
+            <para><emphasis role="underline">Question</emphasis>: Why do I get this error: “error
                 C2977: 'boost::mpl::vector' : too many template arguments”? </para>
             <para><emphasis role="underline">Answer</emphasis>: The first possibility is that you
                 defined a transition table as, say, vector17 and have 18 entries. The second is that
@@ -3754,7 +3753,7 @@ typename ::boost::enable_if&lt;
                 every event in the composite transition table. The third one is that you used a
                 mpl::vector without the number of entries but are close to the MPL default of 50 and
                 have a composite, thus pushing you above 50. Then you need mpl/vector60/70….hpp and
-                a mpl/map60/70….hpp </para>
+                a mpl/map60/70….hpp.</para>
             <para><emphasis role="underline">Question</emphasis>: Why do I get a very long compile
                 error when I define more than 10 states in a state machine? </para>
             <para><emphasis role="underline">Answer</emphasis>: MSM uses Boost.Fusion under the hood
@@ -3766,10 +3765,10 @@ typename ::boost::enable_if&lt;
             <title>Internals</title>
             <para>This chapter describes the internal machinery of the back-end, which can be useful
                 for UML experts but can be safely ignored for most users. For implementers, the
-                interface between front- and back- end is also described in detail.</para>
+                interface between front- and back-end is also described in detail.</para>
             <sect1>
                 <title><command xml:id="run-to-completion"/>Backend: Run To Completion</title>
-                <para>The back-end implements the following run-to completion algorithm:<itemizedlist>
+                <para>The back-end implements the following run-to-completion algorithm:<itemizedlist>
                         <listitem>
                             <para>Check if one region of the concrete state machine is in a
                                 terminate or interrupt state. If yes, event processing is disabled
@@ -3852,7 +3851,7 @@ typename ::boost::enable_if&lt;
                         </listitem>
                         <listitem>
                             <para>Then, events queued in the message queue also get a dispatching
-                                chance</para>
+                                chance.</para>
                         </listitem>
                         <listitem>
                             <para>Finally, completion / anonymous transitions, if to be found in the
@@ -3880,7 +3879,7 @@ typename ::boost::enable_if&lt;
                     front-end) must provide a transition_table. This transition table must be made
                     of rows. And each row must tell what kind of transition it is and implement the
                     calls to the actions and guards. A state machine must also define its regions
-                    (marked by initial states) And that is about the only constraints for
+                    (marked by initial states). And that is about the only constraints for
                     front-ends. How the rows are described is implementer's choice. </para>
                 <para>Every row must provide:</para>
                 <itemizedlist>
@@ -3893,7 +3892,7 @@ typename ::boost::enable_if&lt;
                             state.</para>
                     </listitem>
                     <listitem>
-                        <para>A <code>Evt</code> typedef indicating the type of the event triggering
+                        <para>An <code>Evt</code> typedef indicating the type of the event triggering
                             the transition.</para>
                     </listitem>
                     <listitem>
@@ -3975,14 +3974,14 @@ typename ::boost::enable_if&lt;
                                     <para>sm__i_row_tag: an internal transition (defined inside the
                                             <code>internal_transition_table</code>) without action
                                         or guard. Due to higher priority for internal transitions,
-                                        this is quivalent to a "ignore event"</para>
+                                        this is equivalent to an "ignore event"</para>
                                 </listitem>
                             </itemizedlist></para>
                     </listitem>
                 </itemizedlist>
                 <para>Furthermore, a front-end must provide the definition of states and state
                     machines. State machine definitions must provide (the implementer is free to
-                    provide it or let it be done by every concrete state machine. Different MSM
+                    provide it or let it be done by every concrete state machine; different MSM
                     front-ends took one or the other approach):<itemizedlist>
                         <listitem>
                             <para><code>initial_state</code>: This typedef can be a single state or
@@ -4003,7 +4002,7 @@ typename ::boost::enable_if&lt;
                 <para>States and state machines must both provide a (possibly empty) definition of:<itemizedlist>
                         <listitem>
                             <para><code>flag_list</code>: the flags being active when this state or
-                                state machine become the current state of the fsm.</para>
+                                state machine becomes the current state of the fsm.</para>
                         </listitem>
                         <listitem>
                             <para><code>deferred_events</code>: events being automatically deferred
@@ -4077,7 +4076,7 @@ typename ::boost::enable_if&lt;
                         </listitem>
                         <listitem>
                             <para>fill_state_names fills an array of char const* with names of all
-                                states (found by typeid)</para>
+                                states (found by typeid).</para>
                         </listitem>
                         <listitem>
                             <para>using mpl::for_each on the result of generate_state_set and
@@ -4107,16 +4106,16 @@ typename ::boost::enable_if&lt;
                 <para>
                     <itemizedlist>
                         <listitem>
-                            <para>Thanks to Dave Abrahams for managing the review</para>
+                            <para>Thanks to Dave Abrahams for managing the review.</para>
                         </listitem>
                         <listitem>
                             <para>Thanks to Eric Niebler for his patience correcting my grammar
-                                errors</para>
+                                errors.</para>
                         </listitem>
                         <listitem>
                             <para>Special thanks to Joel de Guzman who gave me very good ideas at
                                 the BoostCon09. These ideas were the starting point of the redesign.
-                                Any time again, Joel ☺</para>
+                                Any time again, Joel. ☺</para>
                         </listitem>
                         <listitem>
                             <para>Thanks to Richard O’Hara for making Green Hills bring a patch in
@@ -4147,7 +4146,7 @@ typename ::boost::enable_if&lt;
                             <para>The original version of this framework is based on the brilliant
                                 work of David Abrahams and Aleksey Gurtovoy who laid down the base
                                 and the principles of the framework in their excellent book, “C++
-                                template Metaprogramming”. The implementation also makes heavy use
+                                Template Metaprogramming”. The implementation also makes heavy use
                                 of the boost::mpl.</para>
                         </listitem>
                         <listitem>
@@ -4158,7 +4157,7 @@ typename ::boost::enable_if&lt;
                         <listitem>
                             <para>Thanks to my MSM v1 beta testers, Christoph Woskowski and Franz
                                 Alt for using the framework with little documentation and to my
-                                private reviewer, Edouard Alligand</para>
+                                private reviewer, Edouard Alligand.</para>
                         </listitem>
                     </itemizedlist>
                 </para>
@@ -5962,9 +5961,9 @@ typename ::boost::enable_if&lt;
                         <title>defer_event</title>
                         <para> Defers the provided event. This method can be called only if at least
                             one state defers an event or if the state machine provides the
-                                <code>activate_deferred_events</code>(see <link xlink:href="examples/Orthogonal-deferred2.cpp">example</link>) type
+                                <code>activate_deferred_events</code> (see <link xlink:href="examples/Orthogonal-deferred2.cpp">example</link>) type
                             either directly or using the deferred_events configuration of eUML
-                                (<code>configure_ &lt;&lt; deferred_events</code>)</para>
+                                (<code>configure_ &lt;&lt; deferred_events</code>).</para>
                         <methodsynopsis>
                             <methodname>template &lt;class Event> void defer_event</methodname>
                             <methodparam>
@@ -6027,7 +6026,7 @@ typename ::boost::enable_if&lt;
             </refsect1>
             <refsect1>
                 <title>args.hpp</title>
-                <para>This header provides one type, args. which provides the necessary types for a
+                <para>This header provides one type, args, which provides the necessary types for a
                     visitor implementation.</para>
             </refsect1>
             <refsect1>
@@ -6354,7 +6353,7 @@ std::cout &lt;&lt; "typeid-generated name Open is: " &lt;&lt;  name_of_open &lt;
                         <title>methods</title>
                         <para>Like any other front-end, Row implements the two necessary static
                             functions for action and guard call. Each function receives as parameter
-                            the (deepest-level) state machine processsing the event, the event
+                            the (deepest-level) state machine processing the event, the event
                             itself, the source and target states and all the states contained in a
                             state machine.</para>
                         <funcsynopsis>
@@ -6419,7 +6418,7 @@ std::cout &lt;&lt; "typeid-generated name Open is: " &lt;&lt;  name_of_open &lt;
                         <title>methods</title>
                         <para>Like any other front-end, Internal implements the two necessary static
                             functions for action and guard call. Each function receives as parameter
-                            the (deepest-level) state machine processsing the event, the event
+                            the (deepest-level) state machine processing the event, the event
                             itself, the source and target states and all the states contained in a
                             state machine.</para>
                         <funcsynopsis>
@@ -6518,7 +6517,7 @@ std::cout &lt;&lt; "typeid-generated name Open is: " &lt;&lt;  name_of_open &lt;
                     <title>methods</title>
                     <para>Like any other front-end, the following transition row types implements
                         the two necessary static functions for action and guard call. Each function
-                        receives as parameter the (deepest-level) state machine processsing the
+                        receives as parameter the (deepest-level) state machine processing the
                         event, the event itself, the source and target states and all the states
                         contained in a state machine.</para>
                     <funcsynopsis>
@@ -6693,7 +6692,7 @@ std::cout &lt;&lt; "typeid-generated name Open is: " &lt;&lt;  name_of_open &lt;
                     <title>methods</title>
                     <para>Like any other front-end, the following transition row types implements
                         the two necessary static functions for action and guard call. Each function
-                        receives as parameter the (deepest-level) state machine processsing the
+                        receives as parameter the (deepest-level) state machine processing the
                         event, the event itself, the source and target states and all the states
                         contained in a state machine.</para>
                     <funcsynopsis>
@@ -7072,7 +7071,7 @@ std::cout &lt;&lt; "typeid-generated name Open is: " &lt;&lt;  name_of_open &lt;
                         <para>Like any other front-end, the following transition row types
                             implements the two necessary static functions for action and guard call.
                             Each function receives as parameter the (deepest-level) state machine
-                            processsing the event, the event itself, the source and target states
+                            processing the event, the event itself, the source and target states
                             and all the states contained in a state machine (ignored).</para>
                         <funcsynopsis>
                             <funcprototype>
@@ -7391,7 +7390,7 @@ std::cout &lt;&lt; "typeid-generated name Open is: " &lt;&lt;  name_of_open &lt;
                     </refsect3>
                     <refsect3>
                         <title>entry_pseudo_state</title>
-                        <para>Basic type for entry pseudo states. Entry pseudo states are an
+                        <para>Basic type for entry pseudo states. Entry pseudo states are a
                             predefined entry into a submachine and connect two transitions. The
                             first argument is the id of the region entered by this state (regions
                             are numbered in the order of the <code>initial_state</code> typedef).
@@ -7413,7 +7412,7 @@ std::cout &lt;&lt; "typeid-generated name Open is: " &lt;&lt;  name_of_open &lt;
                     </refsect3>
                     <refsect3>
                         <title>exit_pseudo_state</title>
-                        <para>Basic type for exit pseudo states. Exit pseudo states are an
+                        <para>Basic type for exit pseudo states. Exit pseudo states are a
                             predefined exit from a submachine and connect two transitions. The first
                             argument is the name of the event which will be "thrown" out of the exit
                             point. This event does not need to be the same as the one sent by the
@@ -7452,29 +7451,29 @@ std::cout &lt;&lt; "typeid-generated name Open is: " &lt;&lt;  name_of_open &lt;
             </refsect1>
             <refsect1>
                 <title>msm/front/euml/iteration.hpp</title>
-                <para>This header includes iteration functors for STL support in eUML. This <command xlink:href="#eUML-STL-iteration">tables</command> shows a full
+                <para>This header includes iteration functors for STL support in eUML. This <command xlink:href="#eUML-STL-iteration">table</command> shows a full
                     description.</para>
             </refsect1>
             <refsect1>
                 <title>msm/front/euml/querying.hpp</title>
-                <para>This header includes querying functors for STL support in eUML. This <command xlink:href="#eUML-STL-querying">tables</command> shows a full
+                <para>This header includes querying functors for STL support in eUML. This <command xlink:href="#eUML-STL-querying">table</command> shows a full
                     description.</para>
             </refsect1>
             <refsect1>
                 <title>msm/front/euml/transformation.hpp</title>
                 <para>This header includes transformation functors for STL support in eUML. This
-                        <command xlink:href="#eUML-STL-transformation">tables</command> shows a full
+                        <command xlink:href="#eUML-STL-transformation">table</command> shows a full
                     description.</para>
             </refsect1>
             <refsect1>
                 <title>msm/front/euml/container.hpp</title>
                 <para>This header includes container functors for STL support in eUML (functors
-                    calling container methods). This <command xlink:href="#eUML-STL-container">tables</command> shows a full description. It also provides npos for
+                    calling container methods). This <command xlink:href="#eUML-STL-container">table</command> shows a full description. It also provides npos for
                     strings.</para>
                 <refsect2>
                     <title>Npos_&lt;container type></title>
                     <para>Functor returning npos for transition or state behaviors. Like all
-                        constants, only the functor form exists, so parenthesis are necessary.
+                        constants, only the functor form exists, so parentheses are necessary.
                         Example:</para>
                     <para><code>string_find_(event_(m_song),Char_&lt;'S'>(),Size_t_&lt;0>()) !=
                             Npos_&lt;string>() // compare result of string::find with
@@ -7489,7 +7488,7 @@ std::cout &lt;&lt; "typeid-generated name Open is: " &lt;&lt;  name_of_open &lt;
                     <title>functions</title>
                     <refsect3>
                         <title>build_stt</title>
-                        <para>The function build_stt evaluates the grammar-conform expression as
+                        <para>The function build_stt evaluates the grammar-conforming expression as
                             parameter. It returns a transition table, which is a mpl::vector of
                             transitions (rows) or, if the expression is ill-formed (does not match
                             the grammar), the type <code>invalid_type</code>, which will lead to a
@@ -7505,7 +7504,7 @@ std::cout &lt;&lt; "typeid-generated name Open is: " &lt;&lt;  name_of_open &lt;
                     </refsect3>
                     <refsect3>
                         <title>build_internal_stt</title>
-                        <para>The function build_internal_stt evaluates the grammar-conform
+                        <para>The function build_internal_stt evaluates the grammar-conforming
                             expression as parameter. It returns a transition table, which is a
                             mpl::vector of transitions (rows) or, if the expression is ill-formed
                             (does not match the grammar), the type <code>invalid_type</code>, which
@@ -8090,7 +8089,7 @@ ActionSequence := Action | (Action ',' Action)</programlisting>
                                 </listitem>
                                 <listitem>
                                     <para>no_msg_queue: disable message queue. The message queue
-                                        allows you to send an event for procesing while in an event
+                                        allows you to send an event for processing while in an event
                                         processing.</para>
                                 </listitem>
                                 <listitem>
@@ -8235,7 +8234,7 @@ ActionSequence := Action | (Action ',' Action)</programlisting>
                     <refsect3>
                         <title>True_</title>
                         <para>Functor returning true for transition or state behaviors. Like all
-                            constants, only the functor form exists, so parenthesis are necessary.
+                            constants, only the functor form exists, so parentheses are necessary.
                             Example:</para>
                         <para>
                             <programlisting>if_then_(True_(),/* some action always called*/)</programlisting>
@@ -8244,7 +8243,7 @@ ActionSequence := Action | (Action ',' Action)</programlisting>
                     <refsect3>
                         <title>False_</title>
                         <para>Functor returning false for transition or state behaviors. Like all
-                            constants, only the functor form exists, so parenthesis are necessary.
+                            constants, only the functor form exists, so parentheses are necessary.
                             Example:</para>
                         <para>
                             <programlisting>if_then_(False_(),/* some action never called */)</programlisting>
@@ -8253,7 +8252,7 @@ ActionSequence := Action | (Action ',' Action)</programlisting>
                     <refsect3>
                         <title>Int_&lt;int value></title>
                         <para>Functor returning an integer value for transition or state behaviors.
-                            Like all constants, only the functor form exists, so parenthesis are
+                            Like all constants, only the functor form exists, so parentheses are
                             necessary. Example:</para>
                         <para>
                             <programlisting>target_(m_ringing_cpt) = Int_&lt;RINGING_TIME>() // RINGING_TIME is a constant</programlisting>
@@ -8262,7 +8261,7 @@ ActionSequence := Action | (Action ',' Action)</programlisting>
                     <refsect3>
                         <title>Char_&lt;char value></title>
                         <para>Functor returning a char value for transition or state behaviors. Like
-                            all constants, only the functor form exists, so parenthesis are
+                            all constants, only the functor form exists, so parentheses are
                             necessary. Example:</para>
                         <para>
                             <programlisting>// look for 'S' in event.m_song
@@ -8272,7 +8271,7 @@ ActionSequence := Action | (Action ',' Action)</programlisting>
                     <refsect3>
                         <title>Size_t_&lt;size_t value></title>
                         <para>Functor returning a size_t value for transition or state behaviors.
-                            Like all constants, only the functor form exists, so parenthesis are
+                            Like all constants, only the functor form exists, so parentheses are
                             necessary. Example:</para>
                         <para>
                             <programlisting>substr_(event_(m_song),Size_t_&lt;1>()) // returns a substring of event.m_song</programlisting>
@@ -8281,7 +8280,7 @@ ActionSequence := Action | (Action ',' Action)</programlisting>
                     <refsect3>
                         <title>String_ &lt; mpl::string ></title>
                         <para>Functor returning a string for transition or state behaviors. Like all
-                            constants, only the functor form exists, so parenthesis are necessary.
+                            constants, only the functor form exists, so parentheses are necessary.
                             Requires boost >= 1.40 for mpl::string.</para>
                         <para>Example:</para>
                         <para>
@@ -8351,8 +8350,8 @@ NotFound (const string&amp; data) // copy-constructor of NotFound</programlistin
                                         state machine.</para>
                                 </listitem>
                                 <listitem>
-                                    <para><code>is_flag_(some_flag, some_fsm)</code> :calls
-                                            <code>is_flag_active</code> on the state machine.passed
+                                    <para><code>is_flag_(some_flag, some_fsm)</code> : calls
+                                            <code>is_flag_active</code> on the state machine passed
                                         as argument.</para>
                                 </listitem>
                             </itemizedlist></para>
@@ -8387,7 +8386,7 @@ NotFound (const string&amp; data) // copy-constructor of NotFound</programlistin
                     </refsect3>
                     <refsect3>
                         <title>MSM_EUML_FUNCTION</title>
-                        <para>This macro creates a eUML function and a functor for use with the
+                        <para>This macro creates an eUML function and a functor for use with the
                             functor front-end, based on a free function:<itemizedlist>
                                 <listitem>
                                     <para>first parameter: the name of the functor</para>
@@ -8419,7 +8418,7 @@ NotFound (const string&amp; data) // copy-constructor of NotFound</programlistin
                     </refsect3>
                     <refsect3>
                         <title>MSM_EUML_METHOD</title>
-                        <para>This macro creates a eUML function and a functor for use with the
+                        <para>This macro creates an eUML function and a functor for use with the
                             functor front-end, based on a method:<itemizedlist>
                                 <listitem>
                                     <para>first parameter: the name of the functor</para>
@@ -8530,7 +8529,7 @@ msm::back::ShallowHistory&lt;mpl::vector&lt;BOOST_MSM_EUML_EVENT_NAME(end_pause)
                         <para>This macro defines a state type (state-instance-name_helper) and
                             declares a const instance of this state type called state-instance-name
                             for use in a transition table or state behaviors.</para>
-                        <para>There are several possibilitites for the expression syntax:<itemizedlist>
+                        <para>There are several possibilities for the expression syntax:<itemizedlist>
                                 <listitem>
                                     <para>(): state without entry or exit action.</para>
                                 </listitem>
@@ -8564,7 +8563,7 @@ msm::back::ShallowHistory&lt;mpl::vector&lt;BOOST_MSM_EUML_EVENT_NAME(end_pause)
                             (state-instance-name_helper) and declares a const instance of this state
                             type called state-instance-name for use in a transition table or state
                             behaviors.</para>
-                        <para>There are several possibilitites for the expression syntax. In all of
+                        <para>There are several possibilities for the expression syntax. In all of
                             them, the first argument is the name of the event (generated by one of
                             the previous macros) ending the interrupt:<itemizedlist>
                                 <listitem>
@@ -8605,7 +8604,7 @@ msm::back::ShallowHistory&lt;mpl::vector&lt;BOOST_MSM_EUML_EVENT_NAME(end_pause)
                             (state-instance-name_helper) and declares a const instance of this state
                             type called state-instance-name for use in a transition table or state
                             behaviors.</para>
-                        <para>There are several possibilitites for the expression syntax:<itemizedlist>
+                        <para>There are several possibilities for the expression syntax:<itemizedlist>
                                 <listitem>
                                     <para>(): terminate pseudo-state without entry or exit
                                         action.</para>
@@ -8643,9 +8642,9 @@ msm::back::ShallowHistory&lt;mpl::vector&lt;BOOST_MSM_EUML_EVENT_NAME(end_pause)
                             (state-instance-name_helper) and declares a const instance of this state
                             type called state-instance-name for use in a transition table or state
                             behaviors.</para>
-                        <para>There are several possibilitites for the expression syntax:<itemizedlist>
+                        <para>There are several possibilities for the expression syntax:<itemizedlist>
                                 <listitem>
-                                    <para>(forwarded_event):exit pseudo-state without entry or exit
+                                    <para>(forwarded_event): exit pseudo-state without entry or exit
                                         action.</para>
                                 </listitem>
                                 <listitem>
@@ -8685,7 +8684,7 @@ msm::back::ShallowHistory&lt;mpl::vector&lt;BOOST_MSM_EUML_EVENT_NAME(end_pause)
                             (state-instance-name_helper) and declares a const instance of this state
                             type called state-instance-name for use in a transition table or state
                             behaviors.</para>
-                        <para>There are several possibilitites for the expression syntax:<itemizedlist>
+                        <para>There are several possibilities for the expression syntax:<itemizedlist>
                                 <listitem>
                                     <para>(): entry pseudo-state without entry or exit
                                         action.</para>
@@ -8724,7 +8723,7 @@ msm::back::ShallowHistory&lt;mpl::vector&lt;BOOST_MSM_EUML_EVENT_NAME(end_pause)
                             (state-instance-name_helper), which can be explicitly entered and also
                             declares a const instance of this state type called state-instance-name
                             for use in a transition table or state behaviors.</para>
-                        <para>There are several possibilitites for the expression syntax:<itemizedlist>
+                        <para>There are several possibilities for the expression syntax:<itemizedlist>
                                 <listitem>
                                     <para>(): state without entry or exit action.</para>
                                 </listitem>
@@ -8798,7 +8797,7 @@ msm::back::ShallowHistory&lt;mpl::vector&lt;BOOST_MSM_EUML_EVENT_NAME(end_pause)
                             table-instance-name)</title>
                         <para>This macro declares a transition table type and also declares a const
                             instance of the table which can then be used in a state machine
-                            declaration (see BOOST_MSM_EUML_DECLARE_STATE_MACHINE).The expression
+                            declaration (see BOOST_MSM_EUML_DECLARE_STATE_MACHINE). The expression
                             must follow the <command xlink:href="#reference-stt-grammar">transition
                                 table grammar</command>.</para>
                     </refsect3>
@@ -8811,7 +8810,7 @@ msm::back::ShallowHistory&lt;mpl::vector&lt;BOOST_MSM_EUML_EVENT_NAME(end_pause)
                         <title>BOOST_MSM_EUML_INTERNAL_TRANSITION_TABLE(expression,
                             table-instance-name)</title>
                         <para>This macro declares a transition table type and also declares a const
-                            instance of the table.The expression must follow the <command xlink:href="#reference-stt-grammar">transition table
+                            instance of the table. The expression must follow the <command xlink:href="#reference-stt-grammar">transition table
                                 grammar</command>. For the moment, this macro is not used.</para>
                     </refsect3>
                     <refsect3>
