@@ -16,14 +16,8 @@
 #include <boost/mp11/mpl_list.hpp>
 
 #include <boost/mpl/copy.hpp>
-#include <boost/mpl/count_if.hpp>
-#include <boost/mpl/find_if.hpp>
-#include <boost/mpl/has_key.hpp>
-#include <boost/mpl/insert.hpp>
-#include <boost/mpl/insert_range.hpp>
 #include <boost/mpl/is_sequence.hpp>
-#include <boost/mpl/transform.hpp>
-#include <boost/mpl/vector.hpp>
+#include <boost/mpl/front.hpp>
 
 
 #include <boost/type_traits/is_same.hpp>
@@ -36,6 +30,8 @@
 
 namespace boost { namespace msm { namespace backmp11
 {
+
+BOOST_MPL_HAS_XXX_TRAIT_DEF(back_end_tag)
 
 // Call a functor on all elements of List, until the functor returns true.
 template <typename List, typename Func>
@@ -74,34 +70,16 @@ struct optional_instance<T, false>
 
 using back::favor_runtime_speed;
 
-template <typename Sequence, typename Range>
-struct set_insert_range
-{
-    typedef typename ::boost::mpl::fold<
-        Range,Sequence, 
-        ::boost::mpl::insert< ::boost::mpl::placeholders::_1, ::boost::mpl::placeholders::_2 >
-    >::type type;
-};
-
-// returns the current state type of a transition
-template <class Transition>
-struct transition_source_type
-{
-    typedef typename Transition::current_state_type type;
-};
-
-// returns the target state type of a transition
-template <class Transition>
-struct transition_target_type
-{
-    typedef typename Transition::next_state_type type;
-};
-
-// Helper to convert a MPL sequence to Mp11
-template<typename T>
+// Helper to convert a single type or MPL sequence to Mp11
+template<typename T, typename Enable = void>
 struct to_mp_list
 {
     typedef typename mpl::copy<T, mpl::back_inserter<mp11::mp_list<>>>::type type;
+};
+template<typename T>
+struct to_mp_list<T, std::enable_if_t<!mpl::is_sequence<T>::value>>
+{
+    using type = mp11::mp_list<T>;
 };
 template<typename ...T>
 struct to_mp_list<mp11::mp_list<T...>>
@@ -114,118 +92,32 @@ using to_mp_list_t = typename to_mp_list<T...>::type;
 template <class stt>
 struct generate_state_set;
 
-template <class Fsm>
-struct get_active_state_switch_policy_helper
-{
-    typedef typename Fsm::active_state_switch_policy type;
-};
-template <class Iter>
-struct get_active_state_switch_policy_helper2
-{
-    typedef typename boost::mpl::deref<Iter>::type Fsm;
-    typedef typename Fsm::active_state_switch_policy type;
-};
-// returns the active state switching policy
-template <class Fsm>
-struct get_active_state_switch_policy
-{
-    typedef typename ::boost::mpl::find_if<
-        typename Fsm::configuration,
-        has_active_state_switch_policy< ::boost::mpl::placeholders::_1 > >::type iter;
-
-    typedef typename ::boost::mpl::eval_if<
-        typename ::boost::is_same<
-            iter, 
-            typename ::boost::mpl::end<typename Fsm::configuration>::type
-        >::type,
-        get_active_state_switch_policy_helper<Fsm>,
-        get_active_state_switch_policy_helper2< iter >
-    >::type type;
-};
-
-// returns a mpl::vector containing the init states of a state machine
-template <class States>
-struct get_initial_states 
-{
-    typedef typename ::boost::mpl::if_<
-        ::boost::mpl::is_sequence<States>,
-        States,
-        typename ::boost::mpl::push_back< ::boost::mpl::vector0<>,States>::type >::type type;
-};
-// returns a mpl::int_ containing the size of a region. If the argument is not a sequence, returns 1
-template <class region>
-struct get_number_of_regions 
-{
-    typedef typename mpl::if_<
-        ::boost::mpl::is_sequence<region>,
-        ::boost::mpl::size<region>,
-        ::boost::mpl::int_<1> >::type type;
-};
-
-// builds a mpl::vector of initial states
-//TODO remove duplicate from get_initial_states
-template <class region>
-struct get_regions_as_sequence 
-{
-    typedef typename ::boost::mpl::if_<
-        ::boost::mpl::is_sequence<region>,
-        region,
-        typename ::boost::mpl::push_back< ::boost::mpl::vector0<>,region>::type >::type type;
-};
-
-template <class ToCreateSeq>
-struct get_explicit_creation_as_sequence 
-{
-    typedef typename ::boost::mpl::if_<
-        ::boost::mpl::is_sequence<ToCreateSeq>,
-        ToCreateSeq,
-        typename ::boost::mpl::push_back< ::boost::mpl::vector0<>,ToCreateSeq>::type >::type type;
-};
-
-// returns true for composite states
-template <class State>
-struct is_composite_state
-{
-    enum {value = has_composite_tag<State>::type::value};
-    typedef typename has_composite_tag<State>::type type;
-};
-
 // iterates through a transition table to generate an ordered state set
 // first the source states, transition up to down
 // then the target states, up to down
-template <class stt>
+template <class Stt>
 struct generate_state_set
 {
-    typedef typename to_mp_list<stt>::type stt_mp11;
+    typedef to_mp_list_t<Stt> stt;
     // first add the source states
-    template<typename V, typename T>
-    using set_push_source_state = mp11::mp_set_push_back<
-        V,
-        typename T::current_state_type
-        >;
-    typedef typename mp11::mp_fold<
-        typename to_mp_list<stt>::type,
-        mp11::mp_list<>,
-        set_push_source_state
-        > source_state_set_mp11;
+    template <typename V, typename T>
+    using set_push_source_state =
+        mp11::mp_set_push_back<V, typename T::current_state_type>;
+    using source_state_set_mp11 =
+        mp11::mp_fold<stt, mp11::mp_list<>, set_push_source_state>;
     // then add the target states
-    template<typename V, typename T>
-    using set_push_target_state = mp11::mp_set_push_back<
-        V,
-        typename T::next_state_type
-        >;
-    typedef typename mp11::mp_fold<
-        stt_mp11,
-        source_state_set_mp11,
-        set_push_target_state
-        > state_set_mp11;
+    template <typename V, typename T>
+    using set_push_target_state =
+        mp11::mp_set_push_back<V, typename T::next_state_type>;
+    using state_set_mp11 =
+        mp11::mp_fold<stt, source_state_set_mp11, set_push_target_state>;
 };
 
 // extends a state set to a map with key=state and value=id
-template <class stt>
+template <class StateSet>
 struct generate_state_map
 {
-    typedef typename generate_state_set<stt>::state_set_mp11 state_set;
+    typedef StateSet state_set;
     typedef mp11::mp_iota<mp11::mp_size<state_set>> indices;
     typedef mp11::mp_transform_q<
         mp11::mp_bind<mp11::mp_list, mp11::_1, mp11::_2>,
@@ -234,25 +126,12 @@ struct generate_state_map
         > type;
 };
 
-// filters the state set to contain only composite states
-template <class stt>
-struct generate_composite_state_set
-{
-    typedef typename generate_state_set<stt>::state_set_mp11 state_set;
-    template<typename State>
-    using is_composite = typename is_composite_state<State>::type;
-    typedef mp11::mp_copy_if<
-        state_set,
-        is_composite
-        > type;
-};
-
 // returns the id of a given state
-template <class stt,class State>
+template <class StateMap, class State>
 struct get_state_id
 {
     typedef mp11::mp_second<mp11::mp_map_find<
-        typename generate_state_map<stt>::type,
+        StateMap,
         State
         >> type;
     
@@ -263,14 +142,14 @@ struct get_state_id
 template <class stt>
 struct generate_event_set
 {
-    typedef typename to_mp_list<stt>::type stt_mp11;
+    typedef to_mp_list_t<stt> stt_mp11;
     template<typename V, typename T>
     using event_set_pusher = mp11::mp_set_push_back<
         V,
         typename T::transition_event
         >;
     typedef mp11::mp_fold<
-        typename to_mp_list<stt>::type,
+        to_mp_list_t<stt>,
         mp11::mp_list<>,
         event_set_pusher
         > event_set_mp11;
@@ -300,23 +179,10 @@ struct get_event_id
     enum {value = type::value};
 };
 
-// returns a mpl::bool_<true> if State has Event as deferred event
-template <class State, class Event>
-struct has_state_delayed_event
-{
-    typedef typename mp11::mp_contains<
-        typename to_mp_list<typename State::deferred_events>::type,
-        Event
-        > type;
-};
-// returns a mpl::bool_<true> if State has any deferred event
 template <class State>
-struct has_state_delayed_events  
-{
-    typedef typename mp11::mp_not<mp11::mp_empty<
-        typename to_mp_list<typename State::deferred_events>::type
-        >> type;
-};
+using has_state_deferred_events = mp11::mp_not<
+    mp11::mp_empty<to_mp_list_t<typename State::deferred_events>>
+    >;
 
 // Template used to create dummy entries for initial states not found in the stt.
 template< typename T1 >
@@ -331,74 +197,26 @@ struct not_a_row
     typedef dummy_event         transition_event;
 };
 
-// metafunctions used to find out if a state is entry, exit or something else
-template <class State>
-struct is_pseudo_entry 
-{
-    typedef typename ::boost::mpl::if_< typename has_pseudo_entry<State>::type,
-        ::boost::mpl::bool_<true>,::boost::mpl::bool_<false> 
-    >::type type;
-};
-// says if a state is an exit pseudo state
-template <class State>
-struct is_pseudo_exit 
-{
-    typedef typename has_pseudo_exit<State>::type type;
-    static constexpr bool value = type::value;
-};
-// says if a state is an entry pseudo state or an explicit entry
-template <class State>
-struct is_direct_entry 
-{
-    typedef typename ::boost::mpl::if_< typename has_explicit_entry_state<State>::type,
-        ::boost::mpl::bool_<true>, ::boost::mpl::bool_<false> 
-    >::type type;
-};
-
-//converts a "fake" (simulated in a state_machine_ description )state into one which will really get created
-template <class StateType,class CompositeType>
-struct convert_fake_state
-{
-    // converts a state (explicit entry) into the state we really are going to create (explicit<>)
-    typedef typename ::boost::mpl::if_<
-        typename is_direct_entry<StateType>::type,
-        typename CompositeType::template direct<StateType>,
-        typename ::boost::mpl::identity<StateType>::type
-    >::type type;
-};
-
-template <class StateType>
-struct get_explicit_creation 
-{
-    typedef typename StateType::explicit_creation type;
-};
-
-template <class StateType>
-struct get_wrapped_entry 
-{
-    typedef typename StateType::wrapped_entry type;
-};
 // used for states created with explicit_creation
 // if the state is an explicit entry, we reach for the wrapped state
 // otherwise, this returns the state itself
 template <class StateType>
 struct get_wrapped_state 
 {
-    typedef typename ::boost::mpl::eval_if<
-                typename has_wrapped_entry<StateType>::type,
-                get_wrapped_entry<StateType>,
-                ::boost::mpl::identity<StateType> >::type type;
+    template <typename T>
+    using get_wrapped_entry = typename T::wrapped_entry;
+    using type = mp11::mp_eval_or<StateType, get_wrapped_entry, StateType>;
 };
 
+// returns the transition table of a Composite state
 template <class Derived>
-struct create_stt 
+struct get_transition_table
 {
-    //typedef typename Derived::transition_table stt;
-    typedef typename Derived::real_transition_table Stt;
+    typedef typename Derived::template create_real_stt<typename Derived::front_end_t>::type Stt;
     // get the state set
     typedef typename generate_state_set<Stt>::state_set_mp11 states;
     // transform the initial region(s) in a sequence
-    typedef typename get_regions_as_sequence<typename Derived::initial_state>::type init_states;
+    typedef typename Derived::internal::initial_states init_states;
     // iterate through the initial states and add them in the stt if not already there
     template<typename V, typename T>
     using states_pusher = mp11::mp_if_c<
@@ -410,40 +228,43 @@ struct create_stt
             >
         >;
     typedef typename mp11::mp_fold<
-        typename to_mp_list<init_states>::type,
-        typename to_mp_list<Stt>::type,
+        to_mp_list_t<init_states>,
+        to_mp_list_t<Stt>,
         states_pusher
         > with_init;
 
     // do the same for states marked as explicitly created
-    typedef typename get_explicit_creation_as_sequence<
-       typename ::boost::mpl::eval_if<
-            typename has_explicit_creation<Derived>::type,
-            get_explicit_creation<Derived>,
-            ::boost::mpl::vector0<> >::type
-        >::type fake_explicit_created;
-
-    typedef typename 
-        ::boost::mpl::transform<
-        fake_explicit_created,convert_fake_state< ::boost::mpl::placeholders::_1,Derived> >::type explicit_created;
-
+    template<typename T>
+    using get_explicit_creation = to_mp_list_t<typename T::explicit_creation>;
+    using fake_explicit_created = mp11::mp_eval_or<
+            mp11::mp_list<>,
+            get_explicit_creation,
+            Derived
+            >;
+    //converts a "fake" (simulated in a state_machine_ description )state into one which will really get created
+    template <class StateType>
+    using convert_fake_state = mp11::mp_if_c<
+        has_direct_entry<StateType>::value,
+        typename Derived::template direct<StateType>,
+        StateType
+        >;
+    using explicit_created = mp11::mp_transform<
+        convert_fake_state,
+        fake_explicit_created
+        >;
+    
     typedef typename mp11::mp_fold<
-        typename to_mp_list<explicit_created>::type,
+        to_mp_list_t<explicit_created>,
         with_init,
         states_pusher
         > type;
 };
-
-// returns the transition table of a Composite state
-template <class Composite>
-struct get_transition_table
-{
-    typedef typename create_stt<Composite>::type type;
-};
+template<typename T>
+using get_transition_table_t = typename get_transition_table<T>::type;
 
 // recursively builds an internal table including those of substates, sub-substates etc.
 // variant for submachines
-template <class StateType,class IsComposite>
+template <class StateType, bool IsComposite>
 struct recursive_get_internal_transition_table
 {
     // get the composite's internal table
@@ -453,21 +274,21 @@ struct recursive_get_internal_transition_table
     template<typename V, typename T>
     using append_recursive_internal_transition_table = mp11::mp_append<
         V,
-        typename recursive_get_internal_transition_table<T, typename has_composite_tag<T>::type>::type
+        typename recursive_get_internal_transition_table<T, has_back_end_tag<T>::value>::type
         >;
     typedef typename mp11::mp_fold<
         composite_states,
-        typename to_mp_list<composite_table>::type,
+        to_mp_list_t<composite_table>,
         append_recursive_internal_transition_table
         > type;
 };
 // stop iterating on leafs (simple states)
 template <class StateType>
-struct recursive_get_internal_transition_table<StateType, ::boost::mpl::false_ >
+struct recursive_get_internal_transition_table<StateType, false>
 {
-    typedef typename to_mp_list<
+    typedef to_mp_list_t<
         typename StateType::internal_transition_table
-        >::type type;
+        > type;
 };
 // recursively get a transition table for a given composite state.
 // returns the transition table for this state + the tables of all composite sub states recursively
@@ -475,12 +296,10 @@ template <class Composite>
 struct recursive_get_transition_table
 {
     // get the transition table of the state if it's a state machine
-    template<typename T>
-    using get_transition_table_mp11 = typename get_transition_table<T>::type;
     typedef typename mp11::mp_eval_if_c<
-        !has_composite_tag<Composite>::type::value,
+        !has_back_end_tag<Composite>::type::value,
         mp11::mp_list<>,
-        get_transition_table_mp11,
+        get_transition_table_t,
         Composite
         > org_table;
 
@@ -498,43 +317,15 @@ struct recursive_get_transition_table
         append_recursive_transition_table> type;
 };
 
-// metafunction used to say if a SM has pseudo exit states
-template <class Derived>
-struct has_fsm_deferred_events 
-{
-    typedef typename create_stt<Derived>::type Stt;
-    typedef typename generate_state_set<Stt>::state_set_mp11 state_set_mp11;
-
-    template<typename T>
-    using has_activate_deferred_events_mp11 = typename has_activate_deferred_events<T>::type;
-    template<typename T>
-    using has_state_delayed_events_mp11 = typename has_state_delayed_events<T>::type;
-    typedef typename mp11::mp_or<
-        typename has_activate_deferred_events<Derived>::type,
-        mp11::mp_any_of<
-            typename to_mp_list<typename Derived::configuration>::type,
-            has_activate_deferred_events_mp11
-            >,
-        mp11::mp_any_of<
-            state_set_mp11,
-            has_state_delayed_events_mp11
-            >
-        > type;
-    static constexpr bool value = type::value;
-};
-
 struct favor_compile_time;
 
-// returns a mpl::bool_<true> if State has any delayed event
+// returns a mp11::mp_bool<true> if State has any delayed event
 template <class Event, class CompilePolicy>
 struct is_completion_event;
 template <class Event>
 struct is_completion_event<Event, favor_runtime_speed>
 {
-    typedef typename ::boost::mpl::if_<
-        has_completion_event<Event>,
-        ::boost::mpl::bool_<true>,
-        ::boost::mpl::bool_<false> >::type type;
+    using type = has_completion_event<Event>;
 
     static constexpr bool value(const Event&)
     {
@@ -542,55 +333,21 @@ struct is_completion_event<Event, favor_runtime_speed>
     }
 };
 
-// metafunction used to say if a SM has eventless transitions
-template <class Derived>
-struct has_fsm_eventless_transition 
-{
-    typedef typename create_stt<Derived>::type Stt;
-    typedef typename generate_event_set<Stt>::event_set_mp11 event_list;
-
-    typedef mp11::mp_any_of<event_list, has_completion_event> type;
-    static constexpr bool value = type::value;
-};
-template <class Derived>
-struct find_completion_events 
-{
-    typedef typename create_stt<Derived>::type Stt;
-    typedef typename generate_event_set<Stt>::event_set_mp11 event_list;
-
-    template<typename T>
-    using has_completion_event_mp11 = typename has_completion_event<T>::type;
-    typedef typename mp11::mp_copy_if<
-        event_list,
-        has_completion_event_mp11
-        > type;
-};
-
-template <class Transition>
-struct make_vector 
-{
-    typedef ::boost::mpl::vector<Transition> type;
-};
-template< typename Entry > 
-struct get_first_element_pair_second
-{ 
-    typedef typename ::boost::mpl::front<typename Entry::second>::type type;
-}; 
-
  //returns the owner of an explicit_entry state
  //which is the containing SM if the transition originates from outside the containing SM
  //or else the explicit_entry state itself
 template <class State,class ContainingSM>
 struct get_owner 
 {
-    typedef typename ::boost::mpl::if_<
-        typename ::boost::mpl::not_<typename ::boost::is_same<typename State::owner,
-                                                              ContainingSM >::type>::type,
-        typename State::owner, 
-        State >::type type;
+    using type = mp11::mp_if<
+        mp11::mp_same<typename State::owner, ContainingSM>,
+        State,
+        typename State::owner
+        >;
 };
 
-template <class Sequence,class ContainingSM>
+
+template <class Sequence, class ContainingSM>
 struct get_fork_owner 
 {
     typedef typename ::boost::mpl::front<Sequence>::type seq_front;
@@ -601,261 +358,29 @@ struct get_fork_owner
                     seq_front >::type type;
 };
 
-template <class StateType,class ContainingSM>
-struct make_exit 
-{
-    typedef typename ::boost::mpl::if_<
-             typename is_pseudo_exit<StateType>::type ,
-             typename ContainingSM::template exit_pt<StateType>,
-             typename ::boost::mpl::identity<StateType>::type
-            >::type type;
-};
-
-template <class StateType,class ContainingSM>
-struct make_entry 
-{
-    typedef typename ::boost::mpl::if_<
-        typename is_pseudo_entry<StateType>::type ,
-        typename ContainingSM::template entry_pt<StateType>,
-        typename ::boost::mpl::if_<
-                typename is_direct_entry<StateType>::type,
-                typename ContainingSM::template direct<StateType>,
-                typename ::boost::mpl::identity<StateType>::type
-                >::type
-        >::type type;
-};
-// metafunction used to say if a SM has pseudo exit states
-template <class StateType>
-struct has_exit_pseudo_states_helper 
-{
-    typedef typename StateType::stt Stt;
-    typedef typename generate_state_set<Stt>::type state_list;
-
-    typedef ::boost::mpl::bool_< ::boost::mpl::count_if<
-                state_list,is_pseudo_exit< ::boost::mpl::placeholders::_1> >::value != 0> type;
-};
-template <class StateType>
-struct has_exit_pseudo_states 
-{
-    typedef typename ::boost::mpl::eval_if<typename is_composite_state<StateType>::type,
-        has_exit_pseudo_states_helper<StateType>,
-        ::boost::mpl::bool_<false> >::type type;
-};
-
 // builds flags (add internal_flag_list and flag_list). internal_flag_list is used for terminate/interrupt states
-template <class StateType>
+template <class State>
 struct get_flag_list
 {
     typedef typename mp11::mp_append<
-        typename to_mp_list<typename StateType::flag_list>::type,
-        typename to_mp_list<typename StateType::internal_flag_list>::type
+        to_mp_list_t<typename State::flag_list>,
+        to_mp_list_t<typename State::internal_flag_list>
         > type;
 };
 
-template <class StateType>
+template <class State>
 struct is_state_blocking 
 {
     template<typename T>
-    using has_event_blocking_flag_mp11 = typename has_event_blocking_flag<T>::type;
+    using has_event_blocking_flag = typename has_event_blocking_flag<T>::type;
     typedef typename mp11::mp_any_of<
-        typename get_flag_list<StateType>::type,
-        has_event_blocking_flag_mp11
+        typename get_flag_list<State>::type,
+        has_event_blocking_flag
         > type;
 
 };
-// returns a mpl::bool_<true> if fsm has an event blocking flag in one of its substates
-template <class StateType>
-struct has_fsm_blocking_states  
-{
-    typedef typename create_stt<StateType>::type Stt;
-    typedef typename generate_state_set<Stt>::state_set_mp11 state_set_mp11;
-
-    template<typename T>
-    using is_state_blocking_mp11 = typename is_state_blocking<T>::type;
-    typedef typename mp11::mp_any_of<
-        state_set_mp11,
-        is_state_blocking_mp11
-        > type;
-    static constexpr bool value = type::value;
-};
-
-template <class StateType>
-struct is_no_exception_thrown
-{
-    typedef ::boost::mpl::bool_< ::boost::mpl::count_if<
-        typename StateType::configuration,
-        has_no_exception_thrown< ::boost::mpl::placeholders::_1 > >::value != 0> found;
-
-    typedef typename ::boost::mpl::or_<
-        typename has_no_exception_thrown<StateType>::type,
-        found
-    >::type type;
-
-    static constexpr typename type::value_type value = type::value;
-};
-
-template <class StateType>
-struct is_no_message_queue
-{
-    typedef ::boost::mpl::bool_< ::boost::mpl::count_if<
-        typename StateType::configuration,
-        has_no_message_queue< ::boost::mpl::placeholders::_1 > >::value != 0> found;
-
-    typedef typename ::boost::mpl::or_<
-        typename has_no_message_queue<StateType>::type,
-        found
-    >::type type;
-
-    static constexpr typename type::value_type value = type::value;
-};
-
-template <class StateType>
-struct is_active_state_switch_policy 
-{
-    typedef ::boost::mpl::bool_< ::boost::mpl::count_if<
-        typename StateType::configuration,
-        has_active_state_switch_policy< ::boost::mpl::placeholders::_1 > >::value != 0> found;
-
-    typedef typename ::boost::mpl::or_<
-        typename has_active_state_switch_policy<StateType>::type,
-        found
-    >::type type;
-};
-
-template <class StateType>
-struct get_initial_event 
-{
-    typedef typename StateType::initial_event type;
-};
-
-template <class StateType>
-struct get_final_event 
-{
-    typedef typename StateType::final_event type;
-};
-
-template <class Fsm>
-struct find_entry_states 
-{
-    typedef mp11::mp_copy_if<
-        typename Fsm::substate_list,
-        has_explicit_entry_state
-        > type;
-};
-
-template <class Set1, class Set2>
-struct is_common_element 
-{
-    typedef typename ::boost::mpl::fold<
-        Set1, ::boost::mpl::false_,
-        ::boost::mpl::if_<
-            ::boost::mpl::has_key<
-                Set2,
-                ::boost::mpl::placeholders::_2
-            >,
-            ::boost::mpl::true_,
-            ::boost::mpl::placeholders::_1
-        >
-    >::type type;
-};
-
-template <class EntryRegion, class AllRegions>
-struct add_entry_region 
-{
-    typedef typename ::boost::mpl::transform<
-        AllRegions, 
-        ::boost::mpl::if_<
-            is_common_element<EntryRegion, ::boost::mpl::placeholders::_1>,
-            set_insert_range< ::boost::mpl::placeholders::_1, EntryRegion>,
-            ::boost::mpl::placeholders::_1
-        >
-    >::type type;
-};
-
-template <class GraphAsSeqOfSets, class StateType>
-struct find_region_index
-{
-    typedef typename 
-        ::boost::mpl::fold<
-            GraphAsSeqOfSets, ::boost::mpl::pair< ::boost::mpl::int_< -1 > /*res*/, ::boost::mpl::int_<0> /*counter*/ >,
-            ::boost::mpl::if_<
-                ::boost::mpl::has_key< ::boost::mpl::placeholders::_2, StateType >,
-                ::boost::mpl::pair< 
-                    ::boost::mpl::second< ::boost::mpl::placeholders::_1 >,
-                    ::boost::mpl::next< ::boost::mpl::second< ::boost::mpl::placeholders::_1 > >
-                >,
-                ::boost::mpl::pair< 
-                    ::boost::mpl::first< ::boost::mpl::placeholders::_1 >,
-                    ::boost::mpl::next< ::boost::mpl::second< ::boost::mpl::placeholders::_1 > >
-                >
-            >
-        >::type result_pair;
-    typedef typename ::boost::mpl::first<result_pair>::type type;
-    enum {value = type::value};
-};
-
-// helper to find out if a SM has an active exit state and is therefore waiting for exiting
-template <class StateType,class OwnerFct,class FSM>
-inline
-typename ::boost::enable_if<typename ::boost::mpl::and_<typename is_composite_state<FSM>::type,
-                                                        typename is_pseudo_exit<StateType>::type>,bool >::type
-is_exit_state_active(FSM& fsm)
-{
-    typedef typename OwnerFct::type Composite;
-    Composite& comp = fsm.template get_state<Composite&>();
-    const int state_id = comp.template get_state_id<StateType>();
-    for (const auto active_state_id : comp.get_active_state_ids())
-    {
-        if (active_state_id == state_id)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-template <class StateType,class OwnerFct,class FSM>
-inline
-typename ::boost::disable_if<typename ::boost::mpl::and_<typename is_composite_state<FSM>::type,
-                                                         typename is_pseudo_exit<StateType>::type>,bool >::type
-is_exit_state_active(FSM&)
-{
-    return false;
-}
-
-// transformation metafunction to end interrupt flags
-template <class Event>
-struct transform_to_end_interrupt 
-{
-    typedef boost::msm::EndInterruptFlag<Event> type;
-};
-// transform a sequence of events into another one of EndInterruptFlag<Event>
-template <class Events>
-struct apply_end_interrupt_flag 
-{
-    typedef typename 
-        ::boost::mpl::transform<
-        Events,transform_to_end_interrupt< ::boost::mpl::placeholders::_1> >::type type;
-};
-// returns a mpl vector containing all end interrupt events if sequence, otherwise the same event
-template <class Event>
-struct get_interrupt_events 
-{
-    typedef typename ::boost::mpl::eval_if<
-        ::boost::mpl::is_sequence<Event>,
-        apply_end_interrupt_flag<Event>,
-        boost::mpl::vector1<boost::msm::EndInterruptFlag<Event> > >::type type;
-};
-
-template <class Events>
-struct build_interrupt_state_flag_list
-{
-    typedef ::boost::mpl::vector<boost::msm::InterruptedFlag> first_part;
-    typedef typename ::boost::mpl::insert_range< 
-        first_part, 
-        typename ::boost::mpl::end< first_part >::type,
-        Events
-    >::type type;
-};
+template<typename T>
+using is_state_blocking_t = typename is_state_blocking<T>::type;
 
 }}} // boost::msm::backmp11
 

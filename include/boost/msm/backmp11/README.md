@@ -46,10 +46,23 @@ A new method `is_state_active` can be used to check whether a state is currently
 
 ```cpp
 template <typename State>
-bool state_machine::is_state_active() const
+bool state_machine::is_state_active() const;
 ```
 
 If the type of the state appears multiple times in a hierarchical state machine, the method returns true if any of the states are active.
+
+
+### Method to reset the state machine
+
+A new method `reset()` can be used to reset the state machine back to its initial state after construction.
+
+```cpp
+void state_machine::reset();
+```
+
+The behaviors are start and stop are:
+- if `start()` is called for a running state machine, the call is ignored
+- if `stop()` is called on a stopped (not running) state machine, the call is ignored
 
 
 ### Simplified state machine signature
