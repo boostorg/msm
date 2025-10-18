@@ -38,19 +38,17 @@ namespace
     struct MyAction
     {
         template<typename Event, typename Fsm, typename Source, typename Target>
-        void operator()(const Event&, Fsm&, Source&, Target&)
+        void operator()(const Event&, Fsm& fsm, Source&, Target&)
         {
-            // TODO
-            // fsm.action_calls++;
+            fsm.action_calls++;
         }
     };
     struct MyGuard
     {
         template<typename Event, typename Fsm, typename Source, typename Target>
-        bool operator()(const Event&, Fsm&, Source&, Target&) const
+        bool operator()(const Event&, Fsm& fsm, Source&, Target&) const
         {
-            // TODO
-            // fsm.guard_calls++;
+            fsm.guard_calls++;
             return true;
         }
     };
@@ -66,6 +64,7 @@ namespace
     {
         using context = Context;
         using root_sm = StateMachine;
+        // using fsm_parameter = root_sm;
     };
 
     struct StateMachine_ : public state_machine_def<StateMachine_>
@@ -79,10 +78,9 @@ namespace
         };
 
         template <typename Event, typename Fsm>
-        void on_exit(const Event& /*event*/, Fsm& /*fsm*/)
+        void on_exit(const Event& /*event*/, Fsm& fsm)
         {
-            // TODO
-            // fsm.machine_exits++;
+            fsm.machine_exits++;
         };
 
         using initial_state = Default;
@@ -117,10 +115,10 @@ namespace
         test_machine.start();
         BOOST_CHECK_MESSAGE(test_machine.entry_calls == 1, "SM on_entry not called correctly");
         test_machine.process_event(MyEvent{});
-        // BOOST_CHECK_MESSAGE(test_machine.action_calls == 1, "SM action not called correctly");
-        // BOOST_CHECK_MESSAGE(test_machine.guard_calls == 1, "SM guard not called correctly");
+        BOOST_CHECK_MESSAGE(test_machine.action_calls == 1, "SM action not called correctly");
+        BOOST_CHECK_MESSAGE(test_machine.guard_calls == 1, "SM guard not called correctly");
 
         test_machine.stop();
-        // BOOST_CHECK_MESSAGE(test_machine.machine_exits == 1, "SM on_exit not called correctly");
+        BOOST_CHECK_MESSAGE(test_machine.machine_exits == 1, "SM on_exit not called correctly");
     }
 }

@@ -27,18 +27,18 @@ template <int NumberOfRegions>
 class history_impl<front::no_history, NumberOfRegions>
 {
   public:
-    void set_initial_states(const std::array<int, NumberOfRegions>& initial_state_ids)
+    void reset_active_state_ids(const std::array<int, NumberOfRegions>& initial_state_ids)
     {
         m_initial_state_ids = initial_state_ids;
     }
 
     template <class Event>
-    const std::array<int, NumberOfRegions>& history_entry(Event const&)
+    const std::array<int, NumberOfRegions>& on_entry(Event const&)
     {
         return m_initial_state_ids;
     }
 
-    void history_exit(const std::array<int, NumberOfRegions>&)
+    void on_exit(const std::array<int, NumberOfRegions>&)
     {
         // ignore
     }
@@ -62,18 +62,18 @@ template <int NumberOfRegions>
 class history_impl<front::always_shallow_history, NumberOfRegions>
 {
 public:
-    void set_initial_states(const std::array<int, NumberOfRegions>& initial_state_ids)
+    void reset_active_state_ids(const std::array<int, NumberOfRegions>& initial_state_ids)
     {
         m_last_active_state_ids = initial_state_ids;
     }
 
     template <class Event>
-    const std::array<int, NumberOfRegions>& history_entry(Event const& )
+    const std::array<int, NumberOfRegions>& on_entry(Event const& )
     {
         return m_last_active_state_ids;
     }
 
-    void history_exit(const std::array<int, NumberOfRegions>& active_state_ids)
+    void on_exit(const std::array<int, NumberOfRegions>& active_state_ids)
     {
         m_last_active_state_ids = active_state_ids;
     }
@@ -99,14 +99,14 @@ class history_impl<front::shallow_history<Events...>, NumberOfRegions>
     using events_mp11 = mp11::mp_list<Events...>;
 
 public:
-    void set_initial_states(const std::array<int, NumberOfRegions>& initial_state_ids)
+    void reset_active_state_ids(const std::array<int, NumberOfRegions>& initial_state_ids)
     {
         m_initial_state_ids = initial_state_ids;
         m_last_active_state_ids = initial_state_ids;
     }
 
     template <class Event>
-    const std::array<int, NumberOfRegions>& history_entry(Event const&)
+    const std::array<int, NumberOfRegions>& on_entry(Event const&)
     {
         if constexpr (mp11::mp_contains<events_mp11,Event>::value)
         {
@@ -115,7 +115,7 @@ public:
         return m_initial_state_ids;
     }
 
-    void history_exit(const std::array<int, NumberOfRegions>& active_state_ids)
+    void on_exit(const std::array<int, NumberOfRegions>& active_state_ids)
     {
         m_last_active_state_ids = active_state_ids;
     }

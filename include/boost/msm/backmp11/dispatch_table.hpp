@@ -17,9 +17,10 @@
 #include <boost/mp11.hpp>
 #include <boost/mp11/mpl_list.hpp>
 
+#include <boost/mpl/advance.hpp>
 #include <boost/mpl/empty.hpp>
 #include <boost/mpl/erase.hpp>
-#include <boost/mpl/front.hpp>
+#include <boost/mpl/pair.hpp>
 #include <boost/mpl/pop_front.hpp>
 
 #include <boost/type_traits/is_base_of.hpp>
@@ -89,15 +90,22 @@ struct cell_initializer<favor_runtime_speed>
     }
 };
 
+// returns a mp11::mp_bool<true> if State has Event as deferred event
+template <class State, class Event>
+using has_state_delayed_event = mp11::mp_contains<
+    to_mp_list_t<typename State::deferred_events>,
+    Event
+    >;
+
 template<typename Fsm, typename State, typename Event>
 struct table_index
 {
     using type = mp11::mp_if<
         mp11::mp_or<
             mp11::mp_not<is_same<State, Fsm>>,
-            typename has_state_delayed_event<State, Event>::type
+            has_state_delayed_event<State, Event>
             >,
-        mp11::mp_size_t<get_state_id<typename create_stt<Fsm>::type, State>::value + 1>,
+        mp11::mp_size_t<Fsm::template get_state_id<State>() + 1>,
         mp11::mp_size_t<0>
         >;
 };
@@ -106,7 +114,7 @@ struct table_index<Fsm, State, void>
 {
     using type = mp11::mp_if<
         mp11::mp_not<is_same<State, Fsm>>,
-        mp11::mp_size_t<get_state_id<typename create_stt<Fsm>::type, State>::value + 1>,
+        mp11::mp_size_t<Fsm::template get_state_id<State>() + 1>,
         mp11::mp_size_t<0>
         >;
 };
@@ -239,7 +247,7 @@ private:
             // in reverse order so that the frow's are handled first (UML priority)
             typedef mp11::mp_fold<
                 mp11::mp_copy_if<
-                    typename to_mp_list<Stt>::type,
+                    to_mp_list_t<Stt>,
                     event_filter_predicate
                     >,
                 mp11::mp_list<>,
@@ -392,7 +400,7 @@ private:
 
         // Helpers for state processing
         template<typename State>
-        using state_filter_predicate = typename has_state_delayed_event<State, Event>::type;
+        using state_filter_predicate = has_state_delayed_event<State, Event>;
         template<typename State, typename fsm=Fsm>
         using preprocess_state = init_cell_constant<get_table_index<Fsm, State, Event>::value, &fsm::defer_transition>;
 
@@ -435,7 +443,7 @@ private:
             >;
         template<typename T>
         using row_chainer = mp11::mp_if_c<
-            (mp11::mp_size<typename to_mp_list<mp11::mp_second<T>>::type>::value > 1),
+            (mp11::mp_size<to_mp_list_t<mp11::mp_second<T>>>::value > 1),
             // we need row chaining
             typename make_chain_row_from_map_entry<to_mpl_map_entry<T>>::type,
             // just one row, no chaining, we rebuild the row like it was before

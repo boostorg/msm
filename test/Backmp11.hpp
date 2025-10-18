@@ -149,7 +149,7 @@ struct serialize_state
     typename ::boost::enable_if<
         typename ::boost::mpl::or_<
             typename has_do_serialize<T>::type,
-            typename is_composite_state<T>::type
+            typename has_back_end_tag<T>::type
         >::type
         ,void
     >::type
@@ -161,7 +161,7 @@ struct serialize_state
     typename ::boost::disable_if<
         typename ::boost::mpl::or_<
             typename has_do_serialize<T>::type,
-            typename is_composite_state<T>::type
+            typename has_back_end_tag<T>::type
         >::type
         ,void
     >::type

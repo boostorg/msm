@@ -17,8 +17,6 @@
 #include <typeindex>
 #include <unordered_map>
 
-#include <boost/mpl/bool.hpp>
-
 #include <boost/msm/front/completion_event.hpp>
 #include <boost/msm/backmp11/metafunctions.hpp>
 #include <boost/msm/backmp11/dispatch_table.hpp>
@@ -37,7 +35,7 @@ namespace boost { namespace msm { namespace backmp11
 struct favor_compile_time
 {
     typedef int compile_policy;
-    typedef ::boost::mpl::false_ add_forwarding_rows;
+    typedef mp11::mp_false add_forwarding_rows;
 };
 
 template <class Event>
@@ -72,7 +70,13 @@ class end_interrupt_event_helper
     end_interrupt_event_helper(const Fsm& fsm)
     {
         mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, typename Fsm::event_set_mp11>>(
-            init_helper<Fsm>{fsm, m_is_flag_active_functions});
+            [this, &fsm](auto event_identity)
+            {
+                using Event = typename decltype(event_identity)::type;
+                using Flag = EndInterruptFlag<Event>;
+                m_is_flag_active_functions[to_type_index<Event>()] =
+                    [&fsm](){return fsm.template is_flag_active<Flag>();};
+            });
     }
 
     bool is_end_interrupt_event(const any_event& event) const
@@ -87,28 +91,6 @@ class end_interrupt_event_helper
 
  private:
     using map = std::unordered_map<std::type_index, std::function<bool()>>;
-
-    template<typename Fsm>
-    class init_helper
-    {
-     public:
-        init_helper(const Fsm& fsm, map& is_flag_active_functions)
-            : m_fsm(fsm), m_is_flag_active_functions(is_flag_active_functions) {}
-
-        template<typename Event>
-        void operator()(mp11::mp_identity<Event>)
-        {
-            using Flag = EndInterruptFlag<Event>;
-            const Fsm* fsm = &m_fsm;
-            m_is_flag_active_functions[to_type_index<Event>()] =
-                [fsm](){return fsm->template is_flag_active<Flag>();};
-        }
-     
-     private:
-        const Fsm& m_fsm;
-        map& m_is_flag_active_functions;
-    };
-
     map m_is_flag_active_functions;
 };
 
@@ -175,25 +157,21 @@ private:
         {
             // Fill in cells for deferred events.
             mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, to_mp_list_t<typename State::deferred_events>>>(
-                deferred_event_init_helper{m_entries});
+                [this](auto event_identity)
+                {
+                    using Event = typename decltype(event_identity)::type;
+                    // using test = print_types<Event>;
+                    auto& chain_row = get_chain_row<Event>();
+                    chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&Fsm::template defer_transition<any_event>));
+                });
 
-            init_call_submachine<State>();
-        }
-
-        template<typename State>
-        typename ::boost::enable_if<is_composite_state<State>, void>::type
-        init_call_submachine()
-        {
-            m_call_submachine = [](Fsm& fsm, const any_event& evt)
+            if constexpr (has_back_end_tag<State>::value)
             {
-                return (fsm.template get_state<State&>()).process_event_internal(evt);
-            };
-        }
-
-        template<typename State>
-        typename ::boost::disable_if<is_composite_state<State>, void>::type
-        init_call_submachine()
-        {
+                m_call_submachine = [](Fsm& fsm, const any_event& evt)
+                {
+                    return (fsm.template get_state<State&>()).process_event_internal(evt);
+                };
+            }
         }
 
         template<typename Event>
@@ -223,61 +201,9 @@ private:
         }
 
     private:
-        class deferred_event_init_helper
-        {
-         public:
-            deferred_event_init_helper(std::unordered_map<std::type_index, chain_row>& entries)
-                : m_entries(entries) {}
-
-            template<typename Event>
-            void operator()(mp11::mp_identity<Event>)
-            {
-                auto& chain_row = m_entries[to_type_index<Event>()];
-                chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&Fsm::template defer_transition<any_event>));
-            }
-
-         private:
-            std::unordered_map<std::type_index, chain_row>& m_entries;
-        };
-
         std::unordered_map<std::type_index, chain_row> m_entries;
         // Special functor if the state is a composite
         std::function<HandledEnum(Fsm&, const any_event&)> m_call_submachine;
-    };
-
-    class row_init_helper
-    {
-     public:
-        row_init_helper(state_dispatch_table* state_dispatch_tables)
-            : m_state_dispatch_tables(state_dispatch_tables) {}
-
-        template<typename Row>
-        void operator()(Row)
-        {
-            using Event = typename Row::transition_event;
-            using StateId = get_state_id<Stt, typename Row::current_state_type>;
-            auto& chain_row = m_state_dispatch_tables[StateId::value+1].template get_chain_row<Event>();
-            chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&convert_and_execute<Event, Row>));
-        }
-
-     private:
-        state_dispatch_table* m_state_dispatch_tables;
-    };
-
-    class state_init_helper
-    {
-     public:
-        state_init_helper(state_dispatch_table* state_dispatch_tables)
-            : m_state_dispatch_tables(state_dispatch_tables) {}
-
-        template<typename State>
-        void operator()(mp11::mp_identity<State>)
-        {
-            m_state_dispatch_tables[get_state_id<Stt, State>::value+1].template init<State>();
-        }
-
-     private:
-        state_dispatch_table* m_state_dispatch_tables;
     };
 
     // Filter a state to check whether state-specific initialization
@@ -285,19 +211,32 @@ private:
     template<typename State>
     using state_filter_predicate = mp11::mp_or<
         mp11::mp_not<mp11::mp_empty<to_mp_list_t<typename State::deferred_events>>>,
-        is_composite_state<State>
+        has_back_end_tag<State>
         >;
 
     dispatch_table()
     {
         // Execute row-specific initializations.
         mp11::mp_for_each<typename get_real_rows<Stt>::type>(
-            row_init_helper(m_state_dispatch_tables));
+            [this](auto row)
+            {
+                using Row = decltype(row);
+                using Event = typename Row::transition_event;
+                using State = typename Row::current_state_type;
+                static constexpr int state_id = Fsm::template get_state_id<State>();
+                auto& chain_row = m_state_dispatch_tables[state_id + 1].template get_chain_row<Event>();
+                chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&convert_and_execute<Event, Row>));
+            });
 
         // Execute state-specific initializations.
         using filtered_states = mp11::mp_copy_if<state_set_mp11, state_filter_predicate>;
         mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, filtered_states>>(
-            state_init_helper(m_state_dispatch_tables));
+            [this](auto state_identity)
+            {
+                using State = typename decltype(state_identity)::type;
+                static constexpr int state_id = Fsm::template get_state_id<State>();
+                m_state_dispatch_tables[state_id + 1].template init<State>();
+            });
     }
 
     // The singleton instance.
