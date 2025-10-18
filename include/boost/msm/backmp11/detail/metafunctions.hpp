@@ -27,6 +27,7 @@
 
 #include <boost/msm/back/traits.hpp>
 #include <boost/msm/back/default_compile_policy.hpp>
+#include <boost/msm/front/detail/common_states.hpp>
 
 namespace boost { namespace msm { namespace backmp11
 {
@@ -34,7 +35,13 @@ namespace boost { namespace msm { namespace backmp11
 namespace detail
 {
 
-BOOST_MPL_HAS_XXX_TRAIT_DEF(back_end_tag)
+struct back_end_tag {};
+
+template <typename T>
+using has_back_end_tag = std::is_same<typename T::internal::tag, back_end_tag>;
+
+template <typename T>
+inline constexpr bool is_composite_v = std::is_same_v<typename T::internal::tag, msm::front::detail::composite_state_tag> || has_back_end_tag<T>::value;
 
 // Call a functor on all elements of List, until the functor returns true.
 template <typename List, typename Func>
@@ -271,10 +278,10 @@ struct recursive_get_internal_transition_table
     typedef typename State::front_end_t::internal_transition_table composite_table;
     // and for every substate (state of submachine), recursively get the internal transition table
     using composite_states = typename State::internal::state_set;
-    template<typename V, typename T>
+    template<typename V, typename SubState>
     using append_recursive_internal_transition_table = mp11::mp_append<
         V,
-        typename recursive_get_internal_transition_table<T, has_back_end_tag<typename T::internal>::value>::type
+        typename recursive_get_internal_transition_table<SubState, has_back_end_tag<SubState>::value>::type
         >;
     typedef typename mp11::mp_fold<
         composite_states,
@@ -297,7 +304,7 @@ struct recursive_get_transition_table
 {
     // get the transition table of the state if it's a state machine
     typedef typename mp11::mp_eval_if_c<
-        !has_back_end_tag<typename Composite::internal>::value,
+        !has_back_end_tag<Composite>::value,
         mp11::mp_list<>,
         get_transition_table_t,
         Composite

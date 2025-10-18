@@ -196,7 +196,7 @@ struct compile_policy_impl<favor_compile_time>
                         chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&Fsm::template execute_defer_transition<any_event>));
                     });
 
-                if constexpr (has_back_end_tag<typename State::internal>::value)
+                if constexpr (has_back_end_tag<State>::value)
                 {
                     m_call_submachine = [](Fsm& fsm, const any_event& evt)
                     {
@@ -242,7 +242,7 @@ struct compile_policy_impl<favor_compile_time>
         template<typename State>
         using state_filter_predicate = mp11::mp_or<
             mp11::mp_not<mp11::mp_empty<to_mp_list_t<typename State::deferred_events>>>,
-            has_back_end_tag<typename State::internal>
+            has_back_end_tag<State>
             >;
 
         dispatch_table()

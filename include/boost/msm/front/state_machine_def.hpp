@@ -30,6 +30,10 @@ template<class Derived,class BaseState = default_base_state>
 struct state_machine_def :  public boost::msm::front::detail::state_base<BaseState>
 {
     // tags
+    struct internal
+    {
+        typedef detail::composite_state_tag          tag;
+    };
     // default: no flag
     typedef ::boost::fusion::vector0<>               flag_list;
     typedef ::boost::fusion::vector0<>               internal_flag_list;

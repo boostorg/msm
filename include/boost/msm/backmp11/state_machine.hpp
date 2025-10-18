@@ -158,10 +158,10 @@ class state_machine : public FrontEnd
 
     struct internal
     {
+        using tag = detail::back_end_tag;
+
         using initial_states = detail::to_mp_list_t<typename front_end_t::initial_state>;
         static constexpr int nr_regions = mp11::mp_size<initial_states>::value;
-        // tags
-        typedef int back_end_tag;
 
         template <class State, typename Enable = void>
         struct make_entry
@@ -490,7 +490,7 @@ class state_machine : public FrontEnd
             > type;
     };
     // gets the transition table from a composite and make from it a forwarding row
-    template <class State,class IsComposite>
+    template <class State,bool IsComposite>
     struct get_internal_transition_table
     {
         // first get the table of a composite
@@ -517,7 +517,7 @@ class state_machine : public FrontEnd
         >::type type;
     };
     template <class State>
-    struct get_internal_transition_table<State, ::boost::mpl::false_ >
+    struct get_internal_transition_table<State, false>
     {
         typedef typename create_real_stt<State, typename State::internal_transition_table >::type type;
     };
@@ -555,10 +555,10 @@ class state_machine : public FrontEnd
 
         // for every state, add its transition table (if any)
         // transformed as frow
-        template<typename V, typename T>
+        template<typename V, typename State>
         using F = boost::mp11::mp_append<
             V,
-            typename get_internal_transition_table<T, typename detail::has_back_end_tag<typename T::internal>::type>::type
+            typename get_internal_transition_table<State, detail::is_composite_v<State>>::type
             >;
         typedef boost::mp11::mp_fold<
             state_set,
@@ -968,7 +968,7 @@ class state_machine : public FrontEnd
                 std::invoke(std::forward<Visitor>(visitor), state);
 
                 using State = std::decay_t<decltype(state)>;
-                if constexpr (detail::has_back_end_tag<typename State::internal>::value)
+                if constexpr (detail::has_back_end_tag<State>::value)
                 {
                     state.visit(std::forward<Visitor>(visitor), all_states);
                 }
@@ -1360,7 +1360,7 @@ private:
             {
                 // false or forward
                 typedef typename ::boost::mpl::and_<
-                            typename detail::has_back_end_tag<typename State::internal>::type,
+                            typename detail::has_back_end_tag<State>::type,
                             typename ::boost::mpl::not_<
                                     typename has_non_forwarding_flag<Flag>::type>::type >::type composite_no_forward;
 
@@ -1557,7 +1557,7 @@ private:
     static void execute_entry(State& state, Event const& event, Fsm& fsm)
     {
         // calls on_entry on the fsm then handles direct entries, fork, entry pseudo state
-        if constexpr (detail::has_back_end_tag<typename State::internal>::value)
+        if constexpr (detail::has_back_end_tag<State>::value)
         {
             state.on_entry(event,fsm);
         }
@@ -1599,7 +1599,7 @@ private:
     template <typename State>
     using state_filter_predicate = mp11::mp_or<
         has_pseudo_exit<State>,
-        detail::has_back_end_tag<typename State::internal>
+        detail::has_back_end_tag<State>
         >;
     using states_to_init = mp11::mp_copy_if<
         states_t,
@@ -1638,7 +1638,7 @@ private:
                     );
                 }
 
-                if constexpr (detail::has_back_end_tag<typename State::internal>::value)
+                if constexpr (detail::has_back_end_tag<State>::value)
                 {
                     static_assert(
                         std::is_same_v<compile_policy, typename State::compile_policy>,
@@ -1673,7 +1673,7 @@ private:
             State& state = sm.get_state<State>();
             std::invoke(std::forward<Visitor>(visitor), state);
 
-            if constexpr (detail::has_back_end_tag<typename State::internal>::value && Recursive)
+            if constexpr (detail::has_back_end_tag<State>::value && Recursive)
             {
                 state.visit(std::forward<Visitor>(visitor));
             }
