@@ -17,6 +17,8 @@
 
 namespace boost::msm::backmp11
 {
+namespace detail
+{
 
 // Implementations for history policies.
 
@@ -135,6 +137,8 @@ public:
     std::array<int, NumberOfRegions> m_initial_state_ids;
     std::array<int, NumberOfRegions> m_last_active_state_ids;
 };
+
+} // detail
 
 } // boost::msm::backmp11
 

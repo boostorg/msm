@@ -52,7 +52,7 @@ bool state_machine::is_state_active() const;
 If the type of the state appears multiple times in a hierarchical state machine, the method returns true if any of the states are active.
 
 
-### Method to reset the state machine
+<!-- ### Method to reset the state machine
 
 A new method `reset()` can be used to reset the state machine back to its initial state after construction.
 
@@ -62,7 +62,7 @@ void state_machine::reset();
 
 The behaviors are start and stop are:
 - if `start()` is called for a running state machine, the call is ignored
-- if `stop()` is called on a stopped (not running) state machine, the call is ignored
+- if `stop()` is called on a stopped (not running) state machine, the call is ignored -->
 
 
 ### Simplified state machine signature
@@ -247,6 +247,12 @@ class state_machine_adapter
         this->get_deferred_events_queue().clear();
     }
 
+    template <class Flag>
+    bool is_flag_active<Flag, Flag_AND>() const
+    {
+        return is_flag_active<Flag, std::logical_and<bool>>();
+    }
+
     // No adapter.
     // Superseded by the visitor API.
     // void visit_current_states(...) {...}
@@ -261,7 +267,7 @@ class state_machine_adapter
 };
 ```
 
-A working code example of such an adapter is available in [the tests](../../../../test/Backmp11.hpp).
+A working code example of such an adapter is available in [the tests](../../../../test/Backmp11Adapter.hpp).
 It can be copied and adapted if needed, though this class is internal to the tests and not planned to be supported officially.
 
 Further details about the applied API changes:
@@ -269,7 +275,7 @@ Further details about the applied API changes:
 #### Support for `boost::serialization` is removed
 
 The back-end aims to support serialization in general, but without providing a concrete implementation for a specific serialization library.
-If you want to use `boost::serialization` for your state machine, you can look into the [state machine adapter](../../../../test/Backmp11.hpp) from the tests for an example how to set it up.
+If you want to use `boost::serialization` for your state machine, you can look into the [state machine adapter](../../../../test/Backmp11Adapter.hpp) from the tests for an example how to set it up.
 
 
 #### The back-end's constructor does not allow initialization of states and `set_states` is removed
@@ -328,8 +334,14 @@ Required replacements to try it out:
 - for configuring the compile policy and more use `boost::msm::backmp11::state_machine_config`
 - if you encounter API-incompatibilities please check the [details above](#changes-with-respect-to-back) for reference
 
-When using the `favor_compile_time` policy, a different macro to generate missing parts of a SM is needed:
-- use `BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(<fsmname>)` in place of `BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(<fsmname>)`
+
+Since the back-end should compile very fast for most machines, the manual generation of state machines with the `favor_compile_time` policy has become an opt-in feature.
+If you want to build your state machine across multiple compilation units, you need to do the following:
+
+- set up a preprocessor define `BOOST_MSM_BACKMP11_MANUAL_GENERATION` before including `msm/backmp11/favor_compile_time.hpp`
+- then generate your state machine(s) in the compilation units with the macro `BOOST_MSM_BACKMP11_GENERATE_STATE_MACHINE(<smname>)`
+
+You can find an example for this in the [visitor test](../../../../test/Backmp11Visitor.cpp).
 
 
 ## Applied optimizations
@@ -352,7 +364,7 @@ The structure of the dispatch table has been reworked, one dispatch table is cre
 The state dispatch tables are designed to directly work with the `any` event, they use the event's type index via its `type()` function as hash value.
 
 This mechanism enables SMs to forward events to sub-SMs without requiring additional template instantiations just for forwarding as was needed with the `process_any_event` mechanism.
-The new mechanism renders the `process_any_event` function obsolete and enables **forwarding of events to sub-SMs in O(1) complexity instead of O(N)**.
+The new mechanism enables **forwarding of events to sub-SMs in O(1) instead of O(N)**.
 
 Summary:
 - Use one dispatch table per state to reduce compiler processing time

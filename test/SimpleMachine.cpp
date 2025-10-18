@@ -253,8 +253,3 @@ namespace
         BOOST_CHECK_MESSAGE(p.template get_state<player_::Stopped&>().entry_counter == 3,"Stopped entry not called correctly");
     }
 }
-
-#if !defined(BOOST_MSM_TEST_SKIP_BACKMP11)
-using backmp11_fsm = boost::msm::backmp11::state_machine_adapter<player_, boost::msm::backmp11::favor_compile_time>;
-BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_fsm);
-#endif

@@ -14,12 +14,16 @@
 
 #include <deque>
 
-#include <boost/msm/back/default_compile_policy.hpp>
-
 namespace boost::msm::backmp11
 {
 
-using back::favor_runtime_speed;
+// Config for the default compile policy
+// (runtime over compile time).
+struct favor_runtime_speed;
+
+// Config for a compile policy,
+// which favors compile time over runtime.
+struct favor_compile_time;
 
 // Config for the default context parameter
 // (no context).

@@ -115,8 +115,3 @@ namespace
         bs.stop();
     }
 }
-
-#if !defined(BOOST_MSM_TEST_SKIP_BACKMP11)
-using backmp11_fsm = boost::msm::backmp11::state_machine_adapter<bistable_switch_, boost::msm::backmp11::favor_compile_time>;
-BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(backmp11_fsm);
-#endif
