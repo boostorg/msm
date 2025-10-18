@@ -334,8 +334,14 @@ Required replacements to try it out:
 - for configuring the compile policy and more use `boost::msm::backmp11::state_machine_config`
 - if you encounter API-incompatibilities please check the [details above](#changes-with-respect-to-back) for reference
 
-When using the `favor_compile_time` policy, a different macro to generate missing parts of a SM is needed:
-- use `BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(<fsmname>)` in place of `BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(<fsmname>)`
+
+Since the back-end should compile very fast for most machines, the manual generation of state machines with the `favor_compile_time` policy has become an opt-in feature.
+If you want to build your state machine across multiple compilation units, you need to do the following:
+
+- set up a preprocessor define `BOOST_MSM_BACKMP11_MANUAL_GENERATION` before including `msm/backmp11/favor_compile_time.hpp`
+- then generate your state machine(s) in the compilation units with the macro `BOOST_MSM_BACKMP11_GENERATE_STATE_MACHINE(<smname>)`
+
+You can find an example for this in the [visitor test](../../../../test/Backmp11Visitor.cpp).
 
 
 ## Applied optimizations

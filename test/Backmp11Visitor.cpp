@@ -10,6 +10,9 @@
 // http://www.boost.org/LICENSE_1_0.txt)
 
 // back-end
+// Generate the favor_compile_time SM manually.
+#define BOOST_MSM_BACKMP11_MANUAL_GENERATION
+#include <boost/msm/backmp11/favor_compile_time.hpp>
 #include <boost/msm/backmp11/state_machine.hpp>
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>
@@ -182,6 +185,6 @@ namespace
 }
 
 using TestMachine = hierarchical_state_machine<favor_compile_time_config>;
-BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(TestMachine::UpperMachine);
-BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(TestMachine::MiddleMachine);
-BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(TestMachine::LowerMachine);
+BOOST_MSM_BACKMP11_GENERATE_STATE_MACHINE(TestMachine::UpperMachine);
+BOOST_MSM_BACKMP11_GENERATE_STATE_MACHINE(TestMachine::MiddleMachine);
+BOOST_MSM_BACKMP11_GENERATE_STATE_MACHINE(TestMachine::LowerMachine);

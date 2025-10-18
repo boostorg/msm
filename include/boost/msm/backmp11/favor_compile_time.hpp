@@ -20,8 +20,9 @@
 #include <boost/msm/front/completion_event.hpp>
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
 #include <boost/msm/backmp11/detail/dispatch_table.hpp>
+#include <boost/msm/backmp11/event_traits.hpp>
 
-#define BOOST_MSM_BACKMP11_GENERATE_DISPATCH_TABLE(smname)                      \
+#define BOOST_MSM_BACKMP11_GENERATE_STATE_MACHINE(smname)                      \
     template<>                                                                  \
     const smname::sm_dispatch_table& smname::sm_dispatch_table::instance()      \
     {                                                                           \
@@ -279,6 +280,19 @@ struct compile_policy_impl<favor_compile_time>
         state_dispatch_table m_state_dispatch_tables[max_state+1];
     };
 };
+
+#ifndef BOOST_MSM_BACKMP11_MANUAL_GENERATION
+
+template<class Fsm>
+const typename compile_policy_impl<favor_compile_time>::template dispatch_table<Fsm>& 
+compile_policy_impl<favor_compile_time>::dispatch_table<Fsm>::instance()
+{
+    static dispatch_table table;
+    return table;
+}
+
+#endif
+
 
 } // detail
 
