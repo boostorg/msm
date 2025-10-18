@@ -61,6 +61,10 @@ struct state_base : public inherit_attributes<Attributes>, USERBASE
     typedef USERBASE        user_state_base;
     typedef Attributes      attributes_type;
 
+    struct internal
+    {
+    };
+
     // empty implementation for the states not wishing to define an entry condition
     // will not be called polymorphic way
     template <class Event,class FSM>

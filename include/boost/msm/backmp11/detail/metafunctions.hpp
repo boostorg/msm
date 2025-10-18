@@ -31,6 +31,9 @@
 namespace boost { namespace msm { namespace backmp11
 {
 
+namespace detail
+{
+
 BOOST_MPL_HAS_XXX_TRAIT_DEF(back_end_tag)
 
 // Call a functor on all elements of List, until the functor returns true.
@@ -68,8 +71,6 @@ struct optional_instance<T, false>
     static constexpr bool value = false;
 };
 
-using back::favor_runtime_speed;
-
 // Helper to convert a single type or MPL sequence to Mp11
 template<typename T, typename Enable = void>
 struct to_mp_list
@@ -103,14 +104,14 @@ struct generate_state_set
     template <typename V, typename T>
     using set_push_source_state =
         mp11::mp_set_push_back<V, typename T::current_state_type>;
-    using source_state_set_mp11 =
+    using source_state_set =
         mp11::mp_fold<stt, mp11::mp_list<>, set_push_source_state>;
     // then add the target states
     template <typename V, typename T>
     using set_push_target_state =
         mp11::mp_set_push_back<V, typename T::next_state_type>;
-    using state_set_mp11 =
-        mp11::mp_fold<stt, source_state_set_mp11, set_push_target_state>;
+    using state_set =
+        mp11::mp_fold<stt, source_state_set, set_push_target_state>;
 };
 
 // extends a state set to a map with key=state and value=id
@@ -200,24 +201,23 @@ struct not_a_row
 // used for states created with explicit_creation
 // if the state is an explicit entry, we reach for the wrapped state
 // otherwise, this returns the state itself
-template <class StateType>
+template <class State>
 struct get_wrapped_state 
 {
     template <typename T>
     using get_wrapped_entry = typename T::wrapped_entry;
-    using type = mp11::mp_eval_or<StateType, get_wrapped_entry, StateType>;
+    using type = mp11::mp_eval_or<State, get_wrapped_entry, State>;
 };
 
 // returns the transition table of a Composite state
 template <class Derived>
 struct get_transition_table
 {
-    typedef typename Derived::template create_real_stt<typename Derived::front_end_t>::type Stt;
+    typedef typename Derived::internal::template create_real_stt<typename Derived::front_end_t>::type Stt;
     // get the state set
-    typedef typename generate_state_set<Stt>::state_set_mp11 states;
-    // transform the initial region(s) in a sequence
-    typedef typename Derived::internal::initial_states init_states;
+    typedef typename generate_state_set<Stt>::state_set states;
     // iterate through the initial states and add them in the stt if not already there
+    typedef typename Derived::internal::initial_states initial_states;
     template<typename V, typename T>
     using states_pusher = mp11::mp_if_c<
         mp11::mp_set_contains<states, T>::value,
@@ -228,7 +228,7 @@ struct get_transition_table
             >
         >;
     typedef typename mp11::mp_fold<
-        to_mp_list_t<init_states>,
+        to_mp_list_t<initial_states>,
         to_mp_list_t<Stt>,
         states_pusher
         > with_init;
@@ -242,11 +242,11 @@ struct get_transition_table
             Derived
             >;
     //converts a "fake" (simulated in a state_machine_ description )state into one which will really get created
-    template <class StateType>
+    template <class State>
     using convert_fake_state = mp11::mp_if_c<
-        has_direct_entry<StateType>::value,
-        typename Derived::template direct<StateType>,
-        StateType
+        has_direct_entry<State>::value,
+        typename Derived::template direct<State>,
+        State
         >;
     using explicit_created = mp11::mp_transform<
         convert_fake_state,
@@ -264,17 +264,17 @@ using get_transition_table_t = typename get_transition_table<T>::type;
 
 // recursively builds an internal table including those of substates, sub-substates etc.
 // variant for submachines
-template <class StateType, bool IsComposite>
+template <class State, bool IsComposite>
 struct recursive_get_internal_transition_table
 {
     // get the composite's internal table
-    typedef typename StateType::internal_transition_table composite_table;
+    typedef typename State::front_end_t::internal_transition_table composite_table;
     // and for every substate (state of submachine), recursively get the internal transition table
-    typedef typename generate_state_set<typename StateType::stt>::state_set_mp11 composite_states;
+    using composite_states = typename State::internal::state_set;
     template<typename V, typename T>
     using append_recursive_internal_transition_table = mp11::mp_append<
         V,
-        typename recursive_get_internal_transition_table<T, has_back_end_tag<T>::value>::type
+        typename recursive_get_internal_transition_table<T, has_back_end_tag<typename T::internal>::value>::type
         >;
     typedef typename mp11::mp_fold<
         composite_states,
@@ -283,11 +283,11 @@ struct recursive_get_internal_transition_table
         > type;
 };
 // stop iterating on leafs (simple states)
-template <class StateType>
-struct recursive_get_internal_transition_table<StateType, false>
+template <class State>
+struct recursive_get_internal_transition_table<State, false>
 {
     typedef to_mp_list_t<
-        typename StateType::internal_transition_table
+        typename State::internal_transition_table
         > type;
 };
 // recursively get a transition table for a given composite state.
@@ -297,13 +297,13 @@ struct recursive_get_transition_table
 {
     // get the transition table of the state if it's a state machine
     typedef typename mp11::mp_eval_if_c<
-        !has_back_end_tag<Composite>::type::value,
+        !has_back_end_tag<typename Composite::internal>::value,
         mp11::mp_list<>,
         get_transition_table_t,
         Composite
         > org_table;
 
-    typedef typename generate_state_set<org_table>::state_set_mp11 states;
+    typedef typename generate_state_set<org_table>::state_set states;
 
     // and for every substate, recursively get the transition table if it's a state machine
     template<typename V, typename T>
@@ -317,25 +317,22 @@ struct recursive_get_transition_table
         append_recursive_transition_table> type;
 };
 
-struct favor_compile_time;
-
-// returns a mp11::mp_bool<true> if State has any delayed event
-template <class Event, class CompilePolicy>
-struct is_completion_event;
-template <class Event>
-struct is_completion_event<Event, favor_runtime_speed>
+// event used internally for wrapping a direct entry
+template <class State, class Event>
+struct direct_entry_event
 {
-    using type = has_completion_event<Event>;
+  public:
+    typedef int direct_entry;
+    typedef State active_state;
+    typedef Event contained_event;
 
-    static constexpr bool value(const Event&)
-    {
-        return type::value;
-    }
+    direct_entry_event(Event const& event):m_event(event){}
+    Event const& m_event;
 };
 
- //returns the owner of an explicit_entry state
- //which is the containing SM if the transition originates from outside the containing SM
- //or else the explicit_entry state itself
+//returns the owner of an explicit_entry state
+//which is the containing SM if the transition originates from outside the containing SM
+//or else the explicit_entry state itself
 template <class State,class ContainingSM>
 struct get_owner 
 {
@@ -381,6 +378,8 @@ struct is_state_blocking
 };
 template<typename T>
 using is_state_blocking_t = typename is_state_blocking<T>::type;
+
+} // detail
 
 }}} // boost::msm::backmp11
 

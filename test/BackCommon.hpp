@@ -28,7 +28,7 @@
 #endif // BOOST_MSM_TEST_ONLY_BACKMP11
 
 #ifndef BOOST_MSM_TEST_SKIP_BACKMP11
-#include "Backmp11.hpp"
+#include "Backmp11Adapter.hpp"
 #endif // BOOST_MSM_TEST_SKIP_BACKMP11
 
 template<typename Front>

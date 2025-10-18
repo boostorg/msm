@@ -18,18 +18,7 @@
 namespace boost { namespace msm { namespace backmp11
 {
 
-using back::HandledEnum;
-using back::HANDLED_FALSE;
-using back::HANDLED_TRUE;
-using back::HANDLED_GUARD_REJECT;
-using back::HANDLED_DEFERRED;
-
-using back::EVENT_SOURCE_DEFAULT;
-using back::EVENT_SOURCE_DIRECT;
-using back::EVENT_SOURCE_DEFERRED;
-using back::EVENT_SOURCE_MSG_QUEUE;
-
-using back::EventSource;
+using process_result = back::HandledEnum;
 
 using any_event = std::any;
 
@@ -41,7 +30,12 @@ constexpr active_states_t active_states;
 struct all_states_t {};
 constexpr all_states_t all_states;
 
-}}} // namespace boost::msm::backmp11
+namespace detail
+{
+    using EventSource = back::EventSourceEnum;
+    using back::HandledEnum;
+}
 
+}}} // namespace boost::msm::backmp11
 
 #endif // BOOST_MSM_BACKMP11_COMMON_TYPES_H

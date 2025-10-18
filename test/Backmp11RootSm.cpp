@@ -148,22 +148,25 @@ namespace
         UpperMachine upper_machine{};
 
         upper_machine.start(); 
-        BOOST_CHECK_MESSAGE(upper_machine.machine_entries == 1, "SM entry not called correctly");
+        BOOST_REQUIRE(upper_machine.machine_entries == 1);
 
         upper_machine.process_event(EnterSubFsm()); 
-        BOOST_CHECK_MESSAGE(upper_machine.machine_entries == 2, "SM entry not called correctly");
+        BOOST_REQUIRE(upper_machine.machine_entries == 2);
+
+        upper_machine.process_event(TriggerAction()); 
+        upper_machine.process_event(TriggerActionWithGuard()); 
 
         upper_machine.process_event(EnterSubFsm()); 
-        BOOST_CHECK_MESSAGE(upper_machine.machine_entries == 3, "SM entry not called correctly");
+        BOOST_REQUIRE(upper_machine.machine_entries == 3);
 
         upper_machine.process_event(ExitSubFsm()); 
-        BOOST_CHECK_MESSAGE(upper_machine.machine_exits == 1, "SM exit not called correctly");
+        BOOST_REQUIRE(upper_machine.machine_exits == 1);
 
         upper_machine.process_event(ExitSubFsm()); 
-        BOOST_CHECK_MESSAGE(upper_machine.machine_exits == 2, "SM exit not called correctly");
+        BOOST_REQUIRE(upper_machine.machine_exits == 2);
 
         upper_machine.stop(); 
-        BOOST_CHECK_MESSAGE(upper_machine.machine_exits == 3, "SM exit not called correctly");
+        BOOST_REQUIRE(upper_machine.machine_exits == 3);
     }
 
 }
