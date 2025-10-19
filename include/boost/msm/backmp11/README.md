@@ -2,33 +2,64 @@
 
 This README file is temporary and contains information about `backmp11`, a new back-end that is mostly backwards-compatible with `back`. It is currently in **experimental** stage, thus some details about the compatibility might change (feedback welcome!). This file's contents should eventually move into the MSM documentation.
 
+It is named after the metaprogramming library Boost Mp11, the main contributor to the optimizations.
+Usages of MPL are replaced with Mp11 to get rid of the costly C++03 emulation of variadic templates.
+
 The new back-end has the following goals:
 
 - reduce compilation runtime and RAM usage
 - reduce state machine runtime
-- provide new features
+- provide new features and customization options
 
-It is named after the metaprogramming library Boost Mp11, the main contributor to the optimizations. Usages of MPL are replaced with Mp11 to get rid of the costly C++03 emulation of variadic templates.
+A few benchmarks that compare compile time and runtime are [available here](https://github.com/chandryan/fsm-benchmarks).
 
 
 ## New features
 
 ### Universal visitor API
 
-The need to define a BaseState, accept_sig and accept method in the frontend is removed.
+The need to define a BaseState, accept_sig and accept method in the frontend is obsolete.
 
-Instead there is a universal visitor API that supports two overloads via tag dispatch to either iterate over only active states or all states:
+Instead there is a universal visitor API that supports traversing through the state machine in multiple modes:
+
+- only the active states or all states
+- non-recursive or recursive
 
 ```cpp
+// API:
+enum class visit_mode
+{
+    // State selection (mutually exclusive).
+    active_states = 0b001,
+    all_states    = 0b010,
+
+    // Traversal mode (not set = non-recursive).
+    recursive     = 0b100,
+
+    // All valid combinations.
+    active_non_recursive = active_states,
+    active_recursive     = active_states | recursive,
+    all_non_recursive    = all_states,
+    all_recursive        = all_states | recursive
+};
 template<typename Visitor>
-void state_machine::visit(Visitor&& visitor); // Same as with active_states_t
-template<typename Visitor>
-void state_machine::visit(Visitor&& visitor, backmp11::active_states_t);
-template<typename Visitor>
-void state_machine::visit(Visitor&& visitor, backmp11::all_states_t);
+void state_machine::visit(Visitor&& visitor); // Same as active_states | recursive
+template<visit_mode Mode, typename Visitor>
+void state_machine::visit(Visitor&& visitor);
+
+// Assemble your mode...
+state_machine machine;
+machine.visit
+    <visit_mode::all_states | visit_mode::recursive>
+    ([](auto &state) {/*...*/});
+// ... or use the pre-defined constants
+machine.visit
+    <visit_mode::all_recursive>
+    ([](auto &state) {/*...*/});
+
 ```
 
-The visitor needs to fulfill the signature requirement for all sub-states present in the state machine:
+The visitor needs to fulfill the following signature requirement for all sub-states present in the state machine:
 
 ```cpp
 template<typename State>
@@ -67,26 +98,35 @@ The behaviors are start and stop are:
 
 ### Simplified state machine signature
 
-The signature has been simplified to facilitate sharing configurations between state machines. The new signature looks as follows:
+The signature has been simplified to facilitate sharing configurations between state machines.
+The new signature looks as follows (pseudo-code, the implementation looks a little different):
 
 ```cpp
 template <
-    class TFrontEnd,
-    class TConfig = default_state_machine_config,
-    class TDerived = void
+    class FrontEnd,
+    class Config = default_state_machine_config,
+    class Derived = state_machine
 >
 class state_machine;
 ```
 
-The configuration of the state machine can be defined with a config structure. The default config looks as follows:
+You can define state machine back-ends with a `using MyStateMachine = state_machine<...>;` declaration or by inheriting from `state_machine`.
+
+**IMPORTANT:** The parameter `Derived` has to be set to the derived class, if the `state_machine` class gets extended.
+
+
+### All settings are bundled in one Config parameter
+
+The settinguration of the state machine can be defined with a config structure. The default config looks as follows:
 
 ```cpp
+// Default config:
 struct default_state_machine_config
 {
     using compile_policy = favor_runtime_speed;
     using context = no_context;
     using root_sm = no_root_sm;
-    using fsm_parameter = processing_sm;
+    using fsm_parameter = transition_owner;
     template<typename T>
     using queue_container = std::deque<T>;
 };
@@ -95,19 +135,16 @@ using state_machine_config = default_state_machine_config;
 
 ...
 
-// User-defined config
+// Custom config:
 struct CustomStateMachineConfig : public state_machine_config
 {
     using compile_policy = favor_compile_time;
 };
 ```
 
-**IMPORTANT:** The parameter `TDerived` has to be set to the derived class, if the `state_machine` class gets extended.
+## New state machine setting for defining a context
 
-
-## New state machine config for defining a context
-
-The config `context` sets up a context member in the state machine for dependency injection.
+The setting `context` sets up a context member in the state machine for dependency injection.
 
 If `using context = Context;` is defined in the config, a reference to it has to be passed to the state machine constructor as first argument.
 The following API becomes available to access it from within the state machine:
@@ -118,9 +155,9 @@ const Context& state_machine::get_context() const;
 ```
 
 
-## New state machine config for defining a root sm
+## New state machine setting for defining a root sm
 
-The config `root_sm` defines the type of the root state machine of hierarchical state machines. The root sm depicts the uppermost state machine.
+The setting `root_sm` defines the type of the root state machine of hierarchical state machines. The root sm depicts the uppermost state machine.
 
 If `using root_sm = RootSm;` is defined in the config, the following API becomes available to access it from within any sub-state machine:
 
@@ -129,22 +166,26 @@ RootSm& state_machine::get_root_sm();
 const RootSm& state_machine::get_root_sm() const;
 ```
 
-It is strongly recommended to configure the `root_sm` in hierarchical state machines, even if access to it is not required.
-It reduces the compilation time, because it enables the back-end to instantiate the full set of construction-related methods
+It is highly recommended to always configure the `root_sm` in hierarchical state machines, even if access to it is not required.
+This reduces the compilation time, because it enables the back-end to instantiate the full set of construction-related methods
 only for the root and it can omit them for sub-state machines.
 
 **IMPORTANT:** If a `context` is used in a hierarchical state machine, then also the `root_sm` must be set.
 The `context` is then automatically accessed through the `root_sm`.
 
 
-## New state machine config for defining the `Fsm` parameter of actions and guards
+## New state machine setting for defining the `Fsm` parameter of actions and guards
 
-The config `fsm_parameter` defines the instance of the `Fsm& fsm` parameter that is passed to actions and guards in hierarchical state machines.
-It can be either the `processing_fsm` (the `state_machine` processing the event, default) or the `root_sm`.
+The setting `fsm_parameter` defines the instance of the `Fsm& fsm` parameter that is passed to actions and guards in hierarchical state machines.
 
-If `using processing_fsm = root_sm;` is defined in the config, the setting takes effect.
+By default it is set to `transition_owner`, which reflects the same behavior as in `back`:
+- Actions and guards with transitions in the same transition table receive the SM instance processing the event, while
+- entry and exit actions receive the SM instance from which the transition originates.
 
-**IMPORTANT:** If the `processing_fsm` is set to `root_sm`, then also the `root_sm` must be set.
+You can alternatively set it to `root_sm`, in which case always the root sm is passed as `Fsm` parameter.
+If `using fsm_parameter = root_sm;` is defined in the config, the setting takes effect.
+
+**IMPORTANT:** If the `fsm_parameter` is set to `root_sm`, then also the `root_sm` must be set.
 
 
 ## Generic support for serializers
@@ -158,6 +199,8 @@ friend void serialize(T&, state_machine<A0, A1, A2>&);
 ```
 
 A similar friend declaration is available in the `history_impl` classes.
+
+**IMPORTANT:** This design allows you to provide any serializer implementation, but there is no guarantee that the implementation breaks with a new version of the back-end.
 
 
 ## Changes with respect to `back`
@@ -347,6 +390,8 @@ You can find an example for this in the [visitor test](../../../../test/Backmp11
 ## Applied optimizations
 
 - Replacement of CPU-intensive calls (due to C++03 recursion from MPL) with Mp11
+- Replaced O(N) algorithms with O(1) alternatives (with dispatch tables)
+- Added more type filters prior to template instantiations
 - Applied type punning where useful (to reduce template instantiations, e.g. std::deque & other things around the dispatch table)
 
 

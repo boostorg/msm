@@ -9,7 +9,8 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#include "boost/msm/backmp11/state_machine_config.hpp"
+#include "boost/msm/backmp11/state_machine.hpp"
+#include "boost/msm/backmp11/favor_compile_time.hpp"
 
 namespace boost::msm::backmp11
 {

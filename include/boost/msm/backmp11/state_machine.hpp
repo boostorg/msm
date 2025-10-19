@@ -42,24 +42,38 @@
 namespace boost { namespace msm { namespace backmp11
 {
 
-// Back-end for state machines.
-// Pass the state_machine_def as TFrontEnd,
-// a state_machine_config as TConfig (optional, for customization),
-// and the derived class as TDerived (required when extending the state_machine class).
+// Check whether a state is a composite state.
+using detail::is_composite;
+
+namespace detail
+{
+
+constexpr bool is_valid(visit_mode mode) {
+    constexpr uint8_t state_mask = 0b011;
+    const uint8_t state_bits = static_cast<uint8_t>(mode) & state_mask;
+    return state_bits == 0b001 || state_bits == 0b010;
+}
+
 template <
     class FrontEnd,
-    class Config = default_state_machine_config,
-    class Derived = void
+    class Config,
+    class Derived
 >
-class state_machine : public FrontEnd
+class state_machine_base : public FrontEnd
 {
+    static_assert(
+        is_composite<FrontEnd>::value,
+        "FrontEnd must be a composite state");
+    static_assert(
+        is_config<Config>::value,
+        "Config must be an instance of state machine config");
+
   public:
     using config_t = Config;
     using root_sm_t = typename config_t::root_sm;
     using context_t = typename config_t::context;
     using front_end_t = FrontEnd;
-    using derived_t =
-        mp11::mp_if<std::is_void<Derived>, state_machine, Derived>;
+    using derived_t = Derived;
     using events_queue_t = typename config_t::template
         queue_container<std::function<process_result()>>;
     struct deferred_event_t
@@ -158,9 +172,9 @@ class state_machine : public FrontEnd
 
     struct internal
     {
-        using tag = detail::back_end_tag;
+        using tag = back_end_tag;
 
-        using initial_states = detail::to_mp_list_t<typename front_end_t::initial_state>;
+        using initial_states = to_mp_list_t<typename front_end_t::initial_state>;
         static constexpr int nr_regions = mp11::mp_size<initial_states>::value;
 
         template <class State, typename Enable = void>
@@ -192,7 +206,7 @@ class state_machine : public FrontEnd
 
 
         template<typename Row, bool HasGuard, typename Event, typename Source, typename Target>
-        static bool call_guard_or_true(state_machine& sm, const Event& event, Source& source, Target& target)
+        static bool call_guard_or_true(state_machine_base& sm, const Event& event, Source& source, Target& target)
         {
             if constexpr (HasGuard)
             {
@@ -204,7 +218,7 @@ class state_machine : public FrontEnd
             }
         }
         template<typename Row, bool HasAction, typename Event, typename Source, typename Target>
-        static process_result call_action_or_true(state_machine& sm, const Event& event, Source& source, Target& target)
+        static process_result call_action_or_true(state_machine_base& sm, const Event& event, Source& source, Target& target)
         {
             if constexpr (HasAction)
             {
@@ -228,7 +242,7 @@ class state_machine : public FrontEnd
             // meaning the containing SM from which the exit occurs
             typedef typename ::boost::mpl::eval_if<
                     typename has_pseudo_exit<T1>::type,
-                    detail::get_owner<T1,derived_t>,
+                    get_owner<T1,derived_t>,
                     ::boost::mpl::identity<typename Row::Source> >::type current_state_type;
 
             typedef typename make_exit<typename Row::Target>::type T2;
@@ -237,15 +251,15 @@ class state_machine : public FrontEnd
             // meaning the containing SM if the row is "outside" the containing SM or else the explicit_entry state itself
             typedef typename ::boost::mpl::eval_if<
                 typename ::boost::mpl::is_sequence<T2>::type,
-                detail::get_fork_owner<T2,derived_t>,
+                get_fork_owner<T2,derived_t>,
                 ::boost::mpl::eval_if<
                         typename has_no_automatic_create<T2>::type,
-                        detail::get_owner<T2,derived_t>,
+                        get_owner<T2,derived_t>,
                         ::boost::mpl::identity<T2> >
             >::type next_state_type;
 
             // Take the transition action and return the next state.
-            static process_result execute(state_machine& sm, int region_index, int state, transition_event const& event)
+            static process_result execute(state_machine_base& sm, int region_index, int state, transition_event const& event)
             {
                 BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
                 BOOST_STATIC_CONSTANT(int, next_state = (get_state_id<next_state_type>()));
@@ -253,7 +267,7 @@ class state_machine : public FrontEnd
                 BOOST_ASSERT(state == (current_state));
                 // if T1 is an exit pseudo state, then take the transition only if the pseudo exit state is active
                 if (has_pseudo_exit<T1>::type::value &&
-                    !sm.is_exit_state_active<T1, detail::get_owner<T1,derived_t>>())
+                    !sm.is_exit_state_active<T1, get_owner<T1,derived_t>>())
                 {
                     return process_result::HANDLED_FALSE;
                 }
@@ -294,7 +308,7 @@ class state_machine : public FrontEnd
             typedef current_state_type next_state_type;
 
             // Take the transition action and return the next state.
-            static process_result execute(state_machine& sm, int , int state, transition_event const& event)
+            static process_result execute(state_machine_base& sm, int , int state, transition_event const& event)
             {
 
                 BOOST_STATIC_CONSTANT(int, current_state = (get_state_id<current_state_type>()));
@@ -391,18 +405,17 @@ class state_machine : public FrontEnd
             using get_transition_cell = typename transition_cell<T, TFrontEnd>::type;
             typedef typename boost::mp11::mp_transform<
                 get_transition_cell,
-                detail::to_mp_list_t<stt_simulated>
+                to_mp_list_t<stt_simulated>
             > type;
         };
 
-        using stt = typename detail::get_transition_table<state_machine>::type;
-        using state_set = typename detail::generate_state_set<stt>::state_set;
+        using stt = typename get_transition_table<state_machine_base>::type;
+        using state_set = typename generate_state_set<stt>::state_set;
     };
 
     typedef mp11::mp_rename<typename internal::state_set, std::tuple> states_t;
 
   private:
-    using EventSource = detail::EventSource;
     using stt = typename internal::stt;
     using state_set = typename internal::state_set;
     static constexpr int nr_regions = internal::nr_regions;
@@ -421,11 +434,11 @@ class state_machine : public FrontEnd
         boost::mp11::mp_eval_or<active_state_switch_after_entry,
                                 get_active_state_switch_policy, front_end_t>;
 
-    typedef bool (*flag_handler)(state_machine const &);
+    typedef bool (*flag_handler)(state_machine_base const &);
 
     // all state machines are friend with each other to allow embedding any of them in another fsm
     template <class, class, class>
-    friend class state_machine;
+    friend class state_machine_base;
 
     template <typename Policy>
     friend struct detail::compile_policy_impl;
@@ -435,7 +448,7 @@ class state_machine : public FrontEnd
     // No guarantee is given on the private member layout.
     // Future changes may break existing serializer implementations.
     template<typename T, typename A0, typename A1, typename A2>
-    friend void serialize(T&, state_machine<A0, A1, A2>&);
+    friend void serialize(T&, state_machine_base<A0, A1, A2>&);
 
     using active_state_ids_t = std::array<int, nr_regions>;
 
@@ -460,12 +473,12 @@ class state_machine : public FrontEnd
         typedef int                 is_frow;
 
         // Take the transition action and return the next state.
-        static process_result execute(state_machine& fsm, int region_index, int , transition_event const& event)
+        static process_result execute(state_machine_base& sm, int region_index, int , transition_event const& event)
         {
             // false as second parameter because this event is forwarded from outer fsm
             process_result res =
-                (fsm.get_state<current_state_type>()).process_event_internal(event);
-            fsm.m_active_state_ids[region_index]=get_state_id<T1>();
+                (sm.get_state<current_state_type>()).process_event_internal(event);
+            sm.m_active_state_ids[region_index]=get_state_id<T1>();
             return res;
         }
         // helper metafunctions used by dispatch table and give the frow a new event
@@ -480,12 +493,12 @@ class state_machine : public FrontEnd
     template <class Table,class Intermediate,class State>
     struct add_forwarding_row_helper
     {
-        typedef typename detail::generate_event_set<Table>::event_set_mp11 all_events;
+        typedef typename generate_event_set<Table>::event_set_mp11 all_events;
 
         template<typename T>
         using frow_state_type = frow<State, T>;
         typedef mp11::mp_append<
-            detail::to_mp_list_t<Intermediate>,
+            to_mp_list_t<Intermediate>,
             mp11::mp_transform<frow_state_type, all_events>
             > type;
     };
@@ -494,17 +507,17 @@ class state_machine : public FrontEnd
     struct get_internal_transition_table
     {
         // first get the table of a composite
-        typedef typename detail::recursive_get_transition_table<State>::type original_table;
+        typedef typename recursive_get_transition_table<State>::type original_table;
 
         // we now look for the events the composite has in its internal transitions
         // the internal ones are searched recursively in sub-sub... states
         // we go recursively because our states can also have internal tables or substates etc.
-        typedef typename detail::recursive_get_internal_transition_table<State, true>::type recursive_istt;
+        typedef typename recursive_get_internal_transition_table<State, true>::type recursive_istt;
         template<typename T>
         using get_transition_cell = typename transition_cell<T, State>::type;
         typedef boost::mp11::mp_transform<
             get_transition_cell,
-            detail::to_mp_list_t<recursive_istt>
+            to_mp_list_t<recursive_istt>
         > recursive_istt_with_tag;
 
         typedef boost::mp11::mp_append<original_table, recursive_istt_with_tag> table_with_all_events;
@@ -522,10 +535,10 @@ class state_machine : public FrontEnd
         typedef typename create_real_stt<State, typename State::internal_transition_table >::type type;
     };
     
-    typedef typename detail::generate_state_map<state_set>::type state_map_mp11;
-    typedef typename detail::generate_event_set<stt>::event_set_mp11 event_set_mp11;
-    typedef detail::history_impl<typename front_end_t::history, nr_regions> concrete_history;
-    typedef typename detail::generate_event_set<
+    typedef typename generate_state_map<state_set>::type state_map_mp11;
+    typedef typename generate_event_set<stt>::event_set_mp11 event_set_mp11;
+    typedef history_impl<typename front_end_t::history, nr_regions> concrete_history;
+    typedef typename generate_event_set<
         typename create_real_stt<front_end_t, typename front_end_t::internal_transition_table >::type
     >::event_set_mp11 processable_events_internal_table;
 
@@ -545,11 +558,11 @@ class state_machine : public FrontEnd
         using get_transition_cell = typename transition_cell<T, Composite>::type;
         typedef typename boost::mp11::mp_transform<
             get_transition_cell,
-            detail::to_mp_list_t<typename Composite::internal_transition_table>
+            to_mp_list_t<typename Composite::internal_transition_table>
         > internal_stt;
 
         typedef boost::mp11::mp_append<
-            detail::to_mp_list_t<Stt>,
+            to_mp_list_t<Stt>,
             internal_stt
         > stt_plus_internal;
 
@@ -558,7 +571,7 @@ class state_machine : public FrontEnd
         template<typename V, typename State>
         using F = boost::mp11::mp_append<
             V,
-            typename get_internal_transition_table<State, detail::is_composite_v<State>>::type
+            typename get_internal_transition_table<State, is_composite<State>::value>::type
             >;
         typedef boost::mp11::mp_fold<
             state_set,
@@ -567,9 +580,9 @@ class state_machine : public FrontEnd
         > type;
     };
     // extend the table with tables from composite states
-    typedef typename extend_table<state_machine>::type complete_table;
+    typedef typename extend_table<state_machine_base>::type complete_table;
     // define the dispatch table used for event dispatch
-    using sm_dispatch_table = typename compile_policy_impl::template dispatch_table<state_machine>;
+    using sm_dispatch_table = typename compile_policy_impl::template dispatch_table<state_machine_base>;
 
     struct deferred_events_t
     {
@@ -583,23 +596,23 @@ class state_machine : public FrontEnd
             typename has_activate_deferred_events<front_end_t>::type,
             mp11::mp_any_of<
                 state_set,
-                detail::has_state_deferred_events
+                has_state_deferred_events
                 >
             > type;
         static constexpr bool value = type::value;
     };
     using deferred_events_member =
-        detail::optional_instance<
+        optional_instance<
             deferred_events_t,
             has_deferred_events::value
         >;
     using events_queue_member = 
-        detail::optional_instance<
+        optional_instance<
             events_queue_t,
             !has_no_message_queue<front_end_t>::value
         >;
     using context_member =
-        detail::optional_instance<
+        optional_instance<
             context_t*,
             !std::is_same_v<context_t, no_context> &&
             (std::is_same_v<root_sm_t, no_root_sm> || std::is_same_v<root_sm_t, derived_t>)>;
@@ -639,20 +652,37 @@ class state_machine : public FrontEnd
         );
     }
 
+    // Visit states with a compile-time filter (reduces template instantiations).
+    template <template <typename> typename Predicate, visit_mode Mode, typename Visitor>
+    void visit_if(Visitor&& visitor)
+    {
+        // TODO:
+        // Filter needs to be passed to visit to reduce template instantiations.
+        visit<Mode>(
+            [&visitor](auto& state)
+            {
+                using State = std::decay_t<decltype(state)>;
+                if constexpr (Predicate<State>())
+                {
+                    std::invoke(std::forward<Visitor>(visitor), state);
+                }
+            });
+    }
+    
   public:
     // Construct and forward constructor arguments to the front-end.
     template <typename... Args>
-    state_machine(Args&&... args)
+    state_machine_base(Args&&... args)
         : front_end_t(std::forward<Args>(args)...)
     {
-        if constexpr (!std::is_same_v<derived_t, state_machine>)
+        static_assert(
+            std::is_base_of_v<state_machine_base, derived_t>,
+            "Derived must inherit from state_machine");
+        if constexpr (!std::is_same_v<context_t, no_context>)
         {
             static_assert(
-                std::is_base_of_v<state_machine, derived_t>,
-                "Derived class must inherit from state_machine.");
-            static_assert(
-                std::is_constructible_v<derived_t, Args...>,
-                "Derived class must inherit state_machine's constructors.");
+                std::is_constructible_v<derived_t, context_t&>,
+                "Derived must inherit the base class constructors");
         }
         if constexpr (std::is_same_v<root_sm_t, no_root_sm> ||
                       std::is_same_v<root_sm_t, derived_t>)
@@ -667,14 +697,23 @@ class state_machine : public FrontEnd
     template <bool C = context_member::value,
               typename = std::enable_if_t<C>,
               typename... Args>
-    state_machine(context_t& context, Args&&... args)
-        : state_machine(std::forward<Args>(args)...)
+    state_machine_base(context_t& context, Args&&... args)
+        : state_machine_base(std::forward<Args>(args)...)
         {
             m_optional_members.template get<context_member>() = &context;
+            if constexpr (std::is_same_v<root_sm_t, no_root_sm>)
+            {
+                constexpr visit_mode mode = visit_mode::all_states | visit_mode::recursive;
+                visit_if<is_back_end, mode>(
+                    [&context](auto &state_machine)
+                    {
+                        state_machine.m_optional_members.template get<context_member>() = &context;
+                    });
+            }
         }
     
     // Copy constructor.
-    state_machine(state_machine const& rhs)
+    state_machine_base(state_machine_base const& rhs)
         : front_end_t(rhs)
     {
         if constexpr (std::is_same_v<root_sm_t, no_root_sm> ||
@@ -693,7 +732,7 @@ class state_machine : public FrontEnd
     }
 
     // Copy assignment operator.
-    state_machine& operator= (state_machine const& rhs)
+    state_machine_base& operator= (state_machine_base const& rhs)
     {
         if (this != &rhs)
         {
@@ -712,6 +751,13 @@ class state_machine : public FrontEnd
     // Start the state machine (calls entry of the initial state).
     void start()
     {
+        // Assert for a case where root sm was not set up correctly
+        // after construction.
+        if constexpr (!std::is_same_v<typename Config::root_sm, no_root_sm>)
+        {
+            BOOST_ASSERT_MSG(&(this->get_root_sm()),
+            "Root sm must be passed as Derived and configured as root_sm");
+        }
         start(fsm_initial_event{});
     }
 
@@ -743,17 +789,17 @@ class state_machine : public FrontEnd
     }
 
     // Check whether a state is currently active.
+  public:
     template <typename State>
     bool is_state_active() const
     {
         bool found = false;
-        const_cast<state_machine*>(this)->visit(
+        const_cast<state_machine_base*>(this)->visit(
             [&found](const auto& state)
             {
                 using StateToCheck = std::decay_t<decltype(state)>;
                 found |= std::is_same_v<State, StateToCheck>;
-            }
-        );
+            });
         return found;
     }
 
@@ -938,42 +984,52 @@ class state_machine : public FrontEnd
         return FlagHelper<Flag,(nr_regions>1)>::helper(*this,get_entries_for_flag<Flag>());
     }
 
-    // Visit the states (only active states).
+    // Visit the states (only active states, recursive).
     template <typename Visitor>
-    void visit(Visitor&& visitor)
+    constexpr void visit(Visitor&& visitor)
     {
-        visit(std::forward<Visitor>(visitor), active_states);
+        visit<visit_mode::active_recursive>(std::forward<Visitor>(visitor));
     }
 
-    // Visit the states (only active states).
-    template <typename Visitor>
-    void visit(Visitor&& visitor, active_states_t)
+    // Visit the states.
+    // How to traverse is selected with visit_mode.
+    template <visit_mode Mode, typename Visitor>
+    constexpr void visit(Visitor&& visitor)
     {
-        if (m_running)
+        static_assert(
+            is_valid(Mode),
+            "Mode must specify one of active_states or all_states");
+        constexpr bool recursive = has_flag(Mode, visit_mode::recursive);
+        if constexpr (has_flag(Mode, visit_mode::active_states))
         {
-            for (const size_t state_id : m_active_state_ids)
+            if (m_running)
             {
-                visitor_dispatch_table<Visitor>::dispatch(*this, state_id, std::forward<Visitor>(visitor));
-            }
-        }
-    }
-
-    // Visit the states (all states).
-    template <typename Visitor>
-    void visit(Visitor&& visitor, all_states_t)
-    {
-        mp11::tuple_for_each(m_states,
-            [&visitor](auto& state)
-            {
-                std::invoke(std::forward<Visitor>(visitor), state);
-
-                using State = std::decay_t<decltype(state)>;
-                if constexpr (detail::has_back_end_tag<State>::value)
+                for (const int state_id : m_active_state_ids)
                 {
-                    state.visit(std::forward<Visitor>(visitor), all_states);
+                    using table = visitor_dispatch_table<Visitor, recursive>;
+                    table::dispatch(*this, state_id, std::forward<Visitor>(visitor));
                 }
             }
-        );
+        }
+        // all states
+        else
+        {
+            mp11::tuple_for_each(m_states,
+                [&visitor](auto& state)
+                {
+                    std::invoke(std::forward<Visitor>(visitor), state);
+
+                    using State = std::decay_t<decltype(state)>;
+                    // recursive needs to be repeated in this lambda,
+                    // MSVC does not recognize the constexpr correctly.
+                    constexpr bool recursive = has_flag(Mode, visit_mode::recursive);
+                    if constexpr (has_back_end_tag<State>::value && recursive)
+                    {
+                        state.template visit<Mode>(std::forward<Visitor>(visitor));
+                    }
+                }
+            );
+        }   
     }
 
     // Puts the given event into the deferred events queue queue.
@@ -987,20 +1043,20 @@ class state_machine : public FrontEnd
     }
 
   protected:
-    static_assert(std::is_same_v<typename config_t::fsm_parameter, processing_sm> ||
+    static_assert(std::is_same_v<typename config_t::fsm_parameter, transition_owner> ||
                     (std::is_same_v<typename config_t::fsm_parameter, typename config_t::root_sm> &&
                      !std::is_same_v<typename config_t::root_sm, no_root_sm>),
-                  "fsm_parameter must be processing_sm or root_sm."
+                  "fsm_parameter must be transition_owner or root_sm"
                  );
     using fsm_parameter_t = mp11::mp_if_c<
-        std::is_same_v<typename config_t::fsm_parameter, processing_sm>,
+        std::is_same_v<typename config_t::fsm_parameter, transition_owner>,
         derived_t,
         typename config_t::root_sm>;
 
     fsm_parameter_t& get_fsm_argument()
     {
         if constexpr (std::is_same_v<typename config_t::fsm_parameter,
-                                     processing_sm>)
+                                     transition_owner>)
         {
             return *static_cast<derived_t*>(this);
         }
@@ -1140,7 +1196,7 @@ class state_machine : public FrontEnd
     process_result process_event_internal_impl(Event const& event, EventSource source)
     {
         // If the state machine has terminate or interrupt flags, check them.
-        if constexpr (mp11::mp_any_of<state_set, detail::is_state_blocking_t>::value)
+        if constexpr (mp11::mp_any_of<state_set, is_state_blocking_t>::value)
         {
             // If the state machine is terminated, do not handle any event.
             if (is_flag_active<TerminateFlag>())
@@ -1285,7 +1341,7 @@ private:
     template <class Flag,bool OrthogonalStates>
     struct FlagHelper
     {
-        static bool helper(state_machine const& sm,flag_handler* )
+        static bool helper(state_machine_base const& sm,flag_handler* )
         {
             // by default we use OR to accumulate the flags
             return sm.is_flag_active<Flag,std::logical_or<bool>>();
@@ -1294,7 +1350,7 @@ private:
     template <class Flag>
     struct FlagHelper<Flag,false>
     {
-        static bool helper(state_machine const& sm,flag_handler* flags_entries)
+        static bool helper(state_machine_base const& sm,flag_handler* flags_entries)
         {
             // just one active state, so we can call operator[] with 0
             return flags_entries[sm.get_active_state_ids()[0]](sm);
@@ -1305,17 +1361,17 @@ private:
     template <class State,class Flag>
     struct FlagHandler
     {
-        static bool flag_true(state_machine const& )
+        static bool flag_true(state_machine_base const& )
         {
             return true;
         }
-        static bool flag_false(state_machine const& )
+        static bool flag_false(state_machine_base const& )
         {
             return false;
         }
-        static bool forward(state_machine const& fsm)
+        static bool forward(state_machine_base const& fsm)
         {
-            return fsm.get_state<State>().template is_flag_active<Flag>();
+            return fsm.template get_state<State>().template is_flag_active<Flag>();
         }
     };
     template <class Flag>
@@ -1347,7 +1403,7 @@ private:
         template <class State>
         void operator()( mp11::mp_identity<State> const& )
         {
-            typedef typename detail::get_flag_list<State>::type flags;
+            typedef typename get_flag_list<State>::type flags;
             typedef mp11::mp_contains<flags,Flag > found;
 
             BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<State>()));
@@ -1360,7 +1416,7 @@ private:
             {
                 // false or forward
                 typedef typename ::boost::mpl::and_<
-                            typename detail::has_back_end_tag<State>::type,
+                            typename has_back_end_tag<State>::type,
                             typename ::boost::mpl::not_<
                                     typename has_non_forwarding_flag<Flag>::type>::type >::type composite_no_forward;
 
@@ -1381,18 +1437,6 @@ private:
                             (init_flags<Flag>(flags_entries)),
             flags_entries);
         return flags_entries_ptr;
-    }
-
-    template <bool Recursive, typename Visitor>
-    void visit(Visitor&& visitor)
-    {
-        if (m_running)
-        {
-            for (const size_t state_id : m_active_state_ids)
-            {
-                visitor_dispatch_table<Visitor, Recursive>::dispatch(*this, state_id, std::forward<Visitor>(visitor));
-            }
-        }
     }
 
     template <class Event, class Fsm, bool InitialStart = false>
@@ -1416,9 +1460,11 @@ private:
         else 
         {
             // Visit active states non-recursively.
-            visit<false>(
-                [this, &event, &fsm](auto& state)
+            visit(
+                [&event, &fsm](auto& state)
                 {
+                    // TODO:
+                    // Add filter to rule out impossible entry states.
                     execute_entry(state, event, fsm);
                 });
         }
@@ -1478,7 +1524,7 @@ private:
         {
             // Set the new active state(s) first, this includes
             // a normal direct entry (or entries) and a pseudo entry.
-            using entry_states = detail::to_mp_list_t<typename Event::active_state>;
+            using entry_states = to_mp_list_t<typename Event::active_state>;
             mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, entry_states>>(
                 [this](auto state_identity)
                 {
@@ -1508,9 +1554,11 @@ private:
     {
         // first recursively exit the sub machines
         // forward the event for handling by sub state machines
-        visit<false>(
+        visit(
             [&event, &fsm](auto& state)
             {
+                // TODO:
+                // Filter out impossible exit states.
                 state.on_exit(event, fsm);
             }
         );
@@ -1534,7 +1582,7 @@ private:
 #endif
     // no transition for event.
     template <class Event>
-    static process_result execute_no_transition(state_machine& , int , int , Event const& )
+    static process_result execute_no_transition(state_machine_base& , int , int , Event const& )
     {
         return process_result::HANDLED_FALSE;
     }
@@ -1544,7 +1592,7 @@ private:
 #endif
     // called for deferred events. Address set in the dispatch_table at init
     template <class Event>
-    static process_result execute_defer_transition(state_machine& fsm, int , int , Event const& e)
+    static process_result execute_defer_transition(state_machine_base& fsm, int , int , Event const& e)
     {
         fsm.defer_event(e);
         return process_result::HANDLED_DEFERRED;
@@ -1557,7 +1605,7 @@ private:
     static void execute_entry(State& state, Event const& event, Fsm& fsm)
     {
         // calls on_entry on the fsm then handles direct entries, fork, entry pseudo state
-        if constexpr (detail::has_back_end_tag<State>::value)
+        if constexpr (has_back_end_tag<State>::value)
         {
             state.on_entry(event,fsm);
         }
@@ -1581,13 +1629,13 @@ private:
 
     // helper allowing special handling of direct entries / fork
     template <class Target,class State,class Event>
-    static void convert_event_and_execute_entry(State& state,Event const& event, state_machine& sm)
+    static void convert_event_and_execute_entry(State& state,Event const& event, state_machine_base& sm)
     {
         auto& fsm = sm.get_fsm_argument();
         if constexpr (has_explicit_entry_state<Target>::value || mpl::is_sequence<Target>::value)
         {
             // for the direct entry, pack the event in a wrapper so that we handle it differently during fsm entry
-            execute_entry(state,detail::direct_entry_event<Target,Event>(event),fsm);
+            execute_entry(state,direct_entry_event<Target,Event>(event),fsm);
         }
         else
         {
@@ -1599,7 +1647,7 @@ private:
     template <typename State>
     using state_filter_predicate = mp11::mp_or<
         has_pseudo_exit<State>,
-        detail::has_back_end_tag<State>
+        has_back_end_tag<State>
         >;
     using states_to_init = mp11::mp_copy_if<
         states_t,
@@ -1613,12 +1661,12 @@ private:
         {
             static_assert(
                 std::is_same_v<TRootSm, root_sm_t>,
-                "The configured root_sm must match the used one."
+                "The configured root_sm must match the used one"
             );
             static_assert(
                 std::is_same_v<context_t, no_context> ||
                 std::is_same_v<context_t, typename TRootSm::context_t>,
-                "The configured context must match the root sm's one.");
+                "The configured context must match the root sm's one");
         }
         m_root_sm = static_cast<void*>(&root_sm);
 
@@ -1638,11 +1686,11 @@ private:
                     );
                 }
 
-                if constexpr (detail::has_back_end_tag<State>::value)
+                if constexpr (is_back_end<State>::value)
                 {
                     static_assert(
                         std::is_same_v<compile_policy, typename State::compile_policy>,
-                        "All compile policies must be identical."
+                        "All compile policies must be identical"
                     );
                     state.init(root_sm);
                 }
@@ -1650,8 +1698,8 @@ private:
         );
     }
 
-    // Dispatch table for visitors.
-    template <typename Visitor, bool Recursive = true>
+    // Dispatch table for calling invoking visitors with active states.
+    template <typename Visitor, bool Recursive>
     class visitor_dispatch_table
     {
     public:
@@ -1668,24 +1716,26 @@ private:
         }
 
         template<typename State>
-        static void accept(state_machine& sm, Visitor&& visitor)
+        static void accept(state_machine_base& sm, Visitor&& visitor)
         {
-            State& state = sm.get_state<State>();
+            State& state = sm.template get_state<State>();
             std::invoke(std::forward<Visitor>(visitor), state);
 
-            if constexpr (detail::has_back_end_tag<State>::value && Recursive)
+            if constexpr (has_back_end_tag<State>::value && Recursive)
             {
-                state.visit(std::forward<Visitor>(visitor));
+                state.template visit
+                    <visit_mode::active_states | visit_mode::recursive>
+                    (std::forward<Visitor>(visitor));
             }
         }
 
-        static void dispatch(state_machine& sm, int index, Visitor&& visitor)
+        static void dispatch(state_machine_base& sm, int index, Visitor&& visitor)
         {
             instance().m_cells[index](sm, std::forward<Visitor>(visitor));
         }
 
     private:
-        using cell_t = void (*)(state_machine&, Visitor&&);
+        using cell_t = void (*)(state_machine_base&, Visitor&&);
 
         static visitor_dispatch_table& instance()
         {
@@ -1721,6 +1771,47 @@ private:
     void*                m_root_sm{nullptr};
     states_t             m_states{};
     bool                 m_running{false};
+};
+
+} // detail
+
+/**
+ * @brief Back-end for state machines.
+ *
+ * Can take 1...3 parameters.
+ * 
+ * @tparam T0 (mandatory) : Front-end
+ * @tparam T1 (optional)  : State machine config
+ * @tparam T2 (optional)  : Derived class (required when inheriting from state_machine)
+ */
+template <typename ...T>
+class state_machine;
+
+template <class FrontEnd, class Config, class Derived>
+class state_machine<FrontEnd, Config, Derived>
+    : public detail::state_machine_base<FrontEnd, Config, Derived>
+{
+    using Base = detail::state_machine_base<FrontEnd, Config, Derived>;
+  public:
+    using Base::Base;
+};
+
+template <class FrontEnd, class Config>
+class state_machine<FrontEnd, Config>
+    : public detail::state_machine_base<FrontEnd, Config, state_machine<FrontEnd, Config>>
+{
+    using Base = detail::state_machine_base<FrontEnd, Config, state_machine<FrontEnd, Config>>;
+  public:
+    using Base::Base;
+};
+
+template <class FrontEnd>
+class state_machine<FrontEnd>
+    : public detail::state_machine_base<FrontEnd, default_state_machine_config, state_machine<FrontEnd>>
+{
+    using Base = detail::state_machine_base<FrontEnd, default_state_machine_config, state_machine<FrontEnd>>;
+  public:
+    using Base::Base;
 };
 
 }}} // boost::msm::backmp11

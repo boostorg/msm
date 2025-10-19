@@ -17,6 +17,16 @@
 namespace boost::msm::backmp11
 {
 
+namespace detail
+{
+
+struct config_tag {};
+// Check whether a type is a config.
+template <class T>
+using is_config = std::is_same<typename T::internal::tag, config_tag>;
+
+}
+
 // Config for the default compile policy
 // (runtime over compile time).
 struct favor_runtime_speed;
@@ -34,8 +44,8 @@ struct no_context {};
 struct no_root_sm {};
 
 // Config for the default fsm parameter
-// (processing fsm)
-struct processing_sm{};
+// (transition owner)
+struct transition_owner{};
 
 // Default state machine config.
 struct default_state_machine_config
@@ -43,9 +53,14 @@ struct default_state_machine_config
     using compile_policy = favor_runtime_speed;
     using context = no_context;
     using root_sm = no_root_sm;
-    using fsm_parameter = processing_sm;
+    using fsm_parameter = transition_owner;
     template<typename T>
     using queue_container = std::deque<T>;
+
+    struct internal
+    {
+        using tag = detail::config_tag;
+    };
 };
 
 using state_machine_config = default_state_machine_config;
