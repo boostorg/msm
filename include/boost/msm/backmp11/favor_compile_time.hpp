@@ -191,8 +191,7 @@ struct compile_policy_impl<favor_compile_time>
                     [this](auto event_identity)
                     {
                         using Event = typename decltype(event_identity)::type;
-                        // using test = print_types<Event>;
-                        auto& chain_row = get_chain_row<Event>();
+                        chain_row& chain_row = this->get_chain_row<Event>();
                         chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&Fsm::template execute_defer_transition<any_event>));
                     });
 

@@ -19,15 +19,15 @@
 #include <boost/mpl/is_sequence.hpp>
 #include <boost/mpl/front.hpp>
 
-
 #include <boost/type_traits/is_same.hpp>
 #include <boost/utility/enable_if.hpp>
 
 #include <boost/msm/row_tags.hpp>
 
+#include <boost/msm/backmp11/common_types.hpp>
 #include <boost/msm/back/traits.hpp>
-#include <boost/msm/back/default_compile_policy.hpp>
 #include <boost/msm/front/detail/common_states.hpp>
+
 
 namespace boost { namespace msm { namespace backmp11
 {
@@ -35,13 +35,24 @@ namespace boost { namespace msm { namespace backmp11
 namespace detail
 {
 
+constexpr bool has_flag(visit_mode value, visit_mode flag)
+{
+    return (static_cast<int>(value) & static_cast<int>(flag)) != 0;
+}
+
 struct back_end_tag {};
 
 template <typename T>
 using has_back_end_tag = std::is_same<typename T::internal::tag, back_end_tag>;
 
+template <class T>
+using is_back_end = has_back_end_tag<T>;
+
 template <typename T>
-inline constexpr bool is_composite_v = std::is_same_v<typename T::internal::tag, msm::front::detail::composite_state_tag> || has_back_end_tag<T>::value;
+using is_composite = mp11::mp_or<
+    std::is_same<typename T::internal::tag, msm::front::detail::composite_state_tag>,
+    has_back_end_tag<T>
+    >;
 
 // Call a functor on all elements of List, until the functor returns true.
 template <typename List, typename Func>

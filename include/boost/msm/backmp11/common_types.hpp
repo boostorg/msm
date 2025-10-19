@@ -22,13 +22,31 @@ using process_result = back::HandledEnum;
 
 using any_event = std::any;
 
-// Tag referring to active states of a SM.
-struct active_states_t {};
-constexpr active_states_t active_states;
+// Selector for the visit mode.
+// Can be active_states or all_states in recursive
+// or non-recursive mode.
+enum class visit_mode
+{
+    // State selection (mutually exclusive).
+    active_states = 0b001,
+    all_states    = 0b010,
 
-// Tag referring to all states of a SM.
-struct all_states_t {};
-constexpr all_states_t all_states;
+    // Traversal mode (not set = non-recursive).
+    recursive     = 0b100,
+
+    // All valid combinations.
+    active_non_recursive = active_states,
+    active_recursive     = active_states | recursive,
+    all_non_recursive    = all_states,
+    all_recursive        = all_states | recursive
+};
+constexpr visit_mode operator|(visit_mode lhs, visit_mode rhs)
+{
+    return static_cast<visit_mode>(
+        static_cast<std::underlying_type_t<visit_mode>>(lhs) |
+        static_cast<std::underlying_type_t<visit_mode>>(rhs)
+    );
+}
 
 namespace detail
 {

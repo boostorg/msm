@@ -31,94 +31,87 @@ using namespace msm::backmp11;
 
 namespace
 {
-    // Events.
-    struct MyEvent{};
 
-    // Actions
-    struct MyAction
+// Events.
+struct MyEvent{};
+
+// Actions
+struct MyAction
+{
+    template<typename Event, typename Fsm, typename Source, typename Target>
+    void operator()(const Event&, Fsm& fsm, Source&, Target&)
     {
-        template<typename Event, typename Fsm, typename Source, typename Target>
-        void operator()(const Event&, Fsm& fsm, Source&, Target&)
-        {
-            fsm.action_calls++;
-        }
-    };
-    struct MyGuard
-    {
-        template<typename Event, typename Fsm, typename Source, typename Target>
-        bool operator()(const Event&, Fsm& fsm, Source&, Target&) const
-        {
-            fsm.guard_calls++;
-            return true;
-        }
-    };
-
-    // Context.
-    struct Context {};
-    
-    // States.
-    struct Default : public state<>{};
-    class StateMachine;
-
-    struct SmConfig : state_machine_config
-    {
-        using context = Context;
-        using root_sm = StateMachine;
-        // using fsm_parameter = root_sm;
-    };
-
-    struct StateMachine_ : public state_machine_def<StateMachine_>
-    {
-        using activate_deferred_events = int;
-
-        template <typename Event, typename Fsm>
-        void on_entry(const Event& /*event*/, Fsm& fsm)
-        {
-            fsm.entry_calls++;
-        };
-
-        template <typename Event, typename Fsm>
-        void on_exit(const Event& /*event*/, Fsm& fsm)
-        {
-            fsm.machine_exits++;
-        };
-
-        using initial_state = Default;
-        using transition_table = mp11::mp_list<
-            Row<Default, MyEvent, none, MyAction, MyGuard>
-        >;
-    };
-    class StateMachine : public state_machine<StateMachine_, SmConfig, StateMachine>
-    {
-        using Base = state_machine<StateMachine_, SmConfig, StateMachine>;
-      public:
-        using Base::Base;
-
-        size_t entry_calls{};
-        size_t machine_exits{};
-        size_t action_calls{};
-        size_t guard_calls{};
-    };
-
-    BOOST_AUTO_TEST_CASE( backmp11_members_test )
-    {
-        Context context;
-        StateMachine test_machine{context};
-        [[maybe_unused]] auto& events_queue = test_machine.get_events_queue();
-        [[maybe_unused]] const auto& const_events_queue = static_cast<const StateMachine*>(&test_machine)->get_events_queue();
-        [[maybe_unused]] auto& deferred_events_queue = test_machine.get_deferred_events_queue();
-        [[maybe_unused]] const auto& const_deferred_events_queue = static_cast<const StateMachine*>(&test_machine)->get_deferred_events_queue();
-        [[maybe_unused]] auto& sm_context = test_machine.get_context();
-        [[maybe_unused]] const auto& const_sm_context = static_cast<const StateMachine*>(&test_machine)->get_context();
-        BOOST_CHECK_MESSAGE(&sm_context == &context, "SM context not set up correctly");
-
-        test_machine.start();
-        BOOST_CHECK_MESSAGE(test_machine.entry_calls == 1, "SM on_entry not called correctly");
-        test_machine.process_event(MyEvent{});
-        BOOST_CHECK_MESSAGE(test_machine.action_calls == 1, "SM action not called correctly");
-        BOOST_CHECK_MESSAGE(test_machine.guard_calls == 1, "SM guard not called correctly");
-
-        test_machine.stop();
-        BOOST_CHECK_MESSAGE(test_machine.machine_exits == 1, "SM on_exit not called correctly");
+        fsm.action_calls++;
     }
+};
+struct MyGuard
+{
+    template<typename Event, typename Fsm, typename Source, typename Target>
+    bool operator()(const Event&, Fsm& fsm, Source&, Target&) const
+    {
+        fsm.guard_calls++;
+        return true;
+    }
+};
+
+// States.
+struct Default : public state<>{};
+class StateMachine;
+
+struct SmConfig : state_machine_config
+{
+    using root_sm = StateMachine;
+};
+
+struct StateMachine_ : public state_machine_def<StateMachine_>
+{
+    using activate_deferred_events = int;
+
+    template <typename Event, typename Fsm>
+    void on_entry(const Event& /*event*/, Fsm& fsm)
+    {
+        fsm.entry_calls++;
+    };
+
+    template <typename Event, typename Fsm>
+    void on_exit(const Event& /*event*/, Fsm& fsm)
+    {
+        fsm.machine_exits++;
+    };
+
+    using initial_state = Default;
+    using transition_table = mp11::mp_list<
+        Row<Default, MyEvent, none, MyAction, MyGuard>
+    >;
+};
+// Leave this class without inheriting constructors to check
+// that this only needs to be done in case we use a context
+// (for convenience).
+class StateMachine : public state_machine<StateMachine_, SmConfig, StateMachine>
+{
+    public:
+    size_t entry_calls{};
+    size_t machine_exits{};
+    size_t action_calls{};
+    size_t guard_calls{};
+};
+
+BOOST_AUTO_TEST_CASE( backmp11_members_test )
+{
+    StateMachine test_machine;
+    [[maybe_unused]] auto& events_queue = test_machine.get_events_queue();
+    [[maybe_unused]] const auto& const_events_queue = static_cast<const StateMachine*>(&test_machine)->get_events_queue();
+    [[maybe_unused]] auto& deferred_events_queue = test_machine.get_deferred_events_queue();
+    [[maybe_unused]] const auto& const_deferred_events_queue = static_cast<const StateMachine*>(&test_machine)->get_deferred_events_queue();
+
+    test_machine.start();
+    BOOST_CHECK_MESSAGE(test_machine.entry_calls == 1, "SM on_entry not called correctly");
+    test_machine.process_event(MyEvent{});
+    BOOST_CHECK_MESSAGE(test_machine.action_calls == 1, "SM action not called correctly");
+    BOOST_CHECK_MESSAGE(test_machine.guard_calls == 1, "SM guard not called correctly");
+
+    test_machine.stop();
+    BOOST_CHECK_MESSAGE(test_machine.machine_exits == 1, "SM on_exit not called correctly");
 }
+
+} // namespace

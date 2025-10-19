@@ -155,7 +155,6 @@ namespace
     // Pick a back-end
     typedef boost::mpl::vector<
         hierarchical_state_machine<boost::msm::back::state_machine>
-        // hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>
         // TODO:
         // Investigate reason for test failure in back11.
         // hierarchical_state_machine<boost::msm::back11::state_machine>
@@ -369,9 +368,3 @@ namespace
 
     }
 }
-
-#if !defined(BOOST_MSM_TEST_ONLY_BACKMP11)
-using back0 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::player;
-using back1 = hierarchical_state_machine<boost::msm::back::state_machine, boost::msm::back::favor_compile_time>::Playing_type;
-BOOST_MSM_BACK_GENERATE_PROCESS_EVENT(back1);
-#endif

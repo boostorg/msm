@@ -78,9 +78,11 @@ namespace
     struct DefaultState : public state<StateBase> {};
 
     template<typename T>
-    struct MachineBase_ : public state_machine_def<MachineBase_<T>, StateBase>
+    struct MachineBase_ : public state_machine_def<MachineBase_<T>>
     {
         using initial_state = DefaultState;
+
+        size_t visits;
     };
 
     template<typename Config = default_state_machine_config>
@@ -170,16 +172,23 @@ namespace
             upper_machine.visit(count_visitor);
             BOOST_REQUIRE(visits == 0);
         }
+        using vm = msm::backmp11::visit_mode;
 
         // Test all states
         {
-            upper_machine.visit(count_visitor, all_states);
-            BOOST_REQUIRE(upper_machine_state.visits == 1);
-            BOOST_REQUIRE(middle_machine.visits == 1);
-            BOOST_REQUIRE(middle_machine_state.visits == 1);
-            BOOST_REQUIRE(lower_machine.visits == 1);
-            BOOST_REQUIRE(lower_machine_state.visits == 1);
-            BOOST_REQUIRE(visits == 5);
+            upper_machine.template visit<vm::all_states>(count_visitor);
+            BOOST_CHECK(upper_machine_state.visits == 1);
+            BOOST_CHECK(middle_machine.visits == 1);
+            BOOST_CHECK(visits == 2);
+            upper_machine.template visit<vm::all_states>(reset_count_visitor);
+
+            upper_machine.template visit<vm::all_recursive>(count_visitor);
+            BOOST_CHECK(upper_machine_state.visits == 1);
+            BOOST_CHECK(middle_machine.visits == 1);
+            BOOST_CHECK(middle_machine_state.visits == 1);
+            BOOST_CHECK(lower_machine.visits == 1);
+            BOOST_CHECK(lower_machine_state.visits == 1);
+            BOOST_CHECK(visits == 5);
         }
     }
 }

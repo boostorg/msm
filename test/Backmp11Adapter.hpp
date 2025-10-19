@@ -168,9 +168,12 @@ struct serialize_state
     Archive& ar_;
 };
 
+namespace detail
+{
+
 template <class Archive, class FrontEnd, class Config, class Derived>
 void serialize(Archive& ar,
-               msm::backmp11::state_machine<FrontEnd, Config, Derived>& sm)
+               state_machine_base<FrontEnd, Config, Derived>& sm)
 {
     (serialize_state<Archive>(ar))(boost::serialization::base_object<FrontEnd>(sm));
     ar & sm.m_active_state_ids;
@@ -178,9 +181,6 @@ void serialize(Archive& ar,
     ar & sm.m_event_processing;
     mp11::tuple_for_each(sm.m_states, serialize_state<Archive>(ar));
 }
-
-namespace detail
-{
 
 template<typename T, int N>
 void serialize(T& ar, detail::history_impl<front::no_history, N>& history)
@@ -207,7 +207,7 @@ void serialize(Archive& ar,
                msm::backmp11::state_machine_adapter<A0, A1, A2, A3, A4>& sm,
                const unsigned int /*version*/)
 {
-    msm::backmp11::serialize(ar, sm);
+    msm::backmp11::detail::serialize(ar, sm);
 }
 
 template<typename T, int N>
