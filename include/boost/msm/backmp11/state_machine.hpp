@@ -23,7 +23,11 @@
 
 #include <boost/mp11.hpp>
 
-#include <boost/mpl/for_each.hpp>
+#include <boost/mpl/eval_if.hpp>
+#include <boost/mpl/identity.hpp>
+#include <boost/mpl/is_sequence.hpp>
+#include <boost/mpl/bool.hpp>
+#include <boost/mpl/and.hpp>
 
 #include <boost/assert.hpp>
 #include <boost/ref.hpp>
