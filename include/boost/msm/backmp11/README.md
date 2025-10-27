@@ -315,7 +315,7 @@ It can be copied and adapted if needed, though this class is internal to the tes
 
 Further details about the applied API changes:
 
-#### Support for `boost::serialization` is removed
+#### The dependency to `boost::serialization` is removed
 
 The back-end aims to support serialization in general, but without providing a concrete implementation for a specific serialization library.
 If you want to use `boost::serialization` for your state machine, you can look into the [state machine adapter](../../../../test/Backmp11Adapter.hpp) from the tests for an example how to set it up.
