@@ -17,8 +17,14 @@
 #include <boost/msm/backmp11/event_traits.hpp>
 
 #include <boost/mpl/advance.hpp>
+#include <boost/mpl/begin.hpp>
+#include <boost/mpl/bool.hpp>
 #include <boost/mpl/empty.hpp>
 #include <boost/mpl/erase.hpp>
+#include <boost/mpl/eval_if.hpp>
+#include <boost/mpl/front.hpp>
+#include <boost/mpl/identity.hpp>
+#include <boost/mpl/int.hpp>
 #include <boost/mpl/pair.hpp>
 #include <boost/mpl/pop_front.hpp>
 
