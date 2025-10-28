@@ -100,4 +100,6 @@ test-suite msm-unit-tests-cxxstd20
     # Clang 11 and 12 don't support lambdas in unevaluated contexts
     <toolset>clang-11:<build>no
     <toolset>clang-12:<build>no
+    # gcc-9 doesn't support cxxstd=20
+    <toolset>gcc-9:<build>no
     ;
