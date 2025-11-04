@@ -11,7 +11,38 @@ The new back-end has the following goals:
 - reduce state machine runtime
 - provide new features and customization options
 
-A few benchmarks that compare compile time and runtime against the other existing MSM back-ends as well as SML are https://github.com/chandryan/fsm-benchmarks[available here].
+It offers a significant reduction in compilation time and RAM usage, as can be seen in these benchmarks:
+
+**Large state machine**
+
+[width=80%, cols="4*", options="header"]
+|=======================================================================
+|                             | Compile / sec | RAM / MB | Runtime / sec
+| back                        | 18            | 953      | 7            
+| back_favor_compile_time     | 21            | 1000     | 8            
+| back11                      | 43            | 2794     | 7            
+| backmp11                    | 4             | 261      | 3            
+| backmp11_favor_compile_time | 3             | 231      | 13           
+| boost-ext/sml               | 12            | 363      | 3            
+|=======================================================================
+
+
+**Large hierarchical state machine**
+
+[width=80%, cols="4*", options="header"]
+|================================================================================
+|                                      | Compile / sec | RAM / MB | Runtime / sec
+| back                                 | 68            | 2849     | 23           
+| back_favor_compile_time              | 80            | 2551     | 261          
+| backmp11                             | 12            | 525      | 10           
+| backmp11_favor_compile_time          | 7             | 318      | 40           
+| backmp11_favor_compile_time_multi_cu | 5             | ~982     | 40           
+| boost-ext/sml                        | 48            | 1128     | 11           
+|================================================================================
+
+
+The full code with the benchmarks and more information about them https://github.com/chandryan/fsm-benchmarks[is available here].
+There are still a couple more optimizations to come, the tables in the repository frequently get updated with the latest results.
 
 
 == New features
