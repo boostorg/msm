@@ -50,8 +50,18 @@ constexpr visit_mode operator|(visit_mode lhs, visit_mode rhs)
 
 namespace detail
 {
-    using EventSource = back::EventSourceEnum;
-    using back::HandledEnum;
+
+using EventSource = back::EventSourceEnum;
+using back::HandledEnum;
+
+constexpr EventSource operator|(EventSource lhs, EventSource rhs)
+{
+    return static_cast<EventSource>(
+        static_cast<std::underlying_type_t<EventSource>>(lhs) |
+        static_cast<std::underlying_type_t<EventSource>>(rhs)
+    );
+}
+
 }
 
 }}} // namespace boost::msm::backmp11

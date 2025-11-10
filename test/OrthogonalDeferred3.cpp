@@ -342,11 +342,14 @@ namespace
     };
     // Pick a back-end
     typedef boost::mpl::vector<
-        hierarchical_state_machine<boost::msm::back::state_machine>,
 #if !defined(BOOST_MSM_TEST_SKIP_BACKMP11)
-        hierarchical_state_machine<boost::msm::backmp11::state_machine_adapter>,
+        hierarchical_state_machine<boost::msm::backmp11::state_machine_adapter>
+        BOOST_MSM_TEST_MAYBE_COMMA
 #endif
+#if !defined(BOOST_MSM_TEST_ONLY_BACKMP11)
+        hierarchical_state_machine<boost::msm::back::state_machine>,
         hierarchical_state_machine<boost::msm::back11::state_machine>
+#endif
         > test_machines;
 
     //static char const* const state_names[] = { "Stopped", "Open", "Empty", "Playing", "Paused","AllOk","ErrorMode" };
