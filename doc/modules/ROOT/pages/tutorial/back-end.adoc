@@ -2,9 +2,13 @@
 
 = Back-end
 
-There is, at the moment, one back-end. This back-end contains the
-library engine and defines the performance and functionality trade-offs.
-The currently available back-end implements most of the functionality
+The back-end contains the library engine and defines the performance and functionality trade-offs. There are, at the moment, three back-ends:
+
+- `msm::back` is using {cpp}03
+- `msm::back11` is using {cpp}11 and should be used by default if possible as it removes some pre-{cpp}11 limitations (mpl::vector of limited size)
+- `msm::backmp11` is using {cpp}17 (it is still experimental at the moment and further described in a xref:./backmp11-back-end.adoc[separate page])
+
+The currently available back-ends implement most of the functionality
 defined by the UML 2.0 standard at very high runtime speed, in exchange
 for longer compile-time. The runtime speed is due to a constant-time
 double-dispatch and self-adapting capabilities allowing the framework to
@@ -86,7 +90,7 @@ generated.
 
 [[upper-state-machine]]
 
-== Upper State Machine
+== Upper State Machine (`msm::back11` only)
 
 The FSM template argument passed to functors or entry/exit actions is
 the current state machine, which might not be what is wanted as the
@@ -422,7 +426,7 @@ capability is provided.
 
 [[backend-tradeof-rt-ct]]
 
-== Trading run-time speed for better compile-time / multi-TU compilation
+== Trading run-time speed for better compile-time / multi-TU compilation (`msm::back` only)
 
 MSM is optimized for run-time speed at the cost of longer compile-time.
 This can become a problem with older compilers and big state machines,
@@ -620,3 +624,19 @@ The problem and the solution is shown for the
 xref:attachment$ActiveStateSetBeforeTransition.cpp[functor-front-end] and
 xref:attachment$ActivateStateBeforeTransitionEuml.cpp[eUML]. Removing
 `active_state_switch_before_transition` will show the default state.
+
+
+== Known limitations
+
+Any currently known issues and limitations with the `back` and `back11` back-ends are described below.
+
+
+=== Deferring events in orthogonal regions
+
+The event deferral logic requires deferred events to be dispatched for evaluation.
+When a deferred event is dispatched to orthogonal regions, each region individually decides whether to consume or defer the event.
+This can lead to scenarios where one region defers the event and the other one processes it,
+causing infinite recursions because the event deferral logic needs to re-evaluate the deferred-and-processed event over and over.
+
+According to the UML standard, in such a case the event should be deferred as long as one region decides to defer it.
+This issue can be worked around by explicitly ensuring (for example with guards) that the event is exclusively _either_ deferred _or_ processed.
