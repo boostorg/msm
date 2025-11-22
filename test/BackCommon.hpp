@@ -59,8 +59,6 @@ using get_hierarchical_test_machines = boost::mpl::vector<
 #endif // BOOST_MSM_TEST_ONLY_BACKMP11
 >;
 
-#undef BOOST_MSM_TEST_MAYBE_COMMA
-
 #define BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(frontname)                          \
     using base = msm::front::state_machine_def<frontname>;                            \
     template<typename T1, class Event, typename T2>                                   \

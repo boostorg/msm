@@ -1,7 +1,7 @@
 = Backmp11 back-end (C{plus}{plus}17, experimental)
 
 Backmp11 is a new back-end that is mostly backwards-compatible with `back`.
-It is currently in **experimental** stage, thus some details about the compatibility might change (feedback welcome!). 
+It is currently in **experimental** stage, thus some details about the compatibility might change (feedback welcome!).
 It is named after the metaprogramming library Boost Mp11, the main contributor to the optimizations.
 Usages of MPL are replaced with Mp11 to get rid of the costly C{plus}{plus}03 emulation of variadic templates.
 
@@ -13,36 +13,61 @@ The new back-end has the following goals:
 
 It offers a significant reduction in compilation time and RAM usage, as can be seen in these benchmarks:
 
-**Large state machine**
+*Large state machine*
 
-[width=80%, cols="4*", options="header"]
+[width=80%, cols="3,1,1,1", options="header"]
 |=======================================================================
 |                             | Compile / sec | RAM / MB | Runtime / sec
-| back                        | 18            | 953      | 7            
-| back_favor_compile_time     | 21            | 1000     | 8            
-| back11                      | 43            | 2794     | 7            
-| backmp11                    | 4             | 261      | 3            
-| backmp11_favor_compile_time | 3             | 231      | 13           
-| boost-ext/sml               | 12            | 363      | 3            
+| back                        | 18            | 953      | 7
+| back_favor_compile_time     | 21            | 1000     | 8
+| back11                      | 43            | 2794     | 7
+| backmp11                    | 3             | 239      | 3
+| backmp11_favor_compile_time | 3             | 220      | 13
+| sml                         | 12            | 363      | 3
 |=======================================================================
 
 
-**Large hierarchical state machine**
+*Large hierarchical state machine*
 
-[width=80%, cols="4*", options="header"]
+[width=80%, cols="3,1,1,1", options="header"]
 |================================================================================
 |                                      | Compile / sec | RAM / MB | Runtime / sec
-| back                                 | 68            | 2849     | 23           
-| back_favor_compile_time              | 80            | 2551     | 261          
-| backmp11                             | 12            | 525      | 10           
-| backmp11_favor_compile_time          | 7             | 318      | 40           
-| backmp11_favor_compile_time_multi_cu | 5             | ~982     | 40           
-| boost-ext/sml                        | 48            | 1128     | 11           
+| back                                 | 68            | 2849     | 23
+| back_favor_compile_time              | 80            | 2551     | 261
+| backmp11                             | 11            | 472      | 10
+| backmp11_favor_compile_time          | 7             | 288      | 40
+| backmp11_favor_compile_time_multi_cu | 5             | ~919     | 40
+| sml                                  | 48            | 1128     | 11
 |================================================================================
 
 
-The full code with the benchmarks and more information about them https://github.com/chandryan/fsm-benchmarks[is available here].
+The full code with the benchmarks and more information about them is available https://github.com/chandryan/fsm-benchmarks[in this repository].
 There are still a couple more optimizations to come, the tables in the repository frequently get updated with the latest results.
+
+
+== Deprecation timeline
+
+Deprecations of features with more context information are listed in below table.
+
+[width=95%, cols="16,5,40"]
+|===
+| Feature | Deprecation / Removal | Description
+
+| Support for event deferral as action and public access to the deferred event container
+| 1.90 / 1.91
+a| Deferring an event as an action triggered by the same event is not foreseen in UML and leads to ambiguities (the event is both consumed and deferred).
+
+*Change:* The public API to defer an event will be changed to `protected`. If needed, users can inherit from `state_machine` and make the API public again, but without guarantees about correct functionality and API consistency.
+
+*Recommendation:* Configure event deferral as a state property instead of using it as a transition action.
+
+| Public access to the event container
+| 1.90 / 1.91
+a| The event container can be accessed and manipulated via public APIs. Manipulation of the container outside of the library code can lead to undefined behavior.
+
+*Change:* The public API to access the event container will be changed to `protected`. If needed, users can inherit from `state_machine` to access the event container, but without guarantees about correct functionality and API consistency.
+
+|===
 
 
 == New features
@@ -98,6 +123,7 @@ void operator()(State& state);
 ```
 
 Also these bugs are fixed:
+
 - If the SM is not started yet, no active state is visited instead of the initial state(s)
 - If the SM is stopped, no active state is visited instead of the last active state(s)
 
@@ -233,7 +259,19 @@ A similar friend declaration is available in the `history_impl` classes.
 **IMPORTANT:** This design allows you to provide any serializer implementation, but due to the need to access private members there is no guarantee that your implementation breaks in a new version of the back-end.
 
 
-== Changes with respect to `back`
+== Resolved issues with respect to `back`
+
+=== Deferring events in orthogonal regions
+
+Event deferral in orthogonal regions behaves as described in the UML standard:
+
+- If one active region decides to defer an event, then it is deferred for all regions instead of being processed
+- The event gets processed once no more active region decides to defer it
+
+In `back` the event is evaluted by all regions independently. This leads to the same event being processed multiple times (and worst case to infinite recursion).
+
+
+== Other changes with respect to `back`
 
 === The required minimum C{plus}{plus} version is C{plus}{plus}17
 
@@ -406,7 +444,7 @@ Required replacements to try it out:
 
 - for the state machine use `boost::msm::backmp11::state_machine` in place of `boost::msm::back::state_machine` and
 - for configuring the compile policy and more use `boost::msm::backmp11::state_machine_config`
-- if you encounter API-incompatibilities please check the [details above](=changes-with-respect-to-back) for reference
+- if you encounter API-incompatibilities please check the <<_other_changes_with_respect_to_back,details above>> for reference
 
 
 Since the back-end should compile very fast for most machines, the manual generation of state machines with the `favor_compile_time` policy has become an opt-in feature.
@@ -432,8 +470,8 @@ Below you can find some insights how the compile-time and runtime optimizations 
 
 Summary:
 
+- Unconditionally default-initialized everything first and afterwards only the row-related transition cells
 - Optimized cell initialization with initializer arrays (to reduce template instantiations)
-- Default-initialized everything first and afterwards only the defer transition cells
 
 
 === `favor_compile_time` policy

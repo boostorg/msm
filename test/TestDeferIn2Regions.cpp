@@ -8,13 +8,15 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
+// Event deferral behaves differently in backmp11
+#define BOOST_MSM_TEST_SKIP_BACKMP11
 // back-end
 #include "BackCommon.hpp"
 //front-end
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE Back11TestDeferIn2Regions
+#define BOOST_TEST_MODULE TestDeferIn2Regions
 #endif
 #include <boost/test/unit_test.hpp>
 
@@ -120,7 +122,7 @@ namespace
     // Pick a back-end
     typedef get_test_machines<player_> players;
 
-    BOOST_AUTO_TEST_CASE_TEMPLATE( Back11TestDeferIn2Regions, player, players )
+    BOOST_AUTO_TEST_CASE_TEMPLATE(TestDeferIn2Regions, player, players)
     {
         player p;
         // needed to start the highest-level SM. This will call on_entry and mark the start of the SM

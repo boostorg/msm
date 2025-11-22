@@ -62,6 +62,24 @@ struct compile_policy_impl<favor_runtime_speed>
         return sm.process_event_internal_impl(event, source);
     }
 
+    template <typename Event, typename StateMachine>
+    static bool is_event_deferred(StateMachine& sm)
+    {
+        bool result = false;
+        auto visitor = [&result](auto& state)
+        {
+            using State = std::decay_t<decltype(state)>;
+            result |= has_state_deferred_event<State, Event>::value;
+        };
+        sm.template visit<visit_mode::active_non_recursive>(visitor);
+        return result;
+    }
+    template <typename StateMachine, typename Event>
+    static bool is_event_deferred(StateMachine& sm, const Event&)
+    {
+        return is_event_deferred<Event>(sm);
+    }
+
     template <typename StateMachine, typename Event>
     static void defer_event(StateMachine& sm, Event const& event)
     {
@@ -75,7 +93,7 @@ struct compile_policy_impl<favor_runtime_speed>
                         using KnownEvent = typename decltype(event_identity)::type;
                         if (event.type() == typeid(KnownEvent))
                         {
-                            sm.do_defer_event(*any_cast<KnownEvent>(&event));
+                            do_defer_event(sm, *any_cast<KnownEvent>(&event));
                             return true;
                         }
                         return false;
@@ -91,10 +109,31 @@ struct compile_policy_impl<favor_runtime_speed>
         }
         else
         {
-            sm.do_defer_event(event);
+            do_defer_event(sm, event);
         }
     }
 
+    template <typename StateMachine, class Event>
+    static void do_defer_event(StateMachine& sm, const Event& event)
+    {
+        auto& deferred_events = sm.get_deferred_events();
+        deferred_events.queue.push_back(
+            {
+                [&sm, event]()
+                {
+                    return process_event_internal(
+                        sm,
+                        event,
+                        EventSource::EVENT_SOURCE_DEFERRED);
+                },
+                [&sm]()
+                {
+                    return is_event_deferred<Event>(sm);
+                },
+                deferred_events.cur_seq_cnt
+            }
+        );
+    }
 
     struct cell_initializer
     {
@@ -115,20 +154,8 @@ struct compile_policy_impl<favor_runtime_speed>
         Event
         >;
 
-    template<typename Fsm, typename State, typename Event>
-    struct table_index
-    {
-        using type = mp11::mp_if<
-            mp11::mp_or<
-                mp11::mp_not<is_same<State, Fsm>>,
-                has_state_deferred_event<State, Event>
-                >,
-            mp11::mp_size_t<Fsm::template get_state_id<State>() + 1>,
-            mp11::mp_size_t<0>
-            >;
-    };
     template<typename Fsm, typename State>
-    struct table_index<Fsm, State, void>
+    struct table_index
     {
         using type = mp11::mp_if<
             mp11::mp_not<is_same<State, Fsm>>,
@@ -136,8 +163,8 @@ struct compile_policy_impl<favor_runtime_speed>
             mp11::mp_size_t<0>
             >;
     };
-    template<typename Fsm, typename State, typename Event = void>
-    using get_table_index = typename table_index<Fsm, State, Event>::type;
+    template<typename Fsm, typename State>
+    using get_table_index = typename table_index<Fsm, State>::type;
 
     // Generates a singleton runtime lookup table that maps current state
     // to a function that makes the SM take its transition on the given
@@ -211,23 +238,11 @@ struct compile_policy_impl<favor_runtime_speed>
             private:
                 event_cell* m_entries;
             };
-            // A function object for use with mp11::mp_for_each that stuffs transitions into cells.
-            class state_init_helper
+
+            static process_result execute_no_transition(Fsm&, int, int, const Event&)
             {
-            public:
-                state_init_helper(event_cell* entries)
-                    : m_entries(entries) {}
-
-                template<typename State>
-                void operator()(State)
-                {
-                    m_entries[get_table_index<Fsm, State, Event>::value] =
-                        &Fsm::execute_defer_transition;
-                }
-
-            private:
-                event_cell* m_entries;
-            };
+                return process_result::HANDLED_FALSE;
+            }
 
             // initialize the dispatch table for a given Event and Fsm
             event_dispatch_table()
@@ -235,27 +250,8 @@ struct compile_policy_impl<favor_runtime_speed>
                 // Initialize cells for no transition
                 for (size_t i=0;i<max_state+1; i++)
                 {
-                    entries[i] = &Fsm::execute_no_transition;
+                    entries[i] = &execute_no_transition;
                 }
-                // Initialize cells for defer transition
-                typedef mp11::mp_copy_if<
-                    typename generate_state_set<Stt>::state_set,
-                    state_filter_predicate
-                    > filtered_states;
-    // MSVC crashes when using get_init_cells.
-    #if !defined(_MSC_VER)
-                typedef mp11::mp_transform<
-                    preprocess_state,
-                    filtered_states
-                    > preprocessed_states;
-                event_cell_initializer::init(
-                    reinterpret_cast<generic_cell*>(entries),
-                    get_init_cells<event_cell, preprocessed_states>(),
-                    mp11::mp_size<preprocessed_states>::value
-                    );
-    #else
-                mp11::mp_for_each<filtered_states>(state_init_helper{entries});
-    #endif
 
                 // build chaining rows for rows coming from the same state and the current event
                 // first we build a map of sequence for every source
@@ -275,9 +271,8 @@ struct compile_policy_impl<favor_runtime_speed>
                     > chained_rows;
 
                 // Go back and fill in cells for matching transitions.
-    // Creating init cells that refer to convert_event_and_forward is only possible from C++17.
-    // MSVC crashes when using get_init_cells.
-    #if !defined(_MSC_VER)
+// MSVC crashes when using get_init_cells.
+#if !defined(_MSC_VER)
                 typedef mp11::mp_transform<
                     preprocess_row,
                     chained_rows
@@ -287,9 +282,9 @@ struct compile_policy_impl<favor_runtime_speed>
                     get_init_cells<event_cell, chained_and_preprocessed_rows>(),
                     mp11::mp_size<chained_and_preprocessed_rows>::value
                     );
-    #else
+#else
                 mp11::mp_for_each<chained_rows>(row_init_helper{entries});
-    #endif
+#endif
             }
             
             // class used to build a chain (or sequence) of transitions for a given event and start state
@@ -412,12 +407,6 @@ struct compile_policy_impl<favor_runtime_speed>
             using cell_constant = std::integral_constant<event_cell, v>;
 
             using event_cell_initializer = cell_initializer;
-
-            // Helpers for state processing
-            template<typename State>
-            using state_filter_predicate = has_state_deferred_event<State, Event>;
-            template<typename State, typename fsm=Fsm>
-            using preprocess_state = init_cell_constant<get_table_index<Fsm, State, Event>::value, &fsm::execute_defer_transition>;
 
             // Helpers for row processing
             // First operation (fold)
