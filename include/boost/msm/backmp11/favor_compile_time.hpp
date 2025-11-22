@@ -16,6 +16,7 @@
 #include <functional>
 #include <typeindex>
 #include <unordered_map>
+#include <unordered_set>
 
 #include <boost/msm/front/completion_event.hpp>
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
@@ -72,10 +73,64 @@ struct compile_policy_impl<favor_compile_time>
         return sm.process_event_internal_impl(event, source);
     }
 
+    template <typename State>
+    static const std::unordered_set<std::type_index>& get_deferred_event_type_indices()
+    {
+        static std::unordered_set<std::type_index> type_indices = []()
+        {
+            std::unordered_set<std::type_index> indices;
+            using deferred_events = to_mp_list_t<typename State::deferred_events>;
+            using deferred_event_identities = mp11::mp_transform<mp11::mp_identity, deferred_events>;
+            mp11::mp_for_each<deferred_event_identities>(
+                [&indices](auto event_identity)
+                {
+                    using Event = typename decltype(event_identity)::type;
+                    indices.emplace(to_type_index<Event>());
+                }
+            );
+            return indices;
+        }();
+        return type_indices;
+    }
+
+    template <typename StateMachine>
+    static bool is_event_deferred(StateMachine& sm, std::type_index type_index)
+    {
+        bool result = false;
+        auto visitor = [&result, &type_index](auto& state) {
+            using State = std::decay_t<decltype(state)>;
+            auto& set = get_deferred_event_type_indices<State>();
+            result |= (set.find(type_index) != set.end());
+        };
+        sm.template visit<visit_mode::active_non_recursive>(visitor);
+        return result;
+    }
+    template <typename StateMachine>
+    static bool is_event_deferred(StateMachine& sm, const any_event& event)
+    {
+        return is_event_deferred(sm, event.type());
+    }
+
     template <typename StateMachine>
     static void defer_event(StateMachine& sm, any_event const& event)
     {
-        sm.do_defer_event(event);
+        auto& deferred_events = sm.get_deferred_events();
+        deferred_events.queue.push_back(
+            {
+                [&sm, event]()
+                {
+                    return process_event_internal(
+                        sm,
+                        event,
+                        EventSource::EVENT_SOURCE_DEFERRED);
+                },
+                [&sm, type_index = std::type_index{event.type()}]()
+                {
+                    return is_event_deferred(sm, type_index);
+                },
+                deferred_events.cur_seq_cnt
+            }
+        );
     }
 
     template<typename Stt>
@@ -182,26 +237,14 @@ struct compile_policy_impl<favor_compile_time>
         class state_dispatch_table
         {
         public:
-            // Initialize the table for the given state.
+            // Initialize the submachine call for the given state.
             template<typename State>
-            void init()
+            void init_call_submachine()
             {
-                // Fill in cells for deferred events.
-                mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, to_mp_list_t<typename State::deferred_events>>>(
-                    [this](auto event_identity)
-                    {
-                        using Event = typename decltype(event_identity)::type;
-                        chain_row& chain_row = this->get_chain_row<Event>();
-                        chain_row.one_state.push_front(reinterpret_cast<generic_cell>(&Fsm::template execute_defer_transition<any_event>));
-                    });
-
-                if constexpr (has_back_end_tag<State>::value)
+                m_call_submachine = [](Fsm& fsm, const any_event& evt)
                 {
-                    m_call_submachine = [](Fsm& fsm, const any_event& evt)
-                    {
-                        return (fsm.template get_state<State&>()).process_event_internal(evt);
-                    };
-                }
+                    return (fsm.template get_state<State&>()).process_event_internal(evt);
+                };
             }
 
             template<typename Event>
@@ -236,14 +279,6 @@ struct compile_policy_impl<favor_compile_time>
             std::function<HandledEnum(Fsm&, const any_event&)> m_call_submachine;
         };
 
-        // Filter a state to check whether state-specific initialization
-        // needs to be performed.
-        template<typename State>
-        using state_filter_predicate = mp11::mp_or<
-            mp11::mp_not<mp11::mp_empty<to_mp_list_t<typename State::deferred_events>>>,
-            has_back_end_tag<State>
-            >;
-
         dispatch_table()
         {
             // Execute row-specific initializations.
@@ -259,13 +294,13 @@ struct compile_policy_impl<favor_compile_time>
                 });
 
             // Execute state-specific initializations.
-            using filtered_states = mp11::mp_copy_if<state_set, state_filter_predicate>;
-            mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, filtered_states>>(
+            using submachine_states = mp11::mp_copy_if<state_set, has_back_end_tag>;
+            mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, submachine_states>>(
                 [this](auto state_identity)
                 {
-                    using State = typename decltype(state_identity)::type;
-                    static constexpr int state_id = Fsm::template get_state_id<State>();
-                    m_state_dispatch_tables[state_id + 1].template init<State>();
+                    using SubmachineState = typename decltype(state_identity)::type;
+                    static constexpr int state_id = Fsm::template get_state_id<SubmachineState>();
+                    m_state_dispatch_tables[state_id + 1].template init_call_submachine<SubmachineState>();
                 });
         }
 

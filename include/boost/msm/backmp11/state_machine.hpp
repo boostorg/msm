@@ -12,10 +12,10 @@
 #ifndef BOOST_MSM_BACKMP11_STATE_MACHINE_H
 #define BOOST_MSM_BACKMP11_STATE_MACHINE_H
 
-#include <algorithm>
 #include <array>
 #include <exception>
 #include <functional>
+#include <list>
 #include <utility>
 
 #include <boost/core/no_exceptions_support.hpp>
@@ -80,13 +80,6 @@ class state_machine_base : public FrontEnd
     using derived_t = Derived;
     using events_queue_t = typename config_t::template
         queue_container<std::function<process_result()>>;
-    struct deferred_event_t
-    {
-        std::function<process_result()> function;
-        size_t seq_cnt;
-    };
-    using deferred_events_queue_t =
-        typename config_t::template queue_container<deferred_event_t>;
 
     // Event that describes the SM is starting.
     // Used when the front-end does not define an initial_event.
@@ -423,6 +416,7 @@ class state_machine_base : public FrontEnd
     using stt = typename internal::stt;
     using state_set = typename internal::state_set;
     static constexpr int nr_regions = internal::nr_regions;
+    using active_state_ids_t = std::array<int, nr_regions>;
     using initial_states_identity = mp11::mp_transform<mp11::mp_identity, typename internal::initial_states>;
     using compile_policy = typename config_t::compile_policy;
     using compile_policy_impl = detail::compile_policy_impl<compile_policy>;
@@ -453,8 +447,6 @@ class state_machine_base : public FrontEnd
     // Future changes may break existing serializer implementations.
     template<typename T, typename A0, typename A1, typename A2>
     friend void serialize(T&, state_machine_base<A0, A1, A2>&);
-
-    using active_state_ids_t = std::array<int, nr_regions>;
 
     template <typename T>
     using get_initial_event = typename T::initial_event;
@@ -588,38 +580,37 @@ class state_machine_base : public FrontEnd
     // define the dispatch table used for event dispatch
     using sm_dispatch_table = typename compile_policy_impl::template dispatch_table<state_machine_base>;
 
+    struct deferred_event_t
+    {
+        std::function<process_result()> process_event;
+        std::function<bool()> is_event_deferred;
+        // Deferred events are added with a correlation sequence that helps to
+        // identify when an event was added.
+        // Newly deferred events will not be considered for procesing
+        // within the same sequence.
+        size_t seq_cnt;
+    };
+    using deferred_events_queue_t = std::list<deferred_event_t>;
+
     struct deferred_events_t
     {
         deferred_events_queue_t queue;
         size_t cur_seq_cnt;
     };
-    // metafunction used to say if the SM has pseudo exit states
-    struct has_deferred_events 
-    {
-        typedef typename mp11::mp_or<
-            typename has_activate_deferred_events<front_end_t>::type,
-            mp11::mp_any_of<
-                state_set,
-                has_state_deferred_events
-                >
-            > type;
-        static constexpr bool value = type::value;
-    };
+    using has_any_deferred_event =
+        mp11::mp_any_of<state_set, has_state_deferred_events>;
     using deferred_events_member =
-        optional_instance<
-            deferred_events_t,
-            has_deferred_events::value
-        >;
-    using events_queue_member = 
-        optional_instance<
-            events_queue_t,
-            !has_no_message_queue<front_end_t>::value
-        >;
+        optional_instance<deferred_events_t,
+                          has_any_deferred_event::value ||
+                              has_activate_deferred_events<front_end_t>::value>;
+    using events_queue_member =
+        optional_instance<events_queue_t,
+                          !has_no_message_queue<front_end_t>::value>;
     using context_member =
-        optional_instance<
-            context_t*,
-            !std::is_same_v<context_t, no_context> &&
-            (std::is_same_v<root_sm_t, no_root_sm> || std::is_same_v<root_sm_t, derived_t>)>;
+        optional_instance<context_t*,
+                          !std::is_same_v<context_t, no_context> &&
+                              (std::is_same_v<root_sm_t, no_root_sm> ||
+                               std::is_same_v<root_sm_t, derived_t>)>;
 
     template <bool C = deferred_events_member::value,
               typename = std::enable_if_t<C>>
@@ -636,24 +627,10 @@ class state_machine_base : public FrontEnd
     }
 
     template <class Event>
-    void do_defer_event(const Event& event)
+    bool is_event_deferred(const Event& event) const
     {
-        // Deferred events are added with a correlation sequence that helps to
-        // identify when an event was added - This is typically to distinguish
-        // between events deferred in this processing versus previous.
-        deferred_events_t& deferred_events = get_deferred_events();
-        deferred_events.queue.push_back(
-            deferred_event_t
-            {
-                [this, event]
-                {
-                    return process_event_internal(
-                        event,
-                        static_cast<EventSource>(EventSource::EVENT_SOURCE_DIRECT|EventSource::EVENT_SOURCE_DEFERRED));
-                },
-                deferred_events.cur_seq_cnt + 1
-            }
-        );
+        return compile_policy_impl::is_event_deferred(
+            *const_cast<state_machine_base*>(this), event);
     }
 
     // Visit states with a compile-time filter (reduces template instantiations).
@@ -826,7 +803,10 @@ class state_machine_base : public FrontEnd
         get_events_queue().push_back(
             [this, event]
             {
-                return process_event_internal(event, EventSource::EVENT_SOURCE_MSG_QUEUE);
+                return process_event_internal(
+                    event,
+                    EventSource::EVENT_SOURCE_DIRECT |
+                    EventSource::EVENT_SOURCE_MSG_QUEUE);
             }
         );
     }
@@ -1036,7 +1016,7 @@ class state_machine_base : public FrontEnd
         }   
     }
 
-    // Puts the given event into the deferred events queue queue.
+    // Puts the given event into the deferred events queue.
     template <
         class Event,
         bool C = deferred_events_member::value,
@@ -1091,72 +1071,47 @@ class state_machine_base : public FrontEnd
     }
     
     // handling of deferred events
-    void try_process_deferred_events(bool new_seq = false)
+    void try_process_deferred_events()
     {
         if constexpr (deferred_events_member::value)
         {
             deferred_events_t& deferred_events = get_deferred_events();
-            // A new sequence is typically started upon initial entry to the
-            // state, or upon a new transition.  When this occurs we want to
-            // process all previously deferred events by incrementing the
-            // correlation sequence.
-            if (new_seq)
+            if (deferred_events.queue.empty())
             {
-                deferred_events.cur_seq_cnt += 1;
+                return;
             }
 
+            active_state_ids_t active_state_ids = m_active_state_ids;
             // Iteratively process all of the events within the deferred
-            // queue upto (but not including) newly deferred events.
-            // if we did not defer one in the queue, then we need to try again
-            bool not_only_deferred = false;
-            while (!deferred_events.queue.empty())
+            // queue up to (but not including) newly deferred events.
+            auto it = deferred_events.queue.begin();
+            do
             {
-                deferred_event_t& deferred_event =
-                    deferred_events.queue.front();
+                if (deferred_events.cur_seq_cnt == it->seq_cnt)
+                {
+                    return;
+                }
+                if (it->is_event_deferred())
+                {
+                    it = std::next(it);
+                }
+                else
+                {
+                    deferred_event_t deferred_event = std::move(*it);
+                    it = deferred_events.queue.erase(it);
+                    const process_result result = deferred_event.process_event();
 
-                if (deferred_events.cur_seq_cnt != deferred_event.seq_cnt)
-                {
-                    break;
-                }
-
-                auto next = deferred_event.function;
-                deferred_events.queue.pop_front();
-                process_result res = next();
-                if (res != process_result::HANDLED_FALSE && res != process_result::HANDLED_DEFERRED)
-                {
-                    not_only_deferred = true;
-                }
-                if (not_only_deferred)
-                {
-                    // handled one, stop processing deferred until next block reorders
-                    break;
-                }
-            }
-            if (not_only_deferred)
-            {
-                // attempt to go back to the situation prior to processing, 
-                // in case some deferred events would have been re-queued
-                // in that case those would have a higher sequence number
-                std::stable_sort(
-                    deferred_events.queue.begin(),
-                    deferred_events.queue.end(),
-                    [](const deferred_event_t& a, const deferred_event_t& b)
+                    if ((result & process_result::HANDLED_TRUE) &&
+                        (active_state_ids != m_active_state_ids))
                     {
-                        return a.seq_cnt > b.seq_cnt;
+                        // The active state configuration has changed.
+                        // Start from the beginning, we might be able
+                        // to process events that stayed in the queue before.
+                        active_state_ids = m_active_state_ids;
+                        it = deferred_events.queue.begin();
                     }
-                );
-                // reset sequence number for all
-                std::for_each(
-                    deferred_events.queue.begin(),
-                    deferred_events.queue.end(),
-                    [&deferred_events](deferred_event_t& deferred_event)
-                    {
-                        deferred_event.seq_cnt = deferred_events.cur_seq_cnt + 1;
-                    }
-                );
-                // one deferred event was successfully processed, try again
-                try_process_deferred_events(true);
-            }
+                }
+            } while (it != deferred_events.queue.end());
         }
     }
 
@@ -1171,7 +1126,7 @@ class state_machine_base : public FrontEnd
             {
                 process_event_internal(
                     mp11::mp_at<event_set_mp11, first_completion_event>{},
-                    static_cast<EventSource>(source | EventSource::EVENT_SOURCE_DIRECT));
+                    source | EventSource::EVENT_SOURCE_DIRECT);
             }
         }
     }
@@ -1221,15 +1176,19 @@ class state_machine_base : public FrontEnd
         {
             if (m_event_processing)
             {
-                get_events_queue().push_back(
-                    [this, event]
-                    {
-                        return process_event_internal(
-                            event,
-                            static_cast<EventSource>(EventSource::EVENT_SOURCE_DIRECT | EventSource::EVENT_SOURCE_MSG_QUEUE));
-                    }
-                );
+                enqueue_event(event);
                 return process_result::HANDLED_TRUE;
+            }
+        }
+
+        // If deferred events are configured and the event is to be deferred
+        // in the active state configuration, then defer it for later processing.
+        if constexpr (has_any_deferred_event::value)
+        {
+            if (is_event_deferred(event))
+            {
+                compile_policy_impl::defer_event(*this, event);
+                return process_result::HANDLED_DEFERRED;
             }
         }
 
@@ -1275,7 +1234,7 @@ class state_machine_base : public FrontEnd
         {
             if (!(EventSource::EVENT_SOURCE_DEFERRED & source))
             {
-                try_process_deferred_events(process_result::HANDLED_TRUE & handled);
+                try_process_deferred_events();
 
                 // Handle any new events generated into the queue, but only if
                 // we're not already processing from the message queue.
@@ -1294,7 +1253,7 @@ class state_machine_base : public FrontEnd
                 try_process_queued_events();
                 if (!(EventSource::EVENT_SOURCE_DEFERRED & source))
                 {
-                    try_process_deferred_events(process_result::HANDLED_TRUE & handled);
+                    try_process_deferred_events();
                 }
             }
         }
@@ -1306,6 +1265,14 @@ class state_machine_base : public FrontEnd
     template<class Event>
     process_result do_process_event(Event const& event, bool is_direct_call)
     {
+        if constexpr (deferred_events_member::value)
+        {
+            if (is_direct_call)
+            {
+                get_deferred_events().cur_seq_cnt += 1;
+            }
+        }
+
         process_result handled = process_result::HANDLED_FALSE;
         // Dispatch the event to every region.
         for (int region_id=0; region_id<nr_regions; region_id++)
@@ -1550,7 +1517,7 @@ private:
         // handle messages which were generated and blocked in the init calls
         m_event_processing = false;
         // look for deferred events waiting
-        try_process_deferred_events(true);
+        try_process_deferred_events();
         try_process_queued_events();
     }
     template <class Event,class Fsm>
@@ -1580,30 +1547,6 @@ private:
         }
     }
 
-    // the IBM and VC<8 compilers seem to have problems with the friend declaration of dispatch_table
-#if defined (__IBMCPP__) || (defined(_MSC_VER) && (_MSC_VER < 1400))
-     public:
-#endif
-    // no transition for event.
-    template <class Event>
-    static process_result execute_no_transition(state_machine_base& , int , int , Event const& )
-    {
-        return process_result::HANDLED_FALSE;
-    }
-    // clang seems to have a problem with the defer_transition indirection in preprocess_state
-#if defined (__clang__ )
-     public:
-#endif
-    // called for deferred events. Address set in the dispatch_table at init
-    template <class Event>
-    static process_result execute_defer_transition(state_machine_base& fsm, int , int , Event const& e)
-    {
-        fsm.defer_event(e);
-        return process_result::HANDLED_DEFERRED;
-    }
-#if defined (__IBMCPP__) || (defined(_MSC_VER) && (_MSC_VER < 1400) || defined(__clang__ ))
-     private:
-#endif
     // calls entry or on_entry depending on the state type
     template <class State, class Event, class Fsm>
     static void execute_entry(State& state, Event const& event, Fsm& fsm)
@@ -1720,10 +1663,10 @@ private:
         }
 
         template<typename State>
-        static void accept(state_machine_base& sm, Visitor&& visitor)
+        static void accept(state_machine_base& sm, Visitor visitor)
         {
-            State& state = sm.template get_state<State>();
-            std::invoke(std::forward<Visitor>(visitor), state);
+            auto& state = sm.template get_state<State>();
+            visitor(state);
 
             if constexpr (has_back_end_tag<State>::value && Recursive)
             {
@@ -1733,13 +1676,13 @@ private:
             }
         }
 
-        static void dispatch(state_machine_base& sm, int index, Visitor&& visitor)
+        static void dispatch(state_machine_base& sm, int index, Visitor visitor)
         {
-            instance().m_cells[index](sm, std::forward<Visitor>(visitor));
+            instance().m_cells[index](sm, visitor);
         }
 
     private:
-        using cell_t = void (*)(state_machine_base&, Visitor&&);
+        using cell_t = void (*)(state_machine_base&, Visitor);
 
         static visitor_dispatch_table& instance()
         {

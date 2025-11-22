@@ -65,6 +65,20 @@ namespace
         int& m_visits;
     };
 
+    class NoOpVisitor
+    {
+      public:
+        template<typename State>
+        void operator()(State& /*state*/) {}
+    };
+
+    class NoOpConstVisitor
+    {
+      public:
+        template<typename State>
+        void operator()(State& /*state*/) const {}
+    };
+
     // Events.
     struct EnterSubFsm{};
     struct ExitSubFsm{};
@@ -131,6 +145,41 @@ namespace
         auto& middle_machine_state = middle_machine.template get_state<DefaultState&>();
         auto& lower_machine = middle_machine.template get_state<LowerMachine&>();
         auto& lower_machine_state = lower_machine.template get_state<DefaultState&>();
+
+        // Test visitor signature & compilation (non-const sm).
+        {
+            upper_machine.visit(NoOpConstVisitor{});
+            upper_machine.visit(NoOpVisitor{});
+            
+            NoOpConstVisitor v0{};
+            NoOpVisitor v1{};
+            upper_machine.visit(v0);
+            upper_machine.visit(v1);
+
+            const NoOpConstVisitor v0_const{};
+            upper_machine.visit(v0_const);
+
+            upper_machine.visit([](auto&) mutable {});
+        }
+
+        // Test visitor signature & compilation (const sm).
+        // Requires more refactoring, visitor_dispatch_table
+        // with a Sm template param to preserve constness.
+        // {
+        //     const UpperMachine& upper_machine_c{upper_machine};
+        //     upper_machine_c.visit(NoOpConstVisitor{});
+        //     upper_machine_c.visit(NoOpVisitor{});
+            
+        //     NoOpConstVisitor v0{};
+        //     NoOpVisitor v1{};
+        //     upper_machine_c.visit(v0);
+        //     upper_machine_c.visit(v1);
+
+        //     const NoOpConstVisitor v0_c{};
+        //     upper_machine_c.visit(v0_c);
+
+        //     upper_machine_c.visit([](auto&) mutable {});
+        // }
 
         // Test active states
         {
