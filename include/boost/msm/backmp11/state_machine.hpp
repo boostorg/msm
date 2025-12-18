@@ -38,9 +38,10 @@
 
 #include <boost/msm/active_state_switching_policies.hpp>
 #include <boost/msm/row_tags.hpp>
-#include <boost/msm/backmp11/detail/history_impl.hpp>
 #include <boost/msm/backmp11/common_types.hpp>
+#include <boost/msm/backmp11/detail/history_impl.hpp>
 #include <boost/msm/backmp11/detail/favor_runtime_speed.hpp>
+#include <boost/msm/backmp11/detail/state_visitor.hpp>
 #include <boost/msm/backmp11/state_machine_config.hpp>
 
 namespace boost { namespace msm { namespace backmp11
@@ -51,12 +52,6 @@ using detail::is_composite;
 
 namespace detail
 {
-
-constexpr bool is_valid(visit_mode mode) {
-    constexpr uint8_t state_mask = 0b011;
-    const uint8_t state_bits = static_cast<uint8_t>(mode) & state_mask;
-    return state_bits == 0b001 || state_bits == 0b010;
-}
 
 template <
     class FrontEnd,
@@ -441,6 +436,9 @@ class state_machine_base : public FrontEnd
     template <typename Policy>
     friend struct detail::compile_policy_impl;
 
+    template <typename, typename, visit_mode, template <typename> typename, typename>
+    friend class state_visitor;
+
     // Allow access to private members for serialization.
     // WARNING:
     // No guarantee is given on the private member layout.
@@ -629,25 +627,23 @@ class state_machine_base : public FrontEnd
     template <class Event>
     bool is_event_deferred(const Event& event) const
     {
-        return compile_policy_impl::is_event_deferred(
-            *const_cast<state_machine_base*>(this), event);
+        return compile_policy_impl::is_event_deferred(*this, event);
     }
 
     // Visit states with a compile-time filter (reduces template instantiations).
     template <template <typename> typename Predicate, visit_mode Mode, typename Visitor>
     void visit_if(Visitor&& visitor)
     {
-        // TODO:
-        // Filter needs to be passed to visit to reduce template instantiations.
-        visit<Mode>(
-            [&visitor](auto& state)
-            {
-                using State = std::decay_t<decltype(state)>;
-                if constexpr (Predicate<State>())
-                {
-                    std::invoke(std::forward<Visitor>(visitor), state);
-                }
-            });
+        using state_visitor = state_visitor<state_machine_base, Visitor, Mode, Predicate>;
+        state_visitor::visit(*this, std::forward<Visitor>(visitor));
+    }
+
+    // Visit states with a compile-time filter (reduces template instantiations).
+    template <template <typename> typename Predicate, visit_mode Mode, typename Visitor>
+    void visit_if(Visitor&& visitor) const
+    {
+        using state_visitor = state_visitor<const state_machine_base, Visitor, Mode, Predicate>;
+        state_visitor::visit(*this, std::forward<Visitor>(visitor));
     }
     
   public:
@@ -684,8 +680,7 @@ class state_machine_base : public FrontEnd
             m_optional_members.template get<context_member>() = &context;
             if constexpr (std::is_same_v<root_sm_t, no_root_sm>)
             {
-                constexpr visit_mode mode = visit_mode::all_states | visit_mode::recursive;
-                visit_if<is_back_end, mode>(
+                visit_if<is_back_end, visit_mode::all_recursive>(
                     [&context](auto &state_machine)
                     {
                         state_machine.m_optional_members.template get<context_member>() = &context;
@@ -769,19 +764,44 @@ class state_machine_base : public FrontEnd
         }
     }
 
-    // Check whether a state is currently active.
+  private:
+    template <typename State>
+    class is_state_active_helper
+    {
+      public:
+        is_state_active_helper(const state_machine_base& sm) : m_sm(sm)
+        {
+        }
+
+        bool operator()() const
+        {
+            bool found = false;
+            m_sm.visit_if<found_or_back_end, visit_mode::active_recursive>(
+                [&found](const auto& state)
+                {
+                    using StateToCheck = std::decay_t<decltype(state)>;
+                    if constexpr (std::is_same_v<State, StateToCheck>)
+                    {
+                        found = true;
+                    }
+                });
+            return found;
+        }
+
+      private:
+        template <typename StateToCheck>
+        using found_or_back_end = mp11::mp_or<std::is_same<State, StateToCheck>,
+                                              is_back_end<StateToCheck>>;
+
+        const state_machine_base& m_sm;
+    };
+
   public:
+    // Check whether a state is currently active.
     template <typename State>
     bool is_state_active() const
     {
-        bool found = false;
-        const_cast<state_machine_base*>(this)->visit(
-            [&found](const auto& state)
-            {
-                using StateToCheck = std::decay_t<decltype(state)>;
-                found |= std::is_same_v<State, StateToCheck>;
-            });
-        return found;
+        return is_state_active_helper<State>{*this}();
     }
 
     // Main function to process events.
@@ -970,7 +990,14 @@ class state_machine_base : public FrontEnd
 
     // Visit the states (only active states, recursive).
     template <typename Visitor>
-    constexpr void visit(Visitor&& visitor)
+    void visit(Visitor&& visitor)
+    {
+        visit<visit_mode::active_recursive>(std::forward<Visitor>(visitor));
+    }
+
+    // Visit the states (only active states, recursive).
+    template <typename Visitor>
+    void visit(Visitor&& visitor) const
     {
         visit<visit_mode::active_recursive>(std::forward<Visitor>(visitor));
     }
@@ -978,42 +1005,17 @@ class state_machine_base : public FrontEnd
     // Visit the states.
     // How to traverse is selected with visit_mode.
     template <visit_mode Mode, typename Visitor>
-    constexpr void visit(Visitor&& visitor)
+    void visit(Visitor&& visitor)
     {
-        static_assert(
-            is_valid(Mode),
-            "Mode must specify one of active_states or all_states");
-        constexpr bool recursive = has_flag(Mode, visit_mode::recursive);
-        if constexpr (has_flag(Mode, visit_mode::active_states))
-        {
-            if (m_running)
-            {
-                for (const int state_id : m_active_state_ids)
-                {
-                    using table = visitor_dispatch_table<Visitor, recursive>;
-                    table::dispatch(*this, state_id, std::forward<Visitor>(visitor));
-                }
-            }
-        }
-        // all states
-        else
-        {
-            mp11::tuple_for_each(m_states,
-                [&visitor](auto& state)
-                {
-                    std::invoke(std::forward<Visitor>(visitor), state);
+        visit_if<always_true, Mode>(std::forward<Visitor>(visitor));
+    }
 
-                    using State = std::decay_t<decltype(state)>;
-                    // recursive needs to be repeated in this lambda,
-                    // MSVC does not recognize the constexpr correctly.
-                    constexpr bool recursive = has_flag(Mode, visit_mode::recursive);
-                    if constexpr (has_back_end_tag<State>::value && recursive)
-                    {
-                        state.template visit<Mode>(std::forward<Visitor>(visitor));
-                    }
-                }
-            );
-        }   
+    // Visit the states.
+    // How to traverse is selected with visit_mode.
+    template <visit_mode Mode, typename Visitor>
+    void visit(Visitor&& visitor) const
+    {
+        visit_if<always_true, Mode>(std::forward<Visitor>(visitor));
     }
 
     // Puts the given event into the deferred events queue.
@@ -1592,14 +1594,9 @@ private:
     }
 
     template <typename State>
-    using state_filter_predicate = mp11::mp_or<
-        has_pseudo_exit<State>,
-        has_back_end_tag<State>
-        >;
-    using states_to_init = mp11::mp_copy_if<
-        states_t,
-        state_filter_predicate>;
-    
+    using state_requires_init =
+        mp11::mp_or<has_pseudo_exit<State>, is_back_end<State>>;
+
     // initializes the SM
     template <class TRootSm>
     void init(TRootSm& root_sm)
@@ -1617,12 +1614,11 @@ private:
         }
         m_root_sm = static_cast<void*>(&root_sm);
 
-        mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, states_to_init>>(
-            [this, &root_sm](auto state_identity)
+        visit_if<state_requires_init, visit_mode::all_non_recursive>(
+            [&root_sm](auto& state)
             {
-                using State = typename decltype(state_identity)::type;
-                auto& state = this->get_state<State>();
-                
+                using State = std::decay_t<decltype(state)>;
+
                 if constexpr (has_pseudo_exit<State>::value)
                 {
                     state.set_forward_fct(
@@ -1636,62 +1632,14 @@ private:
                 if constexpr (is_back_end<State>::value)
                 {
                     static_assert(
-                        std::is_same_v<compile_policy, typename State::compile_policy>,
-                        "All compile policies must be identical"
-                    );
+                        std::is_same_v<compile_policy,
+                                       typename State::compile_policy>,
+                        "All compile policies must be identical");
                     state.init(root_sm);
                 }
             }
         );
     }
-
-    // Dispatch table for calling invoking visitors with active states.
-    template <typename Visitor, bool Recursive>
-    class visitor_dispatch_table
-    {
-    public:
-        visitor_dispatch_table()
-        {
-            using state_identities = mp11::mp_transform<mp11::mp_identity, state_set>;
-            mp11::mp_for_each<state_identities>(
-                [this](auto state_identity)
-                {
-                    using State = typename decltype(state_identity)::type;
-                    m_cells[get_state_id<State>()] = &accept<State>;
-                }
-            );
-        }
-
-        template<typename State>
-        static void accept(state_machine_base& sm, Visitor visitor)
-        {
-            auto& state = sm.template get_state<State>();
-            visitor(state);
-
-            if constexpr (has_back_end_tag<State>::value && Recursive)
-            {
-                state.template visit
-                    <visit_mode::active_states | visit_mode::recursive>
-                    (std::forward<Visitor>(visitor));
-            }
-        }
-
-        static void dispatch(state_machine_base& sm, int index, Visitor visitor)
-        {
-            instance().m_cells[index](sm, visitor);
-        }
-
-    private:
-        using cell_t = void (*)(state_machine_base&, Visitor);
-
-        static visitor_dispatch_table& instance()
-        {
-            static visitor_dispatch_table instance;
-            return instance;
-        }
-
-        cell_t m_cells[mp11::mp_size<state_set>::value];
-    };
 
     struct optional_members :
         events_queue_member,
