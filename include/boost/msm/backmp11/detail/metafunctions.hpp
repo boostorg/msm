@@ -35,6 +35,9 @@ namespace boost { namespace msm { namespace backmp11
 namespace detail
 {
 
+template <typename>
+using always_true = mp11::mp_true;
+
 constexpr bool has_flag(visit_mode value, visit_mode flag)
 {
     return (static_cast<int>(value) & static_cast<int>(flag)) != 0;

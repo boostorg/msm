@@ -76,7 +76,7 @@ namespace
     {
       public:
         template<typename State>
-        void operator()(State& /*state*/) const {}
+        void operator()(const State& /*state*/) const {}
     };
 
     // Events.
@@ -159,27 +159,22 @@ namespace
             const NoOpConstVisitor v0_const{};
             upper_machine.visit(v0_const);
 
-            upper_machine.visit([](auto&) mutable {});
+            upper_machine.visit([](auto&) {});
         }
 
         // Test visitor signature & compilation (const sm).
-        // Requires more refactoring, visitor_dispatch_table
-        // with a Sm template param to preserve constness.
-        // {
-        //     const UpperMachine& upper_machine_c{upper_machine};
-        //     upper_machine_c.visit(NoOpConstVisitor{});
-        //     upper_machine_c.visit(NoOpVisitor{});
+        {
+            const UpperMachine& upper_machine_c{upper_machine};
+            upper_machine_c.visit(NoOpConstVisitor{});
             
-        //     NoOpConstVisitor v0{};
-        //     NoOpVisitor v1{};
-        //     upper_machine_c.visit(v0);
-        //     upper_machine_c.visit(v1);
+            NoOpConstVisitor v0{};
+            upper_machine_c.visit(v0);
 
-        //     const NoOpConstVisitor v0_c{};
-        //     upper_machine_c.visit(v0_c);
+            const NoOpConstVisitor v0_c{};
+            upper_machine_c.visit(v0_c);
 
-        //     upper_machine_c.visit([](auto&) mutable {});
-        // }
+            upper_machine_c.visit([](auto&) {});
+        }
 
         // Test active states
         {
