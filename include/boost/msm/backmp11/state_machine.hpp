@@ -595,12 +595,12 @@ class state_machine_base : public FrontEnd
         deferred_events_queue_t queue;
         size_t cur_seq_cnt;
     };
-    using has_any_deferred_event =
-        mp11::mp_any_of<state_set, has_state_deferred_events>;
+    using has_deferred_events_member =
+        mp11::mp_or<mp11::mp_any_of<state_set, has_state_deferred_events>,
+                    has_activate_deferred_events<front_end_t>>;
     using deferred_events_member =
         optional_instance<deferred_events_t,
-                          has_any_deferred_event::value ||
-                              has_activate_deferred_events<front_end_t>::value>;
+                          has_deferred_events_member::value>;
     using events_queue_member =
         optional_instance<events_queue_t,
                           !has_no_message_queue<front_end_t>::value>;
@@ -1185,7 +1185,7 @@ class state_machine_base : public FrontEnd
 
         // If deferred events are configured and the event is to be deferred
         // in the active state configuration, then defer it for later processing.
-        if constexpr (has_any_deferred_event::value)
+        if constexpr (has_deferred_events_member::value)
         {
             if (is_event_deferred(event))
             {
