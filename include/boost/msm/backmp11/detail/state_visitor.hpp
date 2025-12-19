@@ -31,9 +31,12 @@ struct copy_if_impl<List, always_true>
 template<typename List, template <typename> typename Predicate>
 using copy_if = typename copy_if_impl<List, Predicate>::type;
 
+template<typename StateMachine, template <typename> typename Predicate>
+using state_subset = copy_if<typename StateMachine::internal::state_set, Predicate>;
+
 // State visitor implementation.
 // States to visit can be selected with VisitMode
-// and additionally be compile-time filtered with a predicate.
+// and additionally compile-time filtered with Predicate.
 template <
     typename StateMachine,
     typename Visitor,
@@ -49,16 +52,19 @@ template <
     template <typename> typename Predicate>
 class state_visitor<
     StateMachine,
-    Visitor, Mode,
+    Visitor,
+    Mode,
     Predicate,
-    std::enable_if_t<has_flag(Mode, visit_mode::active_states)>>
+    std::enable_if_t<
+        has_flag(Mode, visit_mode::active_states) &&
+        mp11::mp_not<mp11::mp_empty<state_subset<StateMachine, Predicate>>>::value>>
 {
-    using state_set = typename StateMachine::internal::state_set;
-    using state_subset = copy_if<state_set, Predicate>;
-    using state_identities = mp11::mp_transform<mp11::mp_identity, state_subset>;
   public:
     state_visitor()
     {
+        using state_identities =
+            mp11::mp_transform<mp11::mp_identity,
+                               state_subset<StateMachine, Predicate>>;
         mp11::mp_for_each<state_identities>(
             [this](auto state_identity)
             {
@@ -81,6 +87,7 @@ class state_visitor<
     }
 
   private:
+    using state_set = typename StateMachine::internal::state_set;
     using cell_t = void (*)(StateMachine&, Visitor);
 
     template<typename State>
@@ -121,16 +128,19 @@ template <
     template <typename> typename Predicate>
 class state_visitor<
     StateMachine,
-    Visitor, Mode,
+    Visitor,
+    Mode,
     Predicate,
-    std::enable_if_t<has_flag(Mode, visit_mode::all_states)>>
+    std::enable_if_t<
+        has_flag(Mode, visit_mode::all_states) &&
+        mp11::mp_not<mp11::mp_empty<state_subset<StateMachine, Predicate>>>::value>>
 {
-    using state_set = typename StateMachine::internal::state_set;
-    using state_subset = copy_if<state_set, Predicate>;
-    using state_identities = mp11::mp_transform<mp11::mp_identity, state_subset>;
   public:
     static void visit(StateMachine& sm, Visitor visitor)
     {
+        using state_identities =
+            mp11::mp_transform<mp11::mp_identity,
+                               state_subset<StateMachine, Predicate>>;
         mp11::mp_for_each<state_identities>(
             [&sm, &visitor](auto state_identity)
             {
@@ -145,6 +155,25 @@ class state_visitor<
                 }
             }
         );
+    }
+};
+
+template <
+    typename StateMachine,
+    typename Visitor,
+    visit_mode Mode,
+    template <typename> typename Predicate>
+class state_visitor<
+    StateMachine,
+    Visitor,
+    Mode,
+    Predicate,
+    std::enable_if_t<
+        mp11::mp_empty<state_subset<StateMachine, Predicate>>::value>>
+{
+  public:
+    static constexpr void visit(StateMachine&, Visitor)
+    {
     }
 };
 
