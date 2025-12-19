@@ -38,10 +38,10 @@
 
 #include <boost/msm/active_state_switching_policies.hpp>
 #include <boost/msm/row_tags.hpp>
-#include <boost/msm/backmp11/common_types.hpp>
 #include <boost/msm/backmp11/detail/history_impl.hpp>
 #include <boost/msm/backmp11/detail/favor_runtime_speed.hpp>
 #include <boost/msm/backmp11/detail/state_visitor.hpp>
+#include <boost/msm/backmp11/common_types.hpp>
 #include <boost/msm/backmp11/state_machine_config.hpp>
 
 namespace boost { namespace msm { namespace backmp11
@@ -74,7 +74,7 @@ class state_machine_base : public FrontEnd
     using front_end_t = FrontEnd;
     using derived_t = Derived;
     using events_queue_t = typename config_t::template
-        queue_container<std::function<process_result()>>;
+        queue_container<basic_unique_ptr<enqueued_event>>;
 
     // Event that describes the SM is starting.
     // Used when the front-end does not define an initial_event.
@@ -578,17 +578,7 @@ class state_machine_base : public FrontEnd
     // define the dispatch table used for event dispatch
     using sm_dispatch_table = typename compile_policy_impl::template dispatch_table<state_machine_base>;
 
-    struct deferred_event_t
-    {
-        std::function<process_result()> process_event;
-        std::function<bool()> is_event_deferred;
-        // Deferred events are added with a correlation sequence that helps to
-        // identify when an event was added.
-        // Newly deferred events will not be considered for procesing
-        // within the same sequence.
-        size_t seq_cnt;
-    };
-    using deferred_events_queue_t = std::list<deferred_event_t>;
+    using deferred_events_queue_t = std::list<basic_unique_ptr<deferred_event>>;
 
     struct deferred_events_t
     {
@@ -596,7 +586,7 @@ class state_machine_base : public FrontEnd
         size_t cur_seq_cnt;
     };
     using has_any_deferred_event =
-        mp11::mp_any_of<state_set, has_state_deferred_events>;
+        mp11::mp_any_of<state_set, has_deferred_events>;
     using deferred_events_member =
         optional_instance<deferred_events_t,
                           has_any_deferred_event::value ||
@@ -622,12 +612,6 @@ class state_machine_base : public FrontEnd
     const deferred_events_t& get_deferred_events() const
     {
         return m_optional_members.template get<deferred_events_member>();
-    }
-
-    template <class Event>
-    bool is_event_deferred(const Event& event) const
-    {
-        return compile_policy_impl::is_event_deferred(*this, event);
     }
 
     // Visit states with a compile-time filter (reduces template instantiations).
@@ -811,6 +795,30 @@ class state_machine_base : public FrontEnd
         return process_event_internal(event, EventSource::EVENT_SOURCE_DIRECT);
     }
 
+  private:
+    template <typename Event>
+    class enqueued_event_impl : public enqueued_event
+    {
+      public:
+        enqueued_event_impl(state_machine_base& sm, const Event& event)
+            : m_sm(sm), m_event(event)
+        {
+        }
+
+        process_result process() override
+        {
+            return m_sm.process_event_internal(
+                m_event,
+                EventSource::EVENT_SOURCE_DIRECT |
+                EventSource::EVENT_SOURCE_MSG_QUEUE);
+        }
+
+      private:
+        state_machine_base& m_sm;
+        Event m_event;
+    };
+
+  public:
     // Enqueues an event in the message queue.
     // Call process_queued_events to process all queued events.
     // Be careful if you do this during event processing, the event will be processed immediately
@@ -820,15 +828,8 @@ class state_machine_base : public FrontEnd
               typename = std::enable_if_t<C>>
     void enqueue_event(Event const& event)
     {
-        get_events_queue().push_back(
-            [this, event]
-            {
-                return process_event_internal(
-                    event,
-                    EventSource::EVENT_SOURCE_DIRECT |
-                    EventSource::EVENT_SOURCE_MSG_QUEUE);
-            }
-        );
+        get_events_queue().push_back(basic_unique_ptr<enqueued_event>{
+            new enqueued_event_impl<Event>(*this, event)});
     }
 
     // Process all queued events.
@@ -847,9 +848,9 @@ class state_machine_base : public FrontEnd
               typename = std::enable_if_t<C>>
     void process_single_queued_event()
     {
-        auto to_call = get_events_queue().front();
+        basic_unique_ptr<enqueued_event> event = std::move(get_events_queue().front());
         get_events_queue().pop_front();
-        to_call();
+        event->process();
     }
 
     // Get the context of the state machine.
@@ -1089,19 +1090,19 @@ class state_machine_base : public FrontEnd
             auto it = deferred_events.queue.begin();
             do
             {
-                if (deferred_events.cur_seq_cnt == it->seq_cnt)
+                if (deferred_events.cur_seq_cnt == (*it)->get_seq_cnt())
                 {
                     return;
                 }
-                if (it->is_event_deferred())
+                if ((*it)->is_deferred())
                 {
                     it = std::next(it);
                 }
                 else
                 {
-                    deferred_event_t deferred_event = std::move(*it);
+                    basic_unique_ptr<deferred_event> deferred_event = std::move(*it);
                     it = deferred_events.queue.erase(it);
-                    const process_result result = deferred_event.process_event();
+                    const process_result result = deferred_event->process();
 
                     if ((result & process_result::HANDLED_TRUE) &&
                         (active_state_ids != m_active_state_ids))
@@ -1187,7 +1188,7 @@ class state_machine_base : public FrontEnd
         // in the active state configuration, then defer it for later processing.
         if constexpr (has_any_deferred_event::value)
         {
-            if (is_event_deferred(event))
+            if (compile_policy_impl::is_event_deferred(*this, event))
             {
                 compile_policy_impl::defer_event(*this, event);
                 return process_result::HANDLED_DEFERRED;

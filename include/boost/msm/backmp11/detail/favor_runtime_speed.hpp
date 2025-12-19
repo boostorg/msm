@@ -9,8 +9,8 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef BOOST_MSM_BACKMP11_FAVOR_RUNTIME_SPEED_H
-#define BOOST_MSM_BACKMP11_FAVOR_RUNTIME_SPEED_H
+#ifndef BOOST_MSM_BACKMP11_DETAIL_FAVOR_RUNTIME_SPEED_H
+#define BOOST_MSM_BACKMP11_DETAIL_FAVOR_RUNTIME_SPEED_H
 
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
 #include <boost/msm/backmp11/detail/dispatch_table.hpp>
@@ -62,22 +62,65 @@ struct compile_policy_impl<favor_runtime_speed>
         return sm.process_event_internal_impl(event, source);
     }
 
-    template <typename Event, typename StateMachine>
-    static bool is_event_deferred(StateMachine& sm)
-    {
-        bool result = false;
-        auto visitor = [&result](auto& state)
-        {
-            using State = std::decay_t<decltype(state)>;
-            result |= has_state_deferred_event<State, Event>::value;
-        };
-        sm.template visit<visit_mode::active_non_recursive>(visitor);
-        return result;
-    }
     template <typename StateMachine, typename Event>
-    static bool is_event_deferred(StateMachine& sm, const Event&)
+    class deferred_event_impl : public deferred_event
     {
-        return is_event_deferred<Event>(sm);
+      public:
+        deferred_event_impl(StateMachine& sm, const Event& event, size_t seq_cnt)
+            : deferred_event(seq_cnt), m_sm(sm), m_event(event)
+        {
+        }
+
+        process_result process() override
+        {
+            return process_event_internal(
+                m_sm,
+                m_event,
+                EventSource::EVENT_SOURCE_DEFERRED);
+        }
+
+        bool is_deferred() const override
+        {
+            return is_event_deferred(m_sm, m_event);
+        }
+
+      private:
+        StateMachine& m_sm;
+        Event m_event;
+    };
+
+    template <class State, class Event>
+    using has_deferred_event = mp11::mp_contains<
+        to_mp_list_t<typename State::deferred_events>,
+        Event
+        >;
+
+    template <typename StateMachine, typename Event>
+    class is_event_deferred_helper
+    {
+      public:
+        static bool execute(const StateMachine& sm)
+        {
+            bool result = false;
+            auto visitor = [&result](const auto& /*state*/)
+            {
+                result = true;
+            };
+            sm.template visit_if<defers_event,
+                                 visit_mode::active_non_recursive>(visitor);
+            return result;
+        }
+
+      private:
+        template <typename State>
+        using defers_event = has_deferred_event<State, Event>;
+    };
+
+    template <typename StateMachine, typename Event>
+    static bool is_event_deferred(const StateMachine& sm, const Event&)
+    {
+        using helper = is_event_deferred_helper<StateMachine, Event>;
+        return helper::execute(sm);
     }
 
     template <typename StateMachine, typename Event>
@@ -117,22 +160,9 @@ struct compile_policy_impl<favor_runtime_speed>
     static void do_defer_event(StateMachine& sm, const Event& event)
     {
         auto& deferred_events = sm.get_deferred_events();
-        deferred_events.queue.push_back(
-            {
-                [&sm, event]()
-                {
-                    return process_event_internal(
-                        sm,
-                        event,
-                        EventSource::EVENT_SOURCE_DEFERRED);
-                },
-                [&sm]()
-                {
-                    return is_event_deferred<Event>(sm);
-                },
-                deferred_events.cur_seq_cnt
-            }
-        );
+        deferred_events.queue.push_back(basic_unique_ptr<deferred_event>{
+            new deferred_event_impl<StateMachine, Event>(
+                sm, event, deferred_events.cur_seq_cnt)});
     }
 
     struct cell_initializer
@@ -146,13 +176,6 @@ struct compile_policy_impl<favor_runtime_speed>
             }
         }
     };
-
-    // returns a mp11::mp_bool<true> if State has Event as deferred event
-    template <class State, class Event>
-    using has_state_deferred_event = mp11::mp_contains<
-        to_mp_list_t<typename State::deferred_events>,
-        Event
-        >;
 
     template<typename Fsm, typename State>
     struct table_index
@@ -483,4 +506,4 @@ struct compile_policy_impl<favor_runtime_speed>
 }}} // boost::msm::backmp11
 
 
-#endif //BOOST_MSM_BACKMP11_FAVOR_RUNTIME_SPEED_H
+#endif // BOOST_MSM_BACKMP11_DETAIL_FAVOR_RUNTIME_SPEED_H
