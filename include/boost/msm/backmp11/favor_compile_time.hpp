@@ -73,6 +73,33 @@ struct compile_policy_impl<favor_compile_time>
         return sm.process_event_internal_impl(event, source);
     }
 
+    template <typename StateMachine>
+    class deferred_event_impl : public deferred_event
+    {
+      public:
+        deferred_event_impl(StateMachine& sm, const any_event& event, size_t seq_cnt)
+            : deferred_event(seq_cnt), m_sm(sm), m_event(event)
+        {
+        }
+
+        process_result process() override
+        {
+            return process_event_internal(
+                m_sm,
+                m_event,
+                EventSource::EVENT_SOURCE_DEFERRED);
+        }
+
+        bool is_deferred() const override
+        {
+            return is_event_deferred(m_sm, m_event);
+        }
+
+      private:
+        StateMachine& m_sm;
+        any_event m_event;
+    };
+
     template <typename State>
     static const std::unordered_set<std::type_index>& get_deferred_event_type_indices()
     {
@@ -94,43 +121,26 @@ struct compile_policy_impl<favor_compile_time>
     }
 
     template <typename StateMachine>
-    static bool is_event_deferred(StateMachine& sm, std::type_index type_index)
+    static bool is_event_deferred(const StateMachine& sm, const any_event& event)
     {
+        const std::type_index type_index = event.type();
         bool result = false;
-        auto visitor = [&result, &type_index](auto& state) {
+        auto visitor = [&result, type_index](auto& state) {
             using State = std::decay_t<decltype(state)>;
-            auto& set = get_deferred_event_type_indices<State>();
+            const auto& set = get_deferred_event_type_indices<State>();
             result |= (set.find(type_index) != set.end());
         };
-        sm.template visit<visit_mode::active_non_recursive>(visitor);
+        sm.template visit_if<has_deferred_events,
+                             visit_mode::active_non_recursive>(visitor);
         return result;
-    }
-    template <typename StateMachine>
-    static bool is_event_deferred(StateMachine& sm, const any_event& event)
-    {
-        return is_event_deferred(sm, event.type());
     }
 
     template <typename StateMachine>
     static void defer_event(StateMachine& sm, any_event const& event)
     {
         auto& deferred_events = sm.get_deferred_events();
-        deferred_events.queue.push_back(
-            {
-                [&sm, event]()
-                {
-                    return process_event_internal(
-                        sm,
-                        event,
-                        EventSource::EVENT_SOURCE_DEFERRED);
-                },
-                [&sm, type_index = std::type_index{event.type()}]()
-                {
-                    return is_event_deferred(sm, type_index);
-                },
-                deferred_events.cur_seq_cnt
-            }
-        );
+        deferred_events.queue.push_back(basic_unique_ptr<deferred_event>{
+            new deferred_event_impl(sm, event, deferred_events.cur_seq_cnt)});
     }
 
     template<typename Stt>

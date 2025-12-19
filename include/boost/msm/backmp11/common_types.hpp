@@ -14,6 +14,7 @@
 
 #include <any>
 #include <boost/msm/back/common_types.hpp>
+#include <cstddef>
 
 namespace boost { namespace msm { namespace backmp11
 {
@@ -23,8 +24,7 @@ using process_result = back::HandledEnum;
 using any_event = std::any;
 
 // Selector for the visit mode.
-// Can be active_states or all_states in recursive
-// or non-recursive mode.
+// Can be active_states or all_states in recursive or non-recursive mode.
 enum class visit_mode
 {
     // State selection (mutually exclusive).
@@ -51,6 +51,39 @@ constexpr visit_mode operator|(visit_mode lhs, visit_mode rhs)
 namespace detail
 {
 
+class enqueued_event
+{
+  public:
+    virtual ~enqueued_event() = default;
+
+    // Process the event.
+    virtual process_result process() = 0;
+};
+
+class deferred_event
+{
+  public:
+    virtual ~deferred_event() = default;
+
+    // Process the event.
+    virtual process_result process() = 0;
+
+    // Report whether the event is currently deferred.
+    virtual bool is_deferred() const = 0;
+
+    // Get the sequence counter of the event.
+    size_t get_seq_cnt() const
+    {
+        return m_seq_cnt;
+    }
+
+  protected:
+    deferred_event(size_t seq_cnt) : m_seq_cnt(seq_cnt) {}
+
+  private:
+    size_t m_seq_cnt;
+};
+
 using EventSource = back::EventSourceEnum;
 using back::HandledEnum;
 
@@ -62,7 +95,57 @@ constexpr EventSource operator|(EventSource lhs, EventSource rhs)
     );
 }
 
-}
+// Minimal implementation of a unique_ptr.
+// Used to keep header dependencies to a minimum
+// (from C++20 the memory header includes ostream).
+template <typename T>
+class basic_unique_ptr
+{
+  public:
+    explicit basic_unique_ptr(T* ptr) : m_ptr(ptr)
+    {
+    }
+
+    ~basic_unique_ptr()
+    {
+        delete m_ptr;
+    }
+    
+    basic_unique_ptr(const basic_unique_ptr&) = delete;
+    basic_unique_ptr& operator=(const basic_unique_ptr&) = delete;
+
+    basic_unique_ptr(basic_unique_ptr&& other) : m_ptr(other.m_ptr)
+    {
+        other.m_ptr = nullptr;
+    }
+
+    basic_unique_ptr& operator=(basic_unique_ptr&& other)
+    {
+        delete m_ptr;
+        m_ptr = other.m_ptr;
+        other.m_ptr = nullptr;
+    }
+
+    T* get() const
+    {
+        return m_ptr;
+    }
+
+    T& operator*() const
+    {
+        return *m_ptr;
+    }
+
+    T* operator->() const
+    {
+        return m_ptr;
+    }
+
+  private:
+    T* m_ptr;
+};
+
+} // namespace detail
 
 }}} // namespace boost::msm::backmp11
 

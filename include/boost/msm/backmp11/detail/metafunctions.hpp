@@ -202,8 +202,14 @@ struct get_event_id
 };
 
 template <class State>
-using has_state_deferred_events = mp11::mp_not<
+using has_deferred_events = mp11::mp_not<
     mp11::mp_empty<to_mp_list_t<typename State::deferred_events>>
+    >;
+
+template <class State, class Event>
+using has_deferred_event = mp11::mp_contains<
+    to_mp_list_t<typename State::deferred_events>,
+    Event
     >;
 
 // Template used to create dummy entries for initial states not found in the stt.
