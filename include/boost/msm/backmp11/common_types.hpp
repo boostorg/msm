@@ -16,7 +16,7 @@
 #include <boost/msm/back/common_types.hpp>
 #include <cstddef>
 
-namespace boost { namespace msm { namespace backmp11
+namespace boost::msm::backmp11
 {
 
 using process_result = back::HandledEnum;
@@ -85,7 +85,6 @@ class deferred_event
 };
 
 using EventSource = back::EventSourceEnum;
-using back::HandledEnum;
 
 constexpr EventSource operator|(EventSource lhs, EventSource rhs)
 {
@@ -146,7 +145,44 @@ class basic_unique_ptr
 };
 
 } // namespace detail
+} // namespace boost::msm::backmp11
 
-}}} // namespace boost::msm::backmp11
+namespace boost::msm::back
+{
+
+// Bitwise operations for process_result.
+// Defined in this header instead of back because type_traits are C++11.
+// Defined in the back namespace because the operations have to be in the
+// same namespace as HandledEnum.
+
+constexpr HandledEnum operator|(HandledEnum lhs, HandledEnum rhs)
+{
+    return static_cast<HandledEnum>(
+        static_cast<std::underlying_type_t<HandledEnum>>(lhs) |
+        static_cast<std::underlying_type_t<HandledEnum>>(rhs)
+    );
+}
+
+constexpr HandledEnum& operator|=(HandledEnum& lhs, HandledEnum rhs)
+{
+    lhs = lhs | rhs;
+    return lhs;
+}
+
+constexpr HandledEnum operator&(HandledEnum lhs, HandledEnum rhs)
+{
+    return static_cast<HandledEnum>(
+        static_cast<std::underlying_type_t<HandledEnum>>(lhs) &
+        static_cast<std::underlying_type_t<HandledEnum>>(rhs)
+    );
+}
+
+constexpr HandledEnum& operator&=(HandledEnum& lhs, HandledEnum rhs)
+{
+    lhs = lhs & rhs;
+    return lhs;
+}
+
+} // namespace boost::msm::back
 
 #endif // BOOST_MSM_BACKMP11_COMMON_TYPES_H

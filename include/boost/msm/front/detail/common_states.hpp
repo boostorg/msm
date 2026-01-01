@@ -19,11 +19,10 @@
 #include <boost/fusion/include/at_key.hpp>
 #include <boost/type_traits/add_const.hpp>
 
+#include <boost/msm/front/detail/state_tags.hpp>
+
 namespace boost { namespace msm { namespace front {namespace detail
 {
-
-struct state_tag {};
-struct composite_state_tag {};
 
 template <class Attributes= ::boost::fusion::map<> >
 struct inherit_attributes

@@ -145,7 +145,7 @@ struct serialize_state
     typename ::boost::enable_if<
         typename ::boost::mpl::or_<
             typename has_do_serialize<T>::type,
-            typename detail::has_back_end_tag<typename T::internal>::type
+            typename detail::has_state_machine_tag<typename T::internal>::type
         >::type
         ,void
     >::type
@@ -157,7 +157,7 @@ struct serialize_state
     typename ::boost::disable_if<
         typename ::boost::mpl::or_<
             typename has_do_serialize<T>::type,
-            typename detail::has_back_end_tag<typename T::internal>::type
+            typename detail::has_state_machine_tag<typename T::internal>::type
         >::type
         ,void
     >::type

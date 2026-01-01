@@ -207,6 +207,8 @@ namespace boost { namespace msm { namespace front
     template <class EVENT,class ACTION=none,class GUARD=none>
     struct Internal
     {
+        typedef none    Source;
+        typedef none    Target;
         typedef EVENT   Evt;
         typedef ACTION  Action;
         typedef GUARD   Guard;
@@ -230,6 +232,8 @@ namespace boost { namespace msm { namespace front
     template<class EVENT,class ACTION>
     struct Internal<EVENT,ACTION,none>
     {
+        typedef none    Source;
+        typedef none    Target;
         typedef EVENT   Evt;
         typedef ACTION  Action;
         typedef none    Guard;
@@ -246,6 +250,8 @@ namespace boost { namespace msm { namespace front
     template<class EVENT,class GUARD>
     struct Internal<EVENT,none,GUARD>
     {
+        typedef none    Source;
+        typedef none    Target;
         typedef EVENT   Evt;
         typedef none    Action;
         typedef GUARD   Guard;
@@ -261,6 +267,8 @@ namespace boost { namespace msm { namespace front
     template<class EVENT>
     struct Internal<EVENT,none,none>
     {
+        typedef none    Source;
+        typedef none    Target;
         typedef EVENT   Evt;
         typedef none    Action;
         typedef none    Guard;
