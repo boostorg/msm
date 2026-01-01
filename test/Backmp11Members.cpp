@@ -34,6 +34,7 @@ namespace
 
 // Events.
 struct MyEvent{};
+struct MyInternalEvent{};
 
 // Actions
 struct MyAction
@@ -81,7 +82,8 @@ struct StateMachine_ : public state_machine_def<StateMachine_>
 
     using initial_state = Default;
     using transition_table = mp11::mp_list<
-        Row<Default, MyEvent, none, MyAction, MyGuard>
+        Row<Default, MyEvent, none, MyAction, MyGuard>,
+        Internal<MyInternalEvent, MyAction, MyGuard>
     >;
 };
 // Leave this class without inheriting constructors to check

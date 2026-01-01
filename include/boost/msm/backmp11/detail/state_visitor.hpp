@@ -17,54 +17,58 @@
 namespace boost::msm::backmp11::detail
 {
 
-// Helper to provide a zero-cost abstraction if Predicate is always_true.
-template <typename List, template <typename> typename Predicate>
-struct copy_if_impl
+// Helper to apply multiple predicates sequentially.
+template <typename List, template <typename> typename... Predicates>
+struct copy_if_impl;
+template <typename List, template <typename> typename Predicate, template <typename> typename... Predicates>
+struct copy_if_impl<List, Predicate, Predicates...>
 {
-    using type = mp11::mp_copy_if<List, Predicate>;
+    using subset = mp11::mp_copy_if<List, Predicate>;
+    using type = typename copy_if_impl<subset, Predicates...>::type;
 };
 template <typename List>
-struct copy_if_impl<List, always_true>
+struct copy_if_impl<List>
 {
     using type = List;
 };
-template<typename List, template <typename> typename Predicate>
-using copy_if = typename copy_if_impl<List, Predicate>::type;
+template<typename List, template <typename> typename... Predicates>
+using copy_if = typename copy_if_impl<List, Predicates...>::type;
 
-template<typename StateMachine, template <typename> typename Predicate>
-using state_subset = copy_if<typename StateMachine::internal::state_set, Predicate>;
+template<typename StateMachine, template <typename> typename... Predicates>
+using state_subset = copy_if<typename StateMachine::internal::state_set, Predicates...>;
 
 // State visitor implementation.
-// States to visit can be selected with VisitMode
-// and additionally compile-time filtered with Predicate.
+// States to visit can be selected with Mode
+// and additionally compile-time filtered with Predicates.
 template <
     typename StateMachine,
     typename Visitor,
     visit_mode Mode,
-    template <typename> typename Predicate = always_true,
-    typename Enable = void>
-class state_visitor;
+    typename Enable = void,
+    template <typename> typename... Predicates
+    >
+class state_visitor_impl;
 
 template <
     typename StateMachine,
     typename Visitor,
     visit_mode Mode,
-    template <typename> typename Predicate>
-class state_visitor<
+    template <typename> typename... Predicates>
+class state_visitor_impl<
     StateMachine,
     Visitor,
     Mode,
-    Predicate,
     std::enable_if_t<
         has_flag(Mode, visit_mode::active_states) &&
-        mp11::mp_not<mp11::mp_empty<state_subset<StateMachine, Predicate>>>::value>>
+        mp11::mp_not<mp11::mp_empty<state_subset<StateMachine, Predicates...>>>::value>,
+    Predicates...>
 {
   public:
-    state_visitor()
+    state_visitor_impl()
     {
         using state_identities =
             mp11::mp_transform<mp11::mp_identity,
-                               state_subset<StateMachine, Predicate>>;
+                               state_subset<StateMachine, Predicates...>>;
         mp11::mp_for_each<state_identities>(
             [this](auto state_identity)
             {
@@ -78,7 +82,7 @@ class state_visitor<
     {
         if (sm.m_running)
         {
-            const state_visitor& self = instance();
+            const state_visitor_impl& self = instance();
             for (const int state_id : sm.m_active_state_ids)
             {
                 self.dispatch(sm, state_id, std::forward<Visitor>(visitor));
@@ -96,16 +100,16 @@ class state_visitor<
         auto& state = sm.template get_state<State>();
         visitor(state);
 
-        if constexpr (has_back_end_tag<State>::value &&
+        if constexpr (has_state_machine_tag<State>::value &&
                       has_flag(Mode, visit_mode::recursive))
         {
-            state.template visit_if<Predicate, Mode>(std::forward<Visitor>(visitor));
+            state.template visit_if<Mode, Predicates...>(std::forward<Visitor>(visitor));
         }
     }
 
-    static const state_visitor& instance()
+    static const state_visitor_impl& instance()
     {
-        static const state_visitor instance;
+        static const state_visitor_impl instance;
         return instance;
     }
 
@@ -125,22 +129,22 @@ template <
     typename StateMachine,
     typename Visitor,
     visit_mode Mode,
-    template <typename> typename Predicate>
-class state_visitor<
+    template <typename> typename... Predicates>
+class state_visitor_impl<
     StateMachine,
     Visitor,
     Mode,
-    Predicate,
     std::enable_if_t<
         has_flag(Mode, visit_mode::all_states) &&
-        mp11::mp_not<mp11::mp_empty<state_subset<StateMachine, Predicate>>>::value>>
+        mp11::mp_not<mp11::mp_empty<state_subset<StateMachine, Predicates...>>>::value>,
+    Predicates...>
 {
   public:
     static void visit(StateMachine& sm, Visitor visitor)
     {
         using state_identities =
             mp11::mp_transform<mp11::mp_identity,
-                               state_subset<StateMachine, Predicate>>;
+                               state_subset<StateMachine, Predicates...>>;
         mp11::mp_for_each<state_identities>(
             [&sm, &visitor](auto state_identity)
             {
@@ -148,10 +152,10 @@ class state_visitor<
                 auto& state = sm.template get_state<State>();
                 visitor(state);
 
-                if constexpr (is_back_end<State>::value &&
+                if constexpr (has_state_machine_tag<State>::value &&
                               has_flag(Mode, visit_mode::recursive))
                 {
-                    state.template visit_if<Predicate, Mode>(std::forward<Visitor>(visitor));
+                    state.template visit_if<Mode, Predicates...>(std::forward<Visitor>(visitor));
                 }
             }
         );
@@ -162,20 +166,27 @@ template <
     typename StateMachine,
     typename Visitor,
     visit_mode Mode,
-    template <typename> typename Predicate>
-class state_visitor<
+    template <typename> typename... Predicates>
+class state_visitor_impl<
     StateMachine,
     Visitor,
     Mode,
-    Predicate,
     std::enable_if_t<
-        mp11::mp_empty<state_subset<StateMachine, Predicate>>::value>>
+        mp11::mp_empty<state_subset<StateMachine, Predicates...>>::value>,
+    Predicates...>
 {
   public:
     static constexpr void visit(StateMachine&, Visitor)
     {
     }
 };
+
+template <
+    typename StateMachine,
+    typename Visitor,
+    visit_mode Mode,
+    template <typename> typename... Predicates>
+using state_visitor = state_visitor_impl<StateMachine, Visitor, Mode, void, Predicates...>;
 
 } // boost::msm::backmp11::detail
 
