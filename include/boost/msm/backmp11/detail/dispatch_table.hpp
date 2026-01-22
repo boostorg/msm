@@ -12,7 +12,6 @@
 #ifndef BOOST_MSM_BACKMP11_DISPATCH_TABLE_H
 #define BOOST_MSM_BACKMP11_DISPATCH_TABLE_H
 
-#include <cstdint>
 #include <cstddef>
 
 #include <boost/mp11.hpp>
@@ -29,40 +28,31 @@ template<typename Cell>
 struct init_cell_value
 {
     size_t index;
-    Cell address;
+    Cell cell;
 };
-template<size_t v1, typename Cell, Cell v2>
+template<size_t index, typename Cell, Cell cell>
 struct init_cell_constant
 {
-    static constexpr init_cell_value<Cell> value = {v1, v2};
+    using value_type = init_cell_value<Cell>;
+    static constexpr value_type value = {index, cell};
 };
 
-// Type-punned init cell value to suppress redundant template instantiations
-typedef std::uintptr_t generic_cell; 
-struct generic_init_cell_value
-{
-    size_t index;
-    generic_cell address;
-};
+// Type-punned init cell value to suppress redundant template instantiations.
+using generic_cell = void(*)();
+using generic_init_cell_value = init_cell_value<generic_cell>;
 
-// Helper to create an array of init cell values for table initialization
-template<typename Cell, typename InitCellConstants, std::size_t... I>
-static const init_cell_value<Cell>* get_init_cells_impl(mp11::index_sequence<I...>)
+// Class that handles the initialization of dispatch table entries.
+struct dispatch_table_initializer
 {
-    static constexpr init_cell_value<Cell> values[] {mp11::mp_at_c<InitCellConstants, I>::value...};
-    return values;
-}
-template<typename Cell, typename InitCellConstants>
-static const init_cell_value<Cell>* get_init_cells_impl(mp11::index_sequence<>)
-{
-    return nullptr;
-}
-template<typename Cell, typename InitCellConstants>
-static const generic_init_cell_value* get_init_cells()
-{
-    return reinterpret_cast<const generic_init_cell_value*>(
-        get_init_cells_impl<Cell, InitCellConstants>(mp11::make_index_sequence<mp11::mp_size<InitCellConstants>::value>{}));
-}
+    static void execute(generic_cell* cells, const generic_init_cell_value* values, size_t values_size)
+    {
+        for (size_t i = 0; i < values_size; i++)
+        {
+            const auto& item = values[i];
+            cells[item.index] = item.cell;
+        }
+    }
+};
 
 } // detail
 

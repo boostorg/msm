@@ -12,10 +12,16 @@
 #ifndef BOOST_MSM_BACKMP11_DETAIL_STATE_VISITOR_HPP
 #define BOOST_MSM_BACKMP11_DETAIL_STATE_VISITOR_HPP
 
+#include <boost/msm/backmp11/detail/dispatch_table.hpp>
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
 
 namespace boost::msm::backmp11::detail
 {
+
+constexpr bool has_flag(visit_mode value, visit_mode flag)
+{
+    return (static_cast<int>(value) & static_cast<int>(flag)) != 0;
+}
 
 // Helper to apply multiple predicates sequentially.
 template <typename List, template <typename> typename... Predicates>
@@ -31,10 +37,10 @@ struct copy_if_impl<List>
 {
     using type = List;
 };
-template<typename List, template <typename> typename... Predicates>
+template <typename List, template <typename> typename... Predicates>
 using copy_if = typename copy_if_impl<List, Predicates...>::type;
 
-template<typename StateMachine, template <typename> typename... Predicates>
+template <typename StateMachine, template <typename> typename... Predicates>
 using state_subset = copy_if<typename StateMachine::internal::state_set, Predicates...>;
 
 // State visitor implementation.
@@ -64,20 +70,6 @@ class state_visitor_impl<
     Predicates...>
 {
   public:
-    state_visitor_impl()
-    {
-        using state_identities =
-            mp11::mp_transform<mp11::mp_identity,
-                               state_subset<StateMachine, Predicates...>>;
-        mp11::mp_for_each<state_identities>(
-            [this](auto state_identity)
-            {
-                using State = typename decltype(state_identity)::type;
-                m_cells[StateMachine::template get_state_id<State>()] = &accept<State>;
-            }
-        );
-    }
-
     static void visit(StateMachine& sm, Visitor visitor)
     {
         if (sm.m_running)
@@ -90,11 +82,8 @@ class state_visitor_impl<
         }
     }
 
-  private:
-    using state_set = typename StateMachine::internal::state_set;
-    using cell_t = void (*)(StateMachine&, Visitor);
-
-    template<typename State>
+    // Bug: Clang 17 complains about private member if this method is private.
+    template <typename State>
     static void accept(StateMachine& sm, Visitor visitor)
     {
         auto& state = sm.template get_state<State>();
@@ -107,19 +96,41 @@ class state_visitor_impl<
         }
     }
 
-    static const state_visitor_impl& instance()
+  private:
+    using state_set = typename StateMachine::internal::state_set;
+    using cell_t = void (*)(StateMachine&, Visitor);
+    template <size_t index, cell_t cell>
+    using init_cell_constant = init_cell_constant<index, cell_t, cell>;
+
+    template <typename State>
+    using get_init_cell_constant = init_cell_constant<
+        StateMachine::template get_state_id<State>(),
+        &accept<State>>;
+
+    state_visitor_impl()
     {
-        static const state_visitor_impl instance;
-        return instance;
+        using init_cell_constants = mp11::mp_transform<
+            get_init_cell_constant,
+            state_subset<StateMachine, Predicates...>>;
+        dispatch_table_initializer::execute(
+            reinterpret_cast<generic_cell*>(m_cells),
+            reinterpret_cast<const generic_init_cell_value*>(value_array<init_cell_constants>),
+            mp11::mp_size<init_cell_constants>::value);
     }
 
     void dispatch(StateMachine& sm, int state_id, Visitor visitor) const
     {
-        cell_t cell = m_cells[state_id];
+        const cell_t& cell = m_cells[state_id];
         if (cell)
         {
             (*cell)(sm, std::forward<Visitor>(visitor));
         }
+    }
+
+    static const state_visitor_impl& instance()
+    {
+        static const state_visitor_impl instance;
+        return instance;
     }
 
     cell_t m_cells[mp11::mp_size<state_set>::value]{};
@@ -186,7 +197,12 @@ template <
     typename Visitor,
     visit_mode Mode,
     template <typename> typename... Predicates>
-using state_visitor = state_visitor_impl<StateMachine, Visitor, Mode, void, Predicates...>;
+using state_visitor = state_visitor_impl<
+    StateMachine,
+    Visitor,
+    Mode,
+    /*Enable=*/void,
+    Predicates...>;
 
 } // boost::msm::backmp11::detail
 
