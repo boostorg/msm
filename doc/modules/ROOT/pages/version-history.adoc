@@ -5,7 +5,7 @@
 == Boost 1.90
 
 * feat/backmp11: New back-end backmp11, requires C++ 17
-* fix/back: boost::any stopped working as Kleene event
+* fix/back: boost::any stopped working as Kleene event (https://github.com/boostorg/msm/issues/87[#87])
 * feat: The documentation has been refurbished, it is now built with Antora
 
 [[boost-185]]

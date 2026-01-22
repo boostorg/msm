@@ -12,24 +12,32 @@
 #ifndef BOOST_MSM_BACKMP11_FAVOR_COMPILE_TIME_H
 #define BOOST_MSM_BACKMP11_FAVOR_COMPILE_TIME_H
 
-#include <deque>
 #include <functional>
 #include <typeindex>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 #include <boost/msm/front/completion_event.hpp>
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
 #include <boost/msm/backmp11/detail/dispatch_table.hpp>
+#include <boost/msm/backmp11/detail/transition_table.hpp>
 #include <boost/msm/backmp11/event_traits.hpp>
 
-#define BOOST_MSM_BACKMP11_GENERATE_STATE_MACHINE(smname)                      \
-    template<>                                                                  \
-    const smname::sm_dispatch_table& smname::sm_dispatch_table::instance()      \
-    {                                                                           \
-        static dispatch_table table;                                            \
-        return table;                                                           \
-    }
+// Macro to generate the dispatch_table for a specific state machine type.
+#define BOOST_MSM_BACKMP11_GENERATE_STATE_MACHINE(SM_TYPE)                     \
+    namespace boost::msm::backmp11::detail                                     \
+    {                                                                          \
+    template <>                                                                \
+    const typename compile_policy_impl<                                        \
+        favor_compile_time>::template dispatch_table<SM_TYPE, any_event>&      \
+    compile_policy_impl<favor_compile_time>::dispatch_table<                   \
+        SM_TYPE, any_event>::instance()                                        \
+    {                                                                          \
+        static dispatch_table table;                                           \
+        return table;                                                          \
+    }                                                                          \
+    } // boost::msm::backmp11::detail
 
 namespace boost { namespace msm { namespace backmp11
 {
@@ -48,7 +56,20 @@ struct compile_policy_impl;
 template <>
 struct compile_policy_impl<favor_compile_time>
 {
-    using add_forwarding_rows = mp11::mp_false;
+// GCC cannot recognize the parameter pack in the array's initializer.
+#if !defined(__GNUC__) || defined(__clang__)
+    // Convert a list with integral constants of the same value_type to a value array
+    // (non-constexpr version required due to typeid).
+    template <typename List>
+    struct value_array;
+    template <typename... Ts>
+    struct value_array<mp11::mp_list<Ts...>>
+    {
+        using value_type =
+            typename mp11::mp_front<mp11::mp_list<Ts...>>::value_type;
+        const value_type value[sizeof...(Ts)]{Ts{}.value...};
+    };
+#endif
 
     // Bitmask for process result checks.
     static constexpr process_result handled_or_deferred =
@@ -115,7 +136,8 @@ struct compile_policy_impl<favor_compile_time>
         {
             std::unordered_set<std::type_index> indices;
             using deferred_events = to_mp_list_t<typename State::deferred_events>;
-            using deferred_event_identities = mp11::mp_transform<mp11::mp_identity, deferred_events>;
+            using deferred_event_identities =
+                mp11::mp_transform<mp11::mp_identity, deferred_events>;
             mp11::mp_for_each<deferred_event_identities>(
                 [&indices](auto event_identity)
                 {
@@ -162,12 +184,13 @@ struct compile_policy_impl<favor_compile_time>
     // Helper class to manage end interrupt events.
     class end_interrupt_event_helper
     {
-    public:
+      public:
         template<class StateMachine>
         end_interrupt_event_helper(const StateMachine& sm)
         {
-            typedef typename generate_event_set<typename StateMachine::internal::stt>::event_set_mp11 event_set_mp11;
-            mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, event_set_mp11>>(
+            using event_set = generate_event_set<
+                typename StateMachine::front_end_t::transition_table>;
+            mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, event_set>>(
                 [this, &sm](auto event_identity)
                 {
                     using Event = typename decltype(event_identity)::type;
@@ -187,7 +210,7 @@ struct compile_policy_impl<favor_compile_time>
             return false;
         }
 
-    private:
+      private:
         using map = std::unordered_map<std::type_index, std::function<bool()>>;
         map m_is_flag_active_functions;
     };
@@ -200,11 +223,11 @@ struct compile_policy_impl<favor_compile_time>
         template<typename StateMachine>
         process_result execute(StateMachine& sm, int& state_id, any_event const& event) const
         {
-            using real_cell = process_result (*)(StateMachine&, int&, any_event const&);
+            using cell_t = process_result (*)(StateMachine&, int&, any_event const&);
             process_result result = process_result::HANDLED_FALSE;
-            for (const generic_cell function : m_transition_functions)
+            for (const generic_cell cell : m_transition_cells)
             {
-                result |= reinterpret_cast<real_cell>(function)(sm, state_id, event);
+                result |= reinterpret_cast<cell_t>(cell)(sm, state_id, event);
                 if (result & handled_or_deferred)
                 {
                     // If a guard rejected previously, ensure this bit is not present.
@@ -215,53 +238,115 @@ struct compile_policy_impl<favor_compile_time>
             return result;
         }
 
-        template <typename StateMachine, typename Event, typename Transition>
-        void add_transition()
+        template <typename StateMachine>
+        void add_transition_cell(process_result (*cell)(StateMachine&, int&, any_event const&))
         {
-            m_transition_functions.emplace_front(reinterpret_cast<generic_cell>(
-                &convert_event_and_execute<StateMachine, Event, Transition>));
+            m_transition_cells.emplace_back(
+                reinterpret_cast<generic_cell>(cell));
         }
 
       private:
-        // Adapter for calling a transition's execute function.
-        template<typename StateMachine, typename Event, typename Transition>
+        std::vector<generic_cell> m_transition_cells;
+    };
+
+    // Class used to build a chain of sm-internal transitions for a given event and state.
+    // Allows transition conflicts.
+    class internal_transition_chain
+    {
+      public:
+        template<typename StateMachine>
+        process_result execute(StateMachine& sm, any_event const& event) const
+        {
+            using cell_t = process_result (*)(StateMachine&, any_event const&);
+            process_result result = process_result::HANDLED_FALSE;
+            for (const generic_cell cell : m_transition_cells)
+            {
+                result |= reinterpret_cast<cell_t>(cell)(sm, event);
+                if (result & handled_or_deferred)
+                {
+                    // If a guard rejected previously, ensure this bit is not present.
+                    return result & handled_or_deferred;
+                }
+            }
+            // At this point result can be HANDLED_FALSE or HANDLED_GUARD_REJECT.
+            return result;
+        }
+
+        template <typename StateMachine>
+        void add_transition_cell(process_result (*cell)(StateMachine&, any_event const&))
+        {
+            m_transition_cells.emplace_back(
+                reinterpret_cast<generic_cell>(cell));
+        }
+
+      private:
+        std::vector<generic_cell> m_transition_cells;
+    };
+
+    // Generates a singleton runtime lookup table that maps current state
+    // to a function that makes the SM take its transition on the given
+    // Event type.
+    template<class StateMachine, typename Event>
+    class dispatch_table;
+    template<class StateMachine>
+    class dispatch_table<StateMachine, any_event>
+    {
+      public:
+        // Dispatch an event.
+        static process_result dispatch(StateMachine& sm, int& state_id, const any_event& event)
+        {
+            const dispatch_table& self = instance();
+            return self.m_state_dispatch_tables[state_id].dispatch(sm, state_id, event);
+        }
+
+        // Dispatch an event to the SM's internal table.
+        static process_result internal_dispatch(StateMachine& sm, const any_event& event)
+        {
+            const dispatch_table& self = instance();
+            return self.m_internal_dispatch_table.dispatch(sm, event);
+        }
+
+      private:
+        using state_set = typename StateMachine::internal::state_set;
+        
+        // Value used to initialize a cell of the dispatch table.
+        using cell_t = process_result (*)(StateMachine&, int&, any_event const&);
+        struct init_cell_value
+        {
+            std::type_index event_type_index;
+            size_t state_id;
+            cell_t cell;
+        };
+        template<typename Event, size_t index, cell_t cell>
+        struct init_cell_constant
+        {
+            using value_type = init_cell_value;
+            const value_type value = {typeid(Event), index, cell};
+        };
+
+        template<typename Event, typename Transition>
         static process_result convert_event_and_execute(
             StateMachine& sm, int& state_id, const any_event& event)
         {
             return Transition::execute(sm, state_id, *any_cast<Event>(&event));
         }
 
-        std::deque<generic_cell> m_transition_functions;
-    };
-
-    // Generates a singleton runtime lookup table that maps current state
-    // to a function that makes the SM take its transition on the given
-    // Event type.
-    template<class StateMachine>
-    class dispatch_table
-    {
-    public:
-        // Dispatch an event.
-        static process_result dispatch(StateMachine& sm, int& state_id, const any_event& event)
+        template <typename Transition>
+        struct get_init_cell_constant_impl
         {
-            return instance().m_state_dispatch_tables[state_id+1].dispatch(sm, state_id, event);
-        }
-
-        // Dispatch an event to the SM's internal table.
-        static process_result dispatch_internal(StateMachine& sm, const any_event& event)
-        {
-            int no_state_id;
-            return instance().m_state_dispatch_tables[0].dispatch(sm, no_state_id, event);
-        }
-
-    private:
-        using state_set = typename StateMachine::internal::state_set;
-        using Stt = typename StateMachine::complete_table;
+            using type = init_cell_constant<
+                typename Transition::transition_event,
+                StateMachine::template get_state_id<typename Transition::current_state_type>(),
+                convert_event_and_execute<typename Transition::transition_event, Transition>
+                >;
+        };
+        template<typename Transition>
+        using get_init_cell_constant = typename get_init_cell_constant_impl<Transition>::type;
 
         // Dispatch table for one state.
         class state_dispatch_table
         {
-        public:
+          public:
             // Initialize the call to the composite state's process_event function.
             template<typename CompositeState>
             void init_composite_state()
@@ -269,12 +354,11 @@ struct compile_policy_impl<favor_compile_time>
                 m_call_process_event = &call_process_event<CompositeState>;
             }
 
-            // Add a transition to the dispatch table.
-            template<typename Event, typename Transition>
-            void add_transition()
+            // Add a cell to the dispatch table.
+            void add_transition_cell(const init_cell_value& value)
             {
-                transition_chain& chain = m_transition_chains[to_type_index<Event>()];
-                chain.add_transition<StateMachine, Event, Transition>();
+                transition_chain& chain = m_transition_chains[value.event_type_index];
+                chain.add_transition_cell(value.cell);
             }
 
             // Dispatch an event.
@@ -297,11 +381,11 @@ struct compile_policy_impl<favor_compile_time>
                 return result;
             }
 
-        private:
-            template <typename CompositeState>
+          private:
+            template <typename Submachine>
             static process_result call_process_event(StateMachine& sm, const any_event& event)
             {
-                return sm.template get_state<CompositeState&>().process_event_internal(event);
+                return sm.template get_state<Submachine&>().process_event_internal(event);
             }
 
             std::unordered_map<std::type_index, transition_chain> m_transition_chains;
@@ -309,44 +393,137 @@ struct compile_policy_impl<favor_compile_time>
             process_result (*m_call_process_event)(StateMachine&, const any_event&){nullptr};
         };
 
+        // Value used to initialize a cell of the sm-internal dispatch table.
+        using internal_cell_t = process_result (*)(StateMachine&, any_event const&);
+        struct init_internal_cell_value
+        {
+            std::type_index event_type_index;
+            internal_cell_t cell;
+        };
+        template<typename Event, internal_cell_t cell>
+        struct init_internal_cell_constant
+        {
+            using value_type = init_internal_cell_value;
+            const value_type value = {typeid(Event), cell};
+        };
+
+        template<typename Event, typename Transition>
+        static process_result convert_event_and_execute_internal(
+            StateMachine& sm, const any_event& event)
+        {
+            return Transition::execute(sm, *any_cast<Event>(&event));
+        }
+
+        template <typename Transition>
+        struct get_internal_init_cell_constant_impl
+        {
+            using type = init_internal_cell_constant<
+                typename Transition::transition_event,
+                convert_event_and_execute_internal<typename Transition::transition_event, Transition>
+                >;
+        };
+        template <typename Transition>
+        using get_internal_init_cell_constant =
+            typename get_internal_init_cell_constant_impl<Transition>::type;
+
+        // Dispatch table for sm-internal transitions.
+        class internal_dispatch_table
+        {
+          public:
+            // Add a cell to the dispatch table.
+            void add_transition_cell(const init_internal_cell_value& value)
+            {
+                internal_transition_chain& chain =
+                    m_transition_chains[value.event_type_index];
+                chain.add_transition_cell(value.cell);
+            }
+
+            // Dispatch an event.
+            process_result dispatch(StateMachine& sm, const any_event& event) const
+            {
+                process_result result = process_result::HANDLED_FALSE;
+                auto it = m_transition_chains.find(event.type());
+                if (it != m_transition_chains.end())
+                {
+                    result = (it->second.execute)(sm, event);
+                }
+                return result;
+            }
+
+          private:
+            std::unordered_map<std::type_index, internal_transition_chain>
+                m_transition_chains;
+        };
+
         dispatch_table()
         {
-            // Execute row-specific initializations.
-            mp11::mp_for_each<Stt>(
-                [this](auto transition)
-                {
-                    using Transition = decltype(transition);
-                    using Event = typename Transition::transition_event;
-                    using State = typename Transition::current_state_type;
-                    static constexpr int state_id = StateMachine::template get_state_id<State>();
-                    m_state_dispatch_tables[state_id + 1].template add_transition<Event, Transition>();
-                });
-
-            // Execute state-specific initializations.
-            using submachine_states = mp11::mp_copy_if<state_set, has_state_machine_tag>;
-            mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, submachine_states>>(
+            // Initialize the state dispatch tables.
+            using submachines = mp11::mp_copy_if<state_set, has_state_machine_tag>;
+            mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, submachines>>(
                 [this](auto state_identity)
                 {
-                    using CompositeState = typename decltype(state_identity)::type;
-                    static constexpr int state_id = StateMachine::template get_state_id<CompositeState>();
-                    m_state_dispatch_tables[state_id + 1].template init_composite_state<CompositeState>();
+                    using Submachine = typename decltype(state_identity)::type;
+                    static constexpr int state_id =
+                        StateMachine::template get_state_id<Submachine>();
+                    m_state_dispatch_tables[state_id].template init_composite_state<Submachine>();
                 });
+            if constexpr (!mp11::mp_empty<transition_table<StateMachine>>::value)
+            {
+                using init_cell_constants = mp11::mp_transform<
+                    get_init_cell_constant,
+                    transition_table<StateMachine>>;
+#if defined(__GNUC__) && !defined(__clang__)
+                mp11::mp_for_each<init_cell_constants>(
+                    [this](auto constant)
+                    {
+                        m_state_dispatch_tables[constant.value.state_id].add_transition_cell(constant.value);
+                    });
+#else
+                value_array<init_cell_constants> value_array;
+                for (const init_cell_value& value: value_array.value)
+                {
+                    m_state_dispatch_tables[value.state_id].add_transition_cell(value);
+                }
+#endif
+            }
+
+            // Initialize the sm-internal dispatch table.
+            if constexpr (!mp11::mp_empty<internal_transition_table<StateMachine>>::value)
+            {
+                using init_internal_cell_constants = mp11::mp_transform<
+                    get_internal_init_cell_constant,
+                    internal_transition_table<StateMachine>>;
+#if defined(__GNUC__) && !defined(__clang__)
+                mp11::mp_for_each<init_internal_cell_constants>(
+                    [this](auto constant)
+                    {
+                        m_internal_dispatch_table.add_transition_cell(constant.value);
+                    });
+#else
+                value_array<init_internal_cell_constants> value_array;
+                for (const init_internal_cell_value& value: value_array.value)
+                {
+                    m_internal_dispatch_table.add_transition_cell(value);
+                }
+#endif
+            }
         }
 
         // The singleton instance.
         static const dispatch_table& instance();
 
-        // We need one dispatch table per state, plus one for internal transitions of the SM.
-        BOOST_STATIC_CONSTANT(int, max_state = (mp11::mp_size<state_set>::value));
-        state_dispatch_table m_state_dispatch_tables[max_state+1];
+        // We need one dispatch table per state.
+        state_dispatch_table m_state_dispatch_tables[mp11::mp_size<state_set>::value];
+        internal_dispatch_table m_internal_dispatch_table;
     };
 };
 
 #ifndef BOOST_MSM_BACKMP11_MANUAL_GENERATION
 
 template<class StateMachine>
-const typename compile_policy_impl<favor_compile_time>::template dispatch_table<StateMachine>& 
-compile_policy_impl<favor_compile_time>::dispatch_table<StateMachine>::instance()
+const typename compile_policy_impl<favor_compile_time>::template
+    dispatch_table<StateMachine, any_event>& 
+compile_policy_impl<favor_compile_time>::dispatch_table<StateMachine, any_event>::instance()
 {
     static dispatch_table table;
     return table;
@@ -354,9 +531,7 @@ compile_policy_impl<favor_compile_time>::dispatch_table<StateMachine>::instance(
 
 #endif
 
-
 } // detail
-
 }}} // boost::msm::backmp11
 
 #endif //BOOST_MSM_BACKMP11_FAVOR_COMPILE_TIME_H

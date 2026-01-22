@@ -81,9 +81,9 @@ test-suite msm-unit-tests-cxxstd17
     [ run Backmp11Deferred.cpp ]
     [ run Backmp11EntryExit.cpp ]
     [ run Backmp11ManyDeferTransitions.cpp ]
-    [ run Backmp11Members.cpp ]
-    [ run Backmp11Visitor.cpp ]
     [ run Backmp11RootSm.cpp ]
+    [ run Backmp11Transitions.cpp ]
+    [ run Backmp11Visitor.cpp ]
     :
     <cxxstd>17
     ;

@@ -14,6 +14,7 @@
 
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
 #include <boost/msm/backmp11/detail/dispatch_table.hpp>
+#include <boost/msm/backmp11/detail/transition_table.hpp>
 #include <boost/msm/backmp11/event_traits.hpp>
 
 namespace boost { namespace msm { namespace backmp11
@@ -29,8 +30,6 @@ struct compile_policy_impl;
 template <>
 struct compile_policy_impl<favor_runtime_speed>
 {
-    using add_forwarding_rows = mp11::mp_true;
-
     // Bitmask for process result checks.
     static constexpr process_result handled_or_deferred =
         process_result::HANDLED_TRUE | process_result::HANDLED_DEFERRED;
@@ -118,9 +117,10 @@ struct compile_policy_impl<favor_runtime_speed>
     {
         if constexpr (is_kleene_event<Event>::value)
         {
-            typedef typename generate_event_set<typename StateMachine::internal::stt>::event_set_mp11 event_list;
+            using event_set = generate_event_set<
+                typename StateMachine::front_end_t::transition_table>;
             bool found =
-                mp_for_each_until<mp11::mp_transform<mp11::mp_identity, event_list>>(
+                mp_for_each_until<mp11::mp_transform<mp11::mp_identity, event_set>>(
                     [&sm, &event](auto event_identity)
                     {
                         using KnownEvent = typename decltype(event_identity)::type;
@@ -155,126 +155,225 @@ struct compile_policy_impl<favor_runtime_speed>
                 sm, event, deferred_events.cur_seq_cnt)});
     }
 
-    struct cell_initializer
-    {
-        static void init(generic_cell* entries, const generic_init_cell_value* array, size_t size)
-        {
-            for (size_t i=0; i<size; i++)
-            {
-                const auto& item = array[i];
-                entries[item.index] = item.address;
-            }
-        }
-    };
-
-    template<typename StateMachine, typename State, bool StateIsStateMachine = std::is_same_v<StateMachine, State>>
-    struct get_table_index_impl;
-    template<typename StateMachine, typename State>
-    struct get_table_index_impl<StateMachine, State, false>
-    {
-        using type = mp11::mp_size_t<StateMachine::template get_state_id<State>() + 1>;
-    };
-    template<typename StateMachine, typename State>
-    struct get_table_index_impl<StateMachine, State, true>
-    {
-        using type = mp11::mp_size_t<0>;
-    };
-    template<typename StateMachine, typename State>
-    using get_table_index = typename get_table_index_impl<StateMachine, State>::type;
-
     // Generates a singleton runtime lookup table that maps current state
     // to a function that makes the SM take its transition on the given
     // Event type.
-    template<class StateMachine>
+    template <class StateMachine, typename Event>
     class dispatch_table
     {
-        using Stt = typename StateMachine::complete_table;
-    public:
-        // Dispatch function for a specific event.
-        template<class Event>
-        using cell = process_result (*)(StateMachine&, int&, Event const&);
-
+      public:
         // Dispatch an event.
-        template<class Event>
         static process_result dispatch(StateMachine& sm, int& state_id, const Event& event)
         {
-            return event_dispatch_table<Event>::instance().entries[state_id+1](sm, state_id, event);
+            if constexpr (has_transitions::value ||
+                          has_forward_transitions::value)
+            {
+                const dispatch_table_impl& self = dispatch_table_impl::instance();
+                return self.dispatch(sm, state_id, event);
+            }
+            return process_result::HANDLED_FALSE;
         }
 
-        // Dispatch an event to the FSM's internal table.
-        template<class Event>
-        static process_result dispatch_internal(StateMachine& sm, const Event& event)
+        // Dispatch an event to the SM's internal table.
+        static process_result internal_dispatch(StateMachine& sm, const Event& event)
         {
-            int no_state_id;
-            return event_dispatch_table<Event>::instance().entries[0](sm, no_state_id, event);
+            if constexpr (has_internal_transitions::value)
+            {
+                return internal_dispatch_impl::transition::execute(sm, event);
+            }
+            return process_result::HANDLED_FALSE;
         }
 
-    private:
+      private:
+        using cell_t = process_result (*)(StateMachine&, int&, Event const&);
+
+        // All dispatch tables are friend with each other to check recursively
+        // whether forward transitions are required.
+        template <class, typename>
+        friend class dispatch_table;
+
         // Compute the maximum state value in the sm so we know how big
         // to make the tables.
-        using state_set = typename StateMachine::internal::state_set;
+        using state_set = typename StateMachine::state_set;
         static constexpr int max_state = mp11::mp_size<state_set>::value;
 
-        // Dispatch table for a specific event.
-        template<class Event>
-        class event_dispatch_table
+        // Filter the transition tables by event.
+        template <typename Transition,
+                  bool IsKleeneEvent = is_kleene_event<
+                      typename Transition::transition_event>::value>
+        struct transition_event_predicate_impl
         {
-        public:
-            using event_cell = cell<Event>;
+            using type = std::is_base_of<typename Transition::transition_event, Event>;
+        };
+        template <typename Transition>
+        struct transition_event_predicate_impl<Transition, /*IsKleeneEvent=*/true>
+        {
+            using type = mp11::mp_true;
+        };
+        template <typename Transition>
+        using transition_event_predicate = 
+            typename transition_event_predicate_impl<Transition>::type;
+        
+        using filtered_internal_transition_table = mp11::mp_copy_if<
+                internal_transition_table<StateMachine>,
+                transition_event_predicate>;
+        using has_internal_transitions =
+            mp11::mp_not<mp11::mp_empty<filtered_internal_transition_table>>;
 
-            // The singleton instance.
-            static const event_dispatch_table& instance() {
-                static event_dispatch_table table;
+        using filtered_transition_table = mp11::mp_copy_if<
+                transition_table<StateMachine>,
+                transition_event_predicate>;
+        using has_transitions = mp11::mp_not<mp11::mp_empty<filtered_transition_table>>;
+
+        // All submachines that could process the event or need to
+        // forward it to sub-submachines require a pseudo-transition
+        // for forwarding.
+        // This function recursively walks through submachines and
+        // uses the same metafunctions for checking which are 
+        // anyways needed for dispatch table creation.
+        template <typename Submachine>
+        struct needs_forward_transition_impl
+        {
+            template <typename Subsubmachine>
+            using needs_forward_transition =
+                typename needs_forward_transition_impl<Subsubmachine>::type;
+
+            using type = mp11::mp_or<
+                typename dispatch_table<Submachine, Event>::has_transitions,
+                typename dispatch_table<Submachine, Event>::has_internal_transitions,
+                mp11::mp_any_of<
+                    typename Submachine::internal::submachines,
+                    needs_forward_transition>>;
+        };
+        template <typename Submachine>
+        using needs_forward_transition =
+            typename needs_forward_transition_impl<Submachine>::type;
+
+        using submachines = mp11::mp_copy_if<state_set, is_composite>;
+        using submachines_with_forward_transitions =
+            mp11::mp_copy_if<submachines, needs_forward_transition>;
+        using has_forward_transitions =
+            mp11::mp_not<mp11::mp_empty<submachines_with_forward_transitions>>;
+
+        class dispatch_table_impl
+        {
+          public:
+            static const dispatch_table_impl& instance() {
+                static dispatch_table_impl table;
                 return table;
             }
 
-        private:
-            static process_result execute_no_transition(StateMachine&, int&, const Event&)
+            process_result dispatch(
+                StateMachine& sm, int& state_id, const Event& event) const
             {
+                const cell_t& cell = m_cells[state_id];
+                if (cell)
+                {
+                    return cell(sm, state_id, event);
+                }
                 return process_result::HANDLED_FALSE;
             }
 
-            // Initialize the dispatch table for the event
-            event_dispatch_table()
+          private:
+            dispatch_table_impl()
             {
-                // Initialize cells for no transition
-                for (size_t i=0;i<max_state+1; i++)
-                {
-                    entries[i] = &execute_no_transition;
-                }
-
-                // build chaining rows for rows coming from the same state and the current event
-                // first we build a map of sequence for every source
-                // in reverse order so that the frow's are handled first (UML priority)
-                typedef mp11::mp_fold<
-                    mp11::mp_copy_if<
-                        to_mp_list_t<Stt>,
-                        event_filter_predicate
-                        >,
-                    mp11::mp_list<>,
-                    map_updater
-                    > map_of_row_seq;
-                // and then build chaining rows for all source states having more than 1 row
-                typedef mp11::mp_transform<
-                    transition_chainer,
-                    map_of_row_seq
-                    > chained_rows;
-
-                // Go back and fill in cells for matching transitions.
-                typedef mp11::mp_transform<
-                    preprocess_transition,
-                    chained_rows
-                    > chained_and_preprocessed_rows;
-                event_cell_initializer::init(
-                    reinterpret_cast<generic_cell*>(entries),
-                    get_init_cells<event_cell, chained_and_preprocessed_rows>(),
-                    mp11::mp_size<chained_and_preprocessed_rows>::value
-                    );
+                using initial_map_items = mp11::mp_transform<
+                    initial_map_item,
+                    submachines_with_forward_transitions>;
+                using filtered_transitions_by_state_map = mp11::mp_fold<
+                    filtered_transition_table,
+                    initial_map_items,
+                    map_updater>;
+                using merged_transitions = mp11::mp_transform<
+                    merge_transitions,
+                    filtered_transitions_by_state_map>;
+                using init_cell_constants = mp11::mp_transform<
+                    get_init_cell_constant,
+                    merged_transitions>;
+                dispatch_table_initializer::execute(
+                    reinterpret_cast<generic_cell*>(m_cells),
+                    reinterpret_cast<const generic_init_cell_value*>(
+                        value_array<init_cell_constants>),
+                    mp11::mp_size<init_cell_constants>::value);
             }
-            
-            // Class used to build a chain of transitions for a given event and state.
-            // Allows transition conflicts.
-            template<typename State, typename Transitions>
+
+            template <typename Transition>
+            static process_result convert_event_and_execute(StateMachine& sm,
+                                                            int& state_id,
+                                                            Event const& evt)
+            {
+                typename Transition::transition_event kleene_event{evt};
+                return Transition::execute(sm, state_id, kleene_event);
+            }
+
+            template <size_t index, cell_t cell>
+            using init_cell_constant = init_cell_constant<index, cell_t, cell>;
+
+            // Build a map with key=state/value=[matching_transitions]
+            // from the filtered transition table.
+            template <typename M, typename Key, typename Value>
+            using push_map_value = mp11::mp_push_back<
+                mp11::mp_second<mp11::mp_map_find<M, Key>>,
+                Value>;
+            template <
+                typename Map,
+                typename Transition,
+                bool FirstEntry = !mp11::mp_map_contains<
+                    Map, typename Transition::current_state_type>::value>
+            struct map_updater_impl;
+            template <typename Map, typename Transition>
+            struct map_updater_impl<Map, Transition, /*FirstEntry=*/false>
+            {
+                using type = mp11::mp_map_replace<
+                    Map,
+                    mp11::mp_list<
+                        typename Transition::current_state_type,
+                        push_map_value<
+                            Map,
+                            typename Transition::current_state_type,
+                            Transition>>>;
+            };
+            template <typename Map, typename Transition>
+            struct map_updater_impl<Map, Transition, /*FirstEntry=*/true>
+            {
+                using type = mp11::mp_map_replace<
+                    Map,
+                    mp11::mp_list<
+                        typename Transition::current_state_type,
+                        mp11::mp_list<Transition>>>;
+            };
+            template <typename Map, typename Transition>
+            using map_updater = typename map_updater_impl<Map, Transition>::type;
+
+          private:
+            // Pseudo-transition used to forward event processing to a submachine.
+            template <typename Submachine>
+            struct forward_transition
+            {
+                using current_state_type = Submachine;
+                using next_state_type = Submachine;
+                using transition_event = Event;
+
+                static process_result execute(
+                    StateMachine& sm,
+                    [[maybe_unused]] int& state_id,
+                    Event const& event)
+                {
+                    BOOST_ASSERT(state_id == StateMachine::template get_state_id<Submachine>());
+                    process_result result =
+                        sm.template get_state<Submachine>().process_event_internal(event);
+                    return result;
+                }
+            };
+
+            template <typename Submachine>
+            using initial_map_item = mp11::mp_list<
+                Submachine,
+                mp11::mp_list<forward_transition<Submachine>>>;
+
+            // Class used to execute a chain of transitions for a given event and state.
+            // Handles transition conflicts.
+            template <typename State, typename Transitions>
             struct transition_chain
             {
                 using current_state_type = State;
@@ -301,174 +400,113 @@ struct compile_policy_impl<favor_runtime_speed>
                 }
             };
 
-            template <
-                typename State,
-                typename FilteredTransitionTable,
-                bool MoreThanOneFrow = (mp11::mp_count_if<FilteredTransitionTable, has_is_frow>::value > 1)>
-            struct make_transition_chain_impl;
-            template <typename State, typename FilteredTransitionTable>
-            struct make_transition_chain_impl<State, FilteredTransitionTable, false>
+            // Merge each list of transitions into a chain if needed.
+            template <typename State, typename Transitions>
+            struct merge_transitions_impl;
+            template <typename State, typename Transition>
+            struct merge_transitions_impl<State, mp11::mp_list<Transition>>
             {
-                using type = transition_chain<State, FilteredTransitionTable>;
+                using type = Transition;
             };
-            template <typename State, typename FilteredTransitionTable>
-            struct make_transition_chain_impl<State, FilteredTransitionTable, true>
+            template <typename State, typename... Transitions>
+            struct merge_transitions_impl<State, mp11::mp_list<Transitions...>>
             {
-                // if we have more than one frow with the same state as source, remove the ones extra
-                // note: we know the frows are located at the beginning so we remove at the beginning
-                // (number of frows - 1) elements
-                static constexpr size_t number_frows =
-                    boost::mp11::mp_count_if<FilteredTransitionTable, has_is_frow>::value;
-                using type =
-                    transition_chain<State, mp11::mp_drop_c<FilteredTransitionTable, number_frows - 1>>;
+                using type = transition_chain<State, mp11::mp_list<Transitions...>>;
             };
-            template <typename State, typename FilteredTransitionTable>
-            using make_transition_chain = typename make_transition_chain_impl<State, FilteredTransitionTable>::type;
+            template <typename StateAndTransitions>
+            using merge_transitions = typename merge_transitions_impl<
+                mp11::mp_first<StateAndTransitions>,
+                mp11::mp_second<StateAndTransitions>>::type;
 
+            // Convert the merged transitions into
+            // initializer cell constants for the dispatch table.
+            template <typename Transition,
+                      bool IsKleeneEvent = is_kleene_event<
+                          typename Transition::transition_event>::value>
+            struct get_init_cell_constant_impl;
             template <typename Transition>
-            static process_result convert_event_and_execute(StateMachine& sm, int& state_id, Event const& evt)
+            struct get_init_cell_constant_impl<Transition, /*IsKleeneEvent=*/false>
             {
-                typename Transition::transition_event kleene_event{evt};
-                return Transition::execute(sm, state_id, kleene_event);
-            }
+                using type = init_cell_constant<
+                    // Offset into the entries array
+                    StateMachine::template get_state_id<typename Transition::current_state_type>(),
+                    // Address of the execute function
+                    &Transition::execute>;
+            };
+            template <typename Transition>
+            struct get_init_cell_constant_impl<Transition, /*IsKleeneEvent=*/true>
+            {
+                using type = init_cell_constant<
+                    // Offset into the entries array
+                    StateMachine::template get_state_id<typename Transition::current_state_type>(),
+                    // Address of the execute function
+                    &convert_event_and_execute<Transition>>;
+            };
+            template <typename Transition>
+            using get_init_cell_constant = typename get_init_cell_constant_impl<Transition>::type;
 
-            using event_init_cell_value = init_cell_value<event_cell>;
+            cell_t m_cells[max_state]{};
+        };
 
-            template<size_t v1, event_cell v2>
-            using init_cell_constant = init_cell_constant<v1, event_cell, v2>;
+        // "Dispatch" for a specific event (sm-internal).
+        // A SM's internal transition table gets transformed into one
+        // transition (chain), it can be executed immediately.
+        class internal_dispatch_impl
+        {
+          private:
+            // Class used to execute a chain of sm-internal transitions for a given event.
+            // Handles transition conflicts.
+            template <typename Transitions>
+            struct internal_transition_chain
+            {
+                using transition_event = Event;
 
-            template<event_cell v>
-            using cell_constant = std::integral_constant<event_cell, v>;
-
-            using event_cell_initializer = cell_initializer;
+                static process_result execute(StateMachine& sm, Event const& evt)
+                {
+                    process_result result = process_result::HANDLED_FALSE;
+                    mp_for_each_until<Transitions>(
+                        [&result, &sm, &evt](auto transition)
+                        {
+                            using Transition = decltype(transition);
+                            result |= Transition::execute(sm, evt);
+                            if (result & handled_or_deferred)
+                            {
+                                // If a guard rejected previously,
+                                // ensure this bit is not present.
+                                result &= handled_or_deferred;
+                                return true;
+                            }
+                            return false;
+                        }
+                    );
+                    return result;
+                }
+            };
 
             // Helpers for row processing
-            // First operation (fold)
-            template <typename T, bool IsKleeneEvent = is_kleene_event<typename T::transition_event>::value>
-            struct event_filter_predicate_impl
+            template <typename Transitions>
+            struct transition_impl
             {
-                using type = std::is_base_of<typename T::transition_event, Event>;
+                using type = internal_transition_chain<Transitions>;
             };
-            template <typename T>
-            struct event_filter_predicate_impl<T, true>
-            {
-                using type = mp11::mp_true;
-            };
-            template <typename T>
-            using event_filter_predicate = 
-                typename event_filter_predicate_impl<T>::type;
-
-            // Changes the event type for a frow to the event we are dispatching.
-            // This helps ensure that an event does not get processed more than once
-            // because of frows and base events.
-            template <typename Transition, bool IsFrow = has_is_frow<Transition>::value>
-            struct normalize_transition_impl;
             template <typename Transition>
-            struct normalize_transition_impl<Transition, false>
+            struct transition_impl<mp11::mp_list<Transition>>
             {
                 using type = Transition;
             };
             template <typename Transition>
-            struct normalize_transition_impl<Transition, true>
-            {
-                using type = typename Transition::template replace_event<Event>;
-            };
-            template <typename Transition>
-            using normalize_transition = typename normalize_transition_impl<Transition>::type;
+            using transition_event_predicate = transition_event_predicate<Transition>;
+            using filtered_transitions =
+                mp11::mp_copy_if<internal_transition_table<StateMachine>,
+                                 transition_event_predicate>;
 
-            template <typename M, typename Key, typename Value>
-            using push_map_value = mp11::mp_push_front<
-                mp11::mp_second<mp11::mp_map_find<M, Key>>,
-                Value>;
-            template<typename Map, typename Transition, bool FirstEntry = !mp11::mp_map_contains<Map, typename Transition::current_state_type>::value>
-            struct map_updater_impl;
-            template<typename Map, typename Transition>
-            struct map_updater_impl<Map, Transition, false>
-            {
-                using type = mp11::mp_map_replace<
-                    Map,
-                    // list already exists, add the row
-                    mp11::mp_list<
-                        typename Transition::current_state_type,
-                        push_map_value<
-                            Map,
-                            typename Transition::current_state_type,
-                            normalize_transition<Transition>
-                        >
-                    >
-                >;
-            };
-            template<typename Map, typename Transition>
-            struct map_updater_impl<Map, Transition, true>
-            {
-                using type = mp11::mp_map_replace<
-                    Map,
-                    mp11::mp_list<
-                        typename Transition::current_state_type,
-                        // first row on this source state, make a list with 1 element
-                        mp11::mp_list<normalize_transition<Transition>>
-                    >
-                >;
-            };
-            template<typename Map, typename Transition>
-            using map_updater = typename map_updater_impl<Map, Transition>::type;
-
-            // Second operation (transform)
-            template<
-                typename StateAndFilteredTransitionTable,
-                bool MultipleTransitions = (mp11::mp_size<mp11::mp_second<StateAndFilteredTransitionTable>>::value > 1)>
-            struct transition_chainer_impl;
-            template<typename StateAndFilteredTransitionTable>
-            struct transition_chainer_impl<StateAndFilteredTransitionTable, false>
-            {
-                // just one row, no chaining, we rebuild the row like it was before
-                using type = mp11::mp_front<mp11::mp_second<StateAndFilteredTransitionTable>>;
-            };
-            template<typename StateAndFilteredTransitionTable>
-            struct transition_chainer_impl<StateAndFilteredTransitionTable, true>
-            {
-                // we need row chaining
-                using type = make_transition_chain<
-                    mp11::mp_first<StateAndFilteredTransitionTable>,
-                    mp11::mp_second<StateAndFilteredTransitionTable>>;
-            };
-            template<typename StateAndFilteredTransitionTable>
-            using transition_chainer = typename transition_chainer_impl<StateAndFilteredTransitionTable>::type;
-            template<typename Transition, bool IsKleeneEvent = is_kleene_event<typename Transition::transition_event>::value>
-            struct preprocess_transition_impl;
-            template<typename Transition>
-            struct preprocess_transition_impl<Transition, false>
-            {
-                using type = init_cell_constant<
-                    // Offset into the entries array
-                    get_table_index<StateMachine, typename Transition::current_state_type>::value,
-                    // Address of the execute function
-                    cell_constant<&Transition::execute>::value
-                    >;
-            };
-            template<typename Transition>
-            struct preprocess_transition_impl<Transition, true>
-            {
-                using type = init_cell_constant<
-                    // Offset into the entries array
-                    get_table_index<StateMachine, typename Transition::current_state_type>::value,
-                    // Address of the execute function
-                    cell_constant<&convert_event_and_execute<Transition>>::value
-                    >;
-            };
-            template<typename Transition>
-            using preprocess_transition = typename preprocess_transition_impl<Transition>::type;
-
-        // data members
-        public:
-            // max_state+1, because 0 is reserved for this sm (internal transitions)
-            event_cell entries[max_state+1];
+          public:
+            using transition = typename transition_impl<filtered_transitions>::type;
         };
     };
 };
 
 } // detail
-
 }}} // boost::msm::backmp11
 
 

@@ -31,14 +31,10 @@ namespace boost { namespace msm { namespace backmp11
 namespace detail
 {
 
-constexpr bool has_flag(visit_mode value, visit_mode flag)
-{
-    return (static_cast<int>(value) & static_cast<int>(flag)) != 0;
-}
-
 // Call a functor on all elements of List, until the functor returns true.
+// Performs short-circuit evaluation at runtime.
 template <typename... Ts>
-struct for_each_until_impl
+struct mp_for_each_until_impl
 {
     template <typename F>
     static constexpr bool invoke(F &&func)
@@ -49,7 +45,7 @@ struct for_each_until_impl
 template <typename L, typename F>
 constexpr bool mp_for_each_until(F &&func)
 {
-    return mp11::mp_apply<for_each_until_impl, L>::invoke(std::forward<F>(func));
+    return mp11::mp_apply<mp_for_each_until_impl, L>::invoke(std::forward<F>(func));
 }
 
 // Wrapper for an instance of a type, which might not be present.
@@ -87,6 +83,19 @@ struct to_mp_list<mp11::mp_list<T...>>
 };
 template<typename ...T>
 using to_mp_list_t = typename to_mp_list<T...>::type;
+
+// Convert a list with integral constants of the same value_type to a value array.
+template <typename List>
+struct value_array_impl;
+template <typename... Ts>
+struct value_array_impl<mp11::mp_list<Ts...>>
+{
+    using value_type =
+        typename mp11::mp_front<mp11::mp_list<Ts...>>::value_type;
+    static constexpr value_type value[sizeof...(Ts)] {Ts::value...};
+};
+template <typename List>
+static constexpr const auto& value_array = value_array_impl<List>::value;
 
 // Helper to convert a front-end state to a back-end state.
 template <typename StateMachine, typename State, typename Enable = void>
@@ -250,69 +259,42 @@ using generate_state_set = typename generate_state_set_impl<StateMachine>::type;
 
 // extends a state set to a map with key=state and value=id
 template <class StateSet>
-struct generate_state_map
+struct generate_state_map_impl
 {
-    typedef StateSet state_set;
-    typedef mp11::mp_iota<mp11::mp_size<state_set>> indices;
-    typedef mp11::mp_transform_q<
+    using indices = mp11::mp_iota<mp11::mp_size<StateSet>>;
+    using type = mp11::mp_transform_q<
         mp11::mp_bind<mp11::mp_list, mp11::_1, mp11::_2>,
-        state_set,
-        indices
-        > type;
+        StateSet,
+        indices>;
 };
+template <class StateSet>
+using generate_state_map = typename generate_state_map_impl<StateSet>::type;
 
 // returns the id of a given state
 template <class StateMap, class State>
-struct get_state_id
+struct get_state_id_impl
 {
-    typedef mp11::mp_second<mp11::mp_map_find<
+    using type = mp11::mp_second<mp11::mp_map_find<
         StateMap,
-        State
-        >> type;
-    
-    static constexpr typename type::value_type value = type::value;
+        State>>;
 };
+template <class StateMap, class State>
+using get_state_id = typename get_state_id_impl<StateMap, State>::type;
 
 // iterates through the transition table and generate a set containing all the events
-template <class stt>
-struct generate_event_set
+template <typename FeTransitionTable>
+struct generate_event_set_impl
 {
-    typedef to_mp_list_t<stt> stt_mp11;
-    template<typename V, typename T>
-    using event_set_pusher = mp11::mp_set_push_back<
-        V,
-        typename T::transition_event
-        >;
-    typedef mp11::mp_fold<
-        to_mp_list_t<stt>,
+    template <typename V, typename Row>
+    using set_push_event = mp11::mp_set_push_back<V, typename Row::Evt>;
+    using type = mp11::mp_fold<
+        to_mp_list_t<FeTransitionTable>,
         mp11::mp_list<>,
-        event_set_pusher
-        > event_set_mp11;
+        set_push_event>;
 };
-
-// extends an event set to a map with key=event and value=id
-template <class stt>
-struct generate_event_map
-{
-    typedef typename generate_event_set<stt>::event_set_mp11 event_set;
-    typedef mp11::mp_iota<mp11::mp_size<event_set>> indices;
-    typedef mp11::mp_transform_q<
-        mp11::mp_bind<mp11::mp_list, mp11::_1, mp11::_2>,
-        event_set,
-        indices
-        > type;
-};
-
-// returns the id of a given event
-template <class stt,class Event>
-struct get_event_id
-{
-    typedef mp11::mp_second<mp11::mp_map_find<
-        typename generate_event_map<stt>::type,
-        Event
-        >> type;
-    enum {value = type::value};
-};
+template <typename FeTransitionTable>
+using generate_event_set =
+    typename generate_event_set_impl<FeTransitionTable>::type;
 
 template <typename State>
 struct has_deferred_events_impl
@@ -378,7 +360,7 @@ struct get_flag_list
 };
 
 template <class State>
-struct is_state_blocking 
+struct is_state_blocking_impl 
 {
     template<typename T>
     using has_event_blocking_flag = typename has_event_blocking_flag<T>::type;
@@ -389,7 +371,7 @@ struct is_state_blocking
 
 };
 template<typename T>
-using is_state_blocking_t = typename is_state_blocking<T>::type;
+using is_state_blocking = typename is_state_blocking_impl<T>::type;
 
 } // detail
 
