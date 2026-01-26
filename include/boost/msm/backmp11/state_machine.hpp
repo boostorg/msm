@@ -23,12 +23,6 @@
 
 #include <boost/mp11.hpp>
 
-#include <boost/mpl/eval_if.hpp>
-#include <boost/mpl/identity.hpp>
-#include <boost/mpl/is_sequence.hpp>
-#include <boost/mpl/bool.hpp>
-#include <boost/mpl/and.hpp>
-
 #include <boost/assert.hpp>
 #include <boost/ref.hpp>
 #include <boost/type_traits/remove_pointer.hpp>
@@ -51,8 +45,67 @@ namespace boost { namespace msm { namespace backmp11
 // Check whether a state is a composite state.
 using detail::is_composite;
 
+// flag handling
+using flag_or = std::logical_or<bool>;
+using flag_and = std::logical_and<bool>;
+
 namespace detail
 {
+
+template <typename Flag, typename BinaryOp>
+struct is_flag_active_visitor;
+template <typename Flag>
+struct is_flag_active_visitor<Flag, flag_or>
+{
+    template <typename State>
+    using predicate = mp11::mp_or<
+        mp11::mp_contains<get_flag_list<State>, Flag>,
+        has_state_machine_tag<State>>;
+
+    template <typename State>
+    void operator()(const State&)
+    {
+        result |= mp11::mp_contains<get_flag_list<State>, Flag>::value;
+    }
+
+    bool result{false};
+};
+template <typename Flag>
+struct is_flag_active_visitor<Flag, flag_and>
+{
+    template <typename State>
+    using predicate = mp11::mp_or<
+        mp11::mp_not<mp11::mp_contains<get_flag_list<State>, Flag>>,
+        has_state_machine_tag<State>>;
+
+    template <typename State>
+    void operator()(const State&)
+    {
+        result &= mp11::mp_contains<get_flag_list<State>, Flag>::value;
+    }
+
+    bool result{true};
+};
+
+template <typename State>
+struct is_state_active_visitor
+{
+    template <typename StateToCheck>
+    using predicate = mp11::mp_or<std::is_same<State, StateToCheck>,
+                                  has_state_machine_tag<StateToCheck>>;
+
+    template <typename StateToCheck>
+    void operator()(const StateToCheck&)
+    {
+    }
+
+    void operator()(const State&)
+    {
+        result = true;
+    }
+
+    bool result{false};
+};
 
 // Bitmask for process result checks.
 static constexpr process_result handled_or_deferred =
@@ -202,8 +255,6 @@ class state_machine_base : public FrontEnd
     using active_state_switching =
         boost::mp11::mp_eval_or<active_state_switch_after_entry,
                                 get_active_state_switch_policy, front_end_t>;
-
-    typedef bool (*flag_handler)(state_machine_base const &);
 
     template <class, class, class>
     friend class state_machine_base;
@@ -408,40 +459,6 @@ class state_machine_base : public FrontEnd
         }
     }
 
-  private:
-    template <typename State>
-    class is_state_active_helper
-    {
-      public:
-        static bool execute(const state_machine_base& sm)
-        {
-            bool found = false;
-            sm.visit_if<visit_mode::active_recursive, found_or_back_end>(
-                [&found](const auto& state)
-                {
-                    using StateToCheck = std::decay_t<decltype(state)>;
-                    if constexpr (std::is_same_v<State, StateToCheck>)
-                    {
-                        found = true;
-                    }
-                });
-            return found;
-        }
-
-      private:
-        template <typename StateToCheck>
-        using found_or_back_end = mp11::mp_or<std::is_same<State, StateToCheck>,
-                                              has_state_machine_tag<StateToCheck>>;
-    };
-
-  public:
-    // Check whether a state is currently active.
-    template <typename State>
-    bool is_state_active() const
-    {
-        return is_state_active_helper<State>::execute(*this);
-    }
-
     // Main function to process events.
     template<class Event>
     process_result process_event(Event const& event)
@@ -634,25 +651,6 @@ class state_machine_base : public FrontEnd
         return std::get<std::remove_reference_t<State>>(m_states);
     }
 
-    // checks if a flag is active using the BinaryOp as folding function
-    template <class Flag,class BinaryOp>
-    bool is_flag_active() const
-    {
-        flag_handler* flags_entries = get_entries_for_flag<Flag>();
-        bool res = (*flags_entries[ m_active_state_ids[0] ])(*this);
-        for (int i = 1; i < nr_regions ; ++i)
-        {
-            res = BinaryOp() (res,(*flags_entries[ m_active_state_ids[i] ])(*this));
-        }
-        return res;
-    }
-    // checks if a flag is active using no binary op if 1 region, or OR if > 1 regions
-    template <class Flag>
-    bool is_flag_active() const
-    {
-        return FlagHelper<Flag,(nr_regions>1)>::helper(*this,get_entries_for_flag<Flag>());
-    }
-
     // Visit the states (only active states, recursive).
     template <typename Visitor>
     void visit(Visitor&& visitor)
@@ -682,6 +680,29 @@ class state_machine_base : public FrontEnd
     {
         visit_if<Mode>(std::forward<Visitor>(visitor));
     }
+
+    // Check whether a state is currently active.
+    template <typename State>
+    bool is_state_active() const
+    {
+        using visitor_t = is_state_active_visitor<State>;
+        visitor_t visitor;
+        visit_if<visit_mode::active_recursive,
+                 visitor_t::template predicate>(visitor);
+        return visitor.result;
+    }
+
+    // Check if a flag is active, using the BinaryOp as folding function.
+    template <typename Flag, typename BinaryOp = flag_or>
+    bool is_flag_active() const
+    {
+        using visitor_t = is_flag_active_visitor<Flag, BinaryOp>;
+        visitor_t visitor;
+        visit_if<visit_mode::active_recursive,
+                 visitor_t::template predicate>(visitor);
+        return visitor.result;
+    }
+
 
     // Puts the given event into the deferred events queue.
     template <
@@ -975,108 +996,6 @@ class state_machine_base : public FrontEnd
     }
 
 private:
-    // helper for flag handling. Uses OR by default on orthogonal zones.
-    template <class Flag,bool OrthogonalStates>
-    struct FlagHelper
-    {
-        static bool helper(state_machine_base const& sm,flag_handler* )
-        {
-            // by default we use OR to accumulate the flags
-            return sm.is_flag_active<Flag,std::logical_or<bool>>();
-        }
-    };
-    template <class Flag>
-    struct FlagHelper<Flag,false>
-    {
-        static bool helper(state_machine_base const& sm,flag_handler* flags_entries)
-        {
-            // just one active state, so we can call operator[] with 0
-            return flags_entries[sm.get_active_state_ids()[0]](sm);
-        }
-    };
-    // handling of flag
-    // defines a true and false functions plus a forwarding one for composite states
-    template <class State,class Flag>
-    struct FlagHandler
-    {
-        static bool flag_true(state_machine_base const& )
-        {
-            return true;
-        }
-        static bool flag_false(state_machine_base const& )
-        {
-            return false;
-        }
-        static bool forward(state_machine_base const& fsm)
-        {
-            return fsm.template get_state<State>().template is_flag_active<Flag>();
-        }
-    };
-    template <class Flag>
-    struct init_flags
-    {
-    private:
-        // helper function, helps hiding the forward function for non-state machines states.
-        template <class T>
-        void helper (flag_handler* an_entry,int offset, ::boost::mpl::true_ const &  )
-        {
-            // composite => forward
-            an_entry[offset] = &FlagHandler<T,Flag>::forward;
-        }
-        template <class T>
-        void helper (flag_handler* an_entry,int offset, ::boost::mpl::false_ const &  )
-        {
-            // default no flag
-            an_entry[offset] = &FlagHandler<T,Flag>::flag_false;
-        }
-        // attributes
-        flag_handler* entries;
-
-    public:
-        init_flags(flag_handler* entries_)
-            : entries(entries_)
-        {}
-
-        // Flags initializer function object, used with for_each
-        template <class State>
-        void operator()( mp11::mp_identity<State> const& )
-        {
-            typedef typename get_flag_list<State>::type flags;
-            typedef mp11::mp_contains<flags,Flag > found;
-
-            BOOST_STATIC_CONSTANT(int, state_id = (get_state_id<State>()));
-            if (found::type::value)
-            {
-                // the type defined the flag => true
-                entries[state_id] = &FlagHandler<State,Flag>::flag_true;
-            }
-            else
-            {
-                // false or forward
-                typedef typename ::boost::mpl::and_<
-                            typename has_state_machine_tag<State>::type,
-                            typename ::boost::mpl::not_<
-                                    typename has_non_forwarding_flag<Flag>::type>::type >::type composite_no_forward;
-
-                helper<State>(entries,state_id,::boost::mpl::bool_<composite_no_forward::type::value>());
-            }
-        }
-    };
-    // maintains for every flag a static array containing the flag value for every state
-    template <class Flag>
-    flag_handler* get_entries_for_flag() const
-    {
-        BOOST_STATIC_CONSTANT(int, max_state = (mp11::mp_size<state_set>::value));
-
-        static flag_handler flags_entries[max_state];
-        // build a state list, but only once
-        static flag_handler* flags_entries_ptr =
-            (mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, state_set>>
-                            (init_flags<Flag>(flags_entries)),
-            flags_entries);
-        return flags_entries_ptr;
-    }
-
     template <class Event, class Fsm, bool InitialStart = false>
     void internal_start(Event const& event, Fsm& fsm)
     {

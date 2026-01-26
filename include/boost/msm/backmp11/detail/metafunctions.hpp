@@ -15,15 +15,26 @@
 #include <boost/mp11.hpp>
 #include <boost/mp11/mpl_list.hpp>
 
-#include <boost/mpl/copy.hpp>
-#include <boost/mpl/is_sequence.hpp>
-
 #include <boost/msm/backmp11/common_types.hpp>
 #include <boost/msm/backmp11/detail/state_tags.hpp>
 #include <boost/msm/back/traits.hpp>
 #include <boost/msm/front/detail/state_tags.hpp>
 #include <boost/msm/front/completion_event.hpp>
 #include <boost/msm/row_tags.hpp>
+
+// Forward declarations to support MPL->Mp11 conversions
+// without MPL header dependencies.
+namespace boost::mpl
+{
+    template <typename P1, typename P2>
+    struct copy;
+
+    template <typename Sequence>
+    struct back_inserter;
+
+    template <typename T>
+    struct is_sequence;
+}
 
 namespace boost { namespace msm { namespace backmp11
 {
@@ -349,15 +360,12 @@ struct direct_entry_event
     Event const& m_event;
 };
 
-// builds flags (add internal_flag_list and flag_list). internal_flag_list is used for terminate/interrupt states
-template <class State>
-struct get_flag_list
-{
-    typedef typename mp11::mp_append<
+// Builds flags from flag_list + internal_flag_list,
+// internal_flag_list is used for terminate/interrupt states.
+template <typename State>
+using get_flag_list = mp11::mp_append<
         to_mp_list_t<typename State::flag_list>,
-        to_mp_list_t<typename State::internal_flag_list>
-        > type;
-};
+        to_mp_list_t<typename State::internal_flag_list>>;
 
 template <class State>
 struct is_state_blocking_impl 
@@ -365,7 +373,7 @@ struct is_state_blocking_impl
     template<typename T>
     using has_event_blocking_flag = typename has_event_blocking_flag<T>::type;
     typedef typename mp11::mp_any_of<
-        typename get_flag_list<State>::type,
+        get_flag_list<State>,
         has_event_blocking_flag
         > type;
 
