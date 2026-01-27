@@ -18,17 +18,9 @@
 #include <list>
 #include <utility>
 
-#include <boost/core/no_exceptions_support.hpp>
-#include <boost/core/ignore_unused.hpp>
-
-#include <boost/mp11.hpp>
-
 #include <boost/assert.hpp>
-#include <boost/ref.hpp>
-#include <boost/type_traits/remove_pointer.hpp>
-#include <boost/type_traits/add_reference.hpp>
-#include <boost/utility/enable_if.hpp>
-#include <boost/type_traits/is_convertible.hpp>
+#include <boost/core/no_exceptions_support.hpp>
+#include <boost/mp11.hpp>
 
 #include <boost/msm/active_state_switching_policies.hpp>
 #include <boost/msm/row_tags.hpp>
@@ -141,92 +133,79 @@ class state_machine_base : public FrontEnd
     // Used when the front-end does not define a final_event.
     struct stopping {};
 
-    template <class ExitPoint>
-    struct exit_pt : public ExitPoint
+    // Wrapper for an exit pseudostate,
+    // which upper SMs can use to connect to it.
+    template <class ExitPseudostate>
+    struct exit_pt : public ExitPseudostate
     {
         // tags
         struct internal
         {
             using tag = exit_pseudostate_be_tag;
         };
-        typedef ExitPoint           wrapped_exit;
-        typedef derived_t           owner;
-        typedef int                 no_automatic_create;
-        typedef typename
-            ExitPoint::event        Event;
-        typedef std::function<process_result (Event const&)>
-                                    forward_function;
+        using state = ExitPseudostate;
+        using owner = derived_t;
+        using event = typename ExitPseudostate::event;
+        using forward_function = std::function<process_result(event const&)>;
 
         // forward event to the higher-level FSM
         template <class ForwardEvent>
         void forward_event(ForwardEvent const& incomingEvent)
         {
-            // use helper to forward or not
-            ForwardHelper< ::boost::is_convertible<ForwardEvent,Event>::value>::helper(incomingEvent,m_forward);
+            static_assert(std::is_convertible_v<ForwardEvent, event>,
+                          "ForwardEvent must be convertible to exit pseudostate's event");
+            // Call if handler set. If not, this state is simply a terminate state.
+            if (m_forward)
+            {
+                m_forward(incomingEvent);
+            }
         }
         void set_forward_fct(forward_function fct)
         {
             m_forward = fct;
         }
-        exit_pt():m_forward(){}
+        exit_pt() = default;
         // by assignments, we keep our forwarding functor unchanged as our containing SM did not change
         template <class RHS>
-        exit_pt(RHS&):m_forward(){}
-        exit_pt<ExitPoint>& operator= (const exit_pt<ExitPoint>& )
+        exit_pt(RHS&) : m_forward()
+        {
+        }
+        exit_pt<ExitPseudostate>& operator=(const exit_pt<ExitPseudostate>&)
         {
             return *this;
         }
 
-        private:
+      private:
         forward_function          m_forward;
-
-        // using partial specialization instead of enable_if because of VC8 bug
-        template <bool OwnEvent, int Dummy=0>
-        struct ForwardHelper
-        {
-            template <class ForwardEvent>
-            static void helper(ForwardEvent const& ,forward_function& )
-            {
-                // Not our event, assert
-                BOOST_ASSERT(false);
-            }
-        };
-        template <int Dummy>
-        struct ForwardHelper<true,Dummy>
-        {
-            template <class ForwardEvent>
-            static void helper(ForwardEvent const& incomingEvent,forward_function& forward_fct)
-            {
-                // call if handler set, if not, this state is simply a terminate state
-                if (forward_fct)
-                    forward_fct(incomingEvent);
-            }
-        };
     };
 
-    template <class EntryPoint>
-    struct entry_pt : public EntryPoint
+    // Wrapper for an entry pseudostate,
+    // which upper SMs can use to connect to it.
+    template <class EntryPseudostate>
+    struct entry_pt : public EntryPseudostate
     {
         // tags
         struct internal
         {
             using tag = entry_pseudostate_be_tag;
         };
-        typedef EntryPoint          wrapped_entry;
-        typedef derived_t           owner;
-        typedef int                 no_automatic_create;
+
+        using state = EntryPseudostate;
+        using owner = derived_t;
     };
-    template <class EntryPoint>
-    struct direct : public EntryPoint
+
+    // Wrapper for a direct entry,
+    // which upper SMs can use to connect to it.
+    template <class State>
+    struct direct : public State
     {
         // tags
         struct internal
         {
             using tag = explicit_entry_be_tag;
         };
-        typedef EntryPoint          wrapped_entry;
-        typedef derived_t           owner;
-        typedef int                 no_automatic_create;
+        using state = State;
+        using owner = derived_t;
     };
 
     struct internal
@@ -240,21 +219,21 @@ class state_machine_base : public FrontEnd
         using submachines = mp11::mp_copy_if<state_set, is_composite>;
     };
 
-    typedef mp11::mp_rename<typename internal::state_set, std::tuple> states_t;
+    using states_t = mp11::mp_rename<typename internal::state_set, std::tuple>;
 
   private:
     using state_set = typename internal::state_set;
     static constexpr int nr_regions = internal::nr_regions;
     using active_state_ids_t = std::array<int, nr_regions>;
-    using initial_states_identity = mp11::mp_transform<mp11::mp_identity, typename internal::initial_states>;
+    using initial_state_identities = mp11::mp_transform<mp11::mp_identity, typename internal::initial_states>;
     using compile_policy = typename config_t::compile_policy;
     using compile_policy_impl = detail::compile_policy_impl<compile_policy>;
 
     template<typename T>
     using get_active_state_switch_policy = typename T::active_state_switch_policy;
     using active_state_switching =
-        boost::mp11::mp_eval_or<active_state_switch_after_entry,
-                                get_active_state_switch_policy, front_end_t>;
+        mp11::mp_eval_or<active_state_switch_after_entry,
+                         get_active_state_switch_policy, front_end_t>;
 
     template <class, class, class>
     friend class state_machine_base;
@@ -278,12 +257,12 @@ class state_machine_base : public FrontEnd
     template <typename T>
     using get_initial_event = typename T::initial_event;
     using fsm_initial_event =
-        boost::mp11::mp_eval_or<starting, get_initial_event, front_end_t>;
+        mp11::mp_eval_or<starting, get_initial_event, front_end_t>;
 
     template <typename T>
     using get_final_event = typename T::final_event;
     using fsm_final_event =
-        boost::mp11::mp_eval_or<stopping, get_final_event, front_end_t>;
+        mp11::mp_eval_or<stopping, get_final_event, front_end_t>;
     
     using state_map = generate_state_map<state_set>;
     using history_impl = detail::history_impl<typename front_end_t::history, nr_regions>;
@@ -407,7 +386,7 @@ class state_machine_base : public FrontEnd
     {
         if (this != &rhs)
         {
-           front_end_t::operator=(rhs);
+            front_end_t::operator=(rhs);
             // Copy all members except the root sm pointer.
             m_active_state_ids = rhs.m_active_state_ids;
             m_optional_members = rhs.m_optional_members;
@@ -438,7 +417,7 @@ class state_machine_base : public FrontEnd
     {
         if (!m_running)
         {
-            internal_start<Event, fsm_parameter_t, true>(initial_event, get_fsm_argument());
+            on_entry(initial_event, get_fsm_argument());
         }
     }
 
@@ -749,7 +728,7 @@ class state_machine_base : public FrontEnd
     void reset_active_state_ids()
     {
        size_t index = 0;
-       mp11::mp_for_each<initial_states_identity>(
+       mp11::mp_for_each<initial_state_identities>(
        [this, &index](auto state_identity)
        {
            using State = typename decltype(state_identity)::type;
@@ -996,152 +975,148 @@ class state_machine_base : public FrontEnd
     }
 
 private:
-    template <class Event, class Fsm, bool InitialStart = false>
-    void internal_start(Event const& event, Fsm& fsm)
+    template <class Event, class Fsm>
+    void preprocess_entry(Event const& event, Fsm& fsm)
     {
         m_running = true;
-        
+        m_event_processing = true;
+
         // Call on_entry on this SM first.
         static_cast<front_end_t*>(this)->on_entry(event, fsm);
-
-        // Then call on_entry on the states.
-        if constexpr (InitialStart)
-        {
-            mp11::mp_for_each<initial_states_identity>(
-                [this, &event, &fsm](auto state_identity)
-                {
-                    using State = typename decltype(state_identity)::type;
-                    execute_entry(this->get_state<State>(), event, fsm);
-                });
-        }
-        else 
-        {
-            // Visit active states non-recursively.
-            visit(
-                [&event, &fsm](auto& state)
-                {
-                    // TODO:
-                    // Add filter to rule out impossible entry states.
-                    execute_entry(state, event, fsm);
-                });
-        }
-        
-        // give a chance to handle an anonymous (eventless) transition
-        try_process_completion_event(EventSource::EVENT_SOURCE_DEFAULT, true);
     }
 
-    // entry for states machines which are themselves embedded in other state machines (composites)
+    void postprocess_entry()
+    {
+        m_event_processing = false;
+
+        // Give a chance to handle a completion transition first.
+        try_process_completion_event(EventSource::EVENT_SOURCE_DEFAULT, true);
+
+        // Default:
+        // Handle deferred events queue with higher prio than events queue.
+        if constexpr (!has_event_queue_before_deferred_queue<front_end_t>::value)
+        {
+            try_process_deferred_events();
+            try_process_queued_events();
+        }
+        // Non-default:
+        // Handle events queue with higher prio than deferred events queue.
+        else
+        {
+            try_process_queued_events();
+            try_process_deferred_events();
+        }        
+    }
+
     template <class Event, class Fsm>
     void on_entry(Event const& event, Fsm& fsm)
     {
-        // block immediate handling of events
-        m_event_processing = true;
-        // by default we activate the history/init states, can be overwritten by direct events.
+        preprocess_entry(event, fsm);
+
+        // First set all active state ids...
         m_active_state_ids = m_history.on_entry(event);
 
-        // this variant is for the standard case, entry due to activation of the containing FSM
-        if constexpr (!has_direct_entry<Event>::value)
+        // ... then execute each state entry.
+        if constexpr (std::is_same_v<typename front_end_t::history,
+                                     front::no_history>)
         {
-            internal_start(event, fsm);
-        }
-        // this variant is for the direct entry case
-        else if constexpr (has_direct_entry<Event>::value)
-        {
-            // Set the new active state(s) first, this includes
-            // a normal direct entry (or entries) and a pseudo entry.
-            using entry_states = to_mp_list_t<typename Event::active_state>;
-            mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, entry_states>>(
-                [this](auto state_identity)
+            mp11::mp_for_each<initial_state_identities>(
+                [this, &event, &fsm](auto state_identity)
                 {
-                    using State = typename decltype(state_identity)::type::wrapped_entry;
-                    static constexpr int region_index = State::zone_index;
-                    static_assert(region_index >= 0 && region_index < nr_regions);
-                    m_active_state_ids[region_index] = get_state_id<State>();
-                }
-            );
-            internal_start(event.m_event, fsm);
-            // in case of a pseudo entry process the transition in the zone of the newly active state
-            // (entry pseudo states are, according to UML, a state connecting 1 transition outside to 1 inside
-            if constexpr (has_pseudo_entry<typename Event::active_state>::value)
-            {
-                static_assert(!mpl::is_sequence<typename Event::active_state>::value);
-                process_event(event.m_event);
-            }
+                    using State = typename decltype(state_identity)::type;
+                    auto& state = this->get_state<State>();
+                    state.on_entry(event, fsm);
+                });
         }
-        // handle messages which were generated and blocked in the init calls
-        m_event_processing = false;
-        // look for deferred events waiting
-        try_process_deferred_events();
-        try_process_queued_events();
+        else
+        {
+            visit<visit_mode::active_non_recursive>(
+                [&event, &fsm](auto& state)
+                {
+                    state.on_entry(event, fsm);
+                });
+        }
+
+        postprocess_entry();
     }
+
+    template <class TargetStates, class Event, class Fsm>
+    void on_explicit_entry(Event const& event, Fsm& fsm)
+    {
+        preprocess_entry(event, fsm);
+
+        using state_identities =
+            mp11::mp_transform<mp11::mp_identity, TargetStates>;
+        static constexpr bool all_regions_defined =
+            mp11::mp_size<state_identities>::value == nr_regions;
+
+        // First set all active state ids...
+        if constexpr (!all_regions_defined)
+        {
+            m_active_state_ids = m_history.on_entry(event);
+        }
+        mp11::mp_for_each<state_identities>(            
+            [this](auto state_identity)
+            {
+                using State = typename decltype(state_identity)::type;
+                static constexpr int region_id = State::zone_index;
+                static_assert(region_id >= 0 && region_id < nr_regions);
+                m_active_state_ids[region_id] = get_state_id<State>();
+            }
+        );
+        // ... then execute each state entry.
+        if constexpr (all_regions_defined)
+        {
+            mp11::mp_for_each<state_identities>(
+                [this, &event, &fsm](auto state_identity)
+                {
+                    using State = typename decltype(state_identity)::type;
+                    auto& state = this->get_state<State>();
+                    state.on_entry(event, fsm);
+                });
+        }
+        else
+        {
+            visit<visit_mode::active_non_recursive>(
+                [&event, &fsm](auto& state)
+                {
+                    state.on_entry(event, fsm);
+                });
+        }
+
+        postprocess_entry();
+    }
+
+    template <class TargetStates, class Event, class Fsm>
+    void on_pseudo_entry(Event const& event, Fsm& fsm)
+    {
+        on_explicit_entry<TargetStates>(event, fsm);
+
+        // Execute the second part of the compound transition.
+        process_event(event);
+    }
+
     template <class Event,class Fsm>
     void on_exit(Event const& event, Fsm& fsm)
     {
-        // first recursively exit the sub machines
-        // forward the event for handling by sub state machines
-        visit(
+        // First exit the substates.
+        visit<visit_mode::active_non_recursive>(
             [&event, &fsm](auto& state)
             {
-                // TODO:
-                // Filter out impossible exit states.
                 state.on_exit(event, fsm);
             }
         );
-        // then call our own exit
+        // Then call our own exit.
         (static_cast<front_end_t*>(this))->on_exit(event,fsm);
-        // give the history a chance to handle this (or not).
+        // Give the history a chance to handle this (or not).
         m_history.on_exit(this->m_active_state_ids);
-        // history decides what happens with deferred events
+        // History decides what happens with deferred events.
         if (!m_history.process_deferred_events(event))
         {
             if constexpr (deferred_events_member::value)
             {
                 get_deferred_events_queue().clear();
             }
-        }
-    }
-
-    // calls entry or on_entry depending on the state type
-    template <class State, class Event, class Fsm>
-    static void execute_entry(State& state, Event const& event, Fsm& fsm)
-    {
-        // calls on_entry on the fsm then handles direct entries, fork, entry pseudo state
-        if constexpr (has_state_machine_tag<State>::value)
-        {
-            state.on_entry(event,fsm);
-        }
-        else if constexpr (has_exit_pseudostate_be_tag<State>::value)
-        {
-            // calls on_entry on the state then forward the event to the transition which should be defined inside the
-            // contained fsm
-            state.on_entry(event,fsm);
-            state.forward_event(event);
-        }
-        else if constexpr (has_direct_entry<Event>::value)
-        {
-            state.on_entry(event.m_event, fsm);
-        }
-        else
-        {
-            state.on_entry(event, fsm);
-        }
-        
-    }
-
-    // helper allowing special handling of direct entries / fork
-    template <class Target,class State,class Event>
-    static void convert_event_and_execute_entry(State& state,Event const& event, state_machine_base& sm)
-    {
-        auto& fsm = sm.get_fsm_argument();
-        if constexpr (has_explicit_entry_state<Target>::value || mpl::is_sequence<Target>::value)
-        {
-            // for the direct entry, pack the event in a wrapper so that we handle it differently during fsm entry
-            execute_entry(state,direct_entry_event<Target,Event>(event),fsm);
-        }
-        else
-        {
-            // if the target is a normal state, do the standard entry handling
-            execute_entry(state,event,fsm);
         }
     }
 

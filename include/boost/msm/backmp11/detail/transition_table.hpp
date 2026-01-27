@@ -33,24 +33,31 @@ struct transition_table_impl
         boost::mp11::mp_eval_or<active_state_switch_after_entry,
                                 get_active_state_switch_policy, front_end_t>;
 
-    template<typename Row, bool HasGuard, typename Event, typename Source, typename Target>
-    static bool call_guard_or_true(StateMachine& sm, const Event& event, Source& source, Target& target)
+    template <typename Row, bool HasGuard, typename Event, typename Source,
+              typename Target>
+    static bool call_guard_or_true(StateMachine& sm, const Event& event,
+                                   Source& source, Target& target)
     {
         if constexpr (HasGuard)
         {
-            return Row::guard_call(sm.get_fsm_argument(), event, source, target, sm.m_states);
+            return Row::guard_call(
+                sm.get_fsm_argument(), event, source, target, sm.m_states);
         }
         else
         {
             return true;
         }
     }
-    template<typename Row, bool HasAction, typename Event, typename Source, typename Target>
-    static process_result call_action_or_true(StateMachine& sm, const Event& event, Source& source, Target& target)
+    template <typename Row, bool HasAction, typename Event, typename Source,
+              typename Target>
+    static process_result call_action_or_true(StateMachine& sm,
+                                              const Event& event,
+                                              Source& source, Target& target)
     {
         if constexpr (HasAction)
         {
-            return Row::action_call(sm.get_fsm_argument(), event, source, target, sm.m_states);
+            return Row::action_call(
+                sm.get_fsm_argument(), event, source, target, sm.m_states);
         }
         else
         {
@@ -58,21 +65,64 @@ struct transition_table_impl
         }
     }
 
+    template <typename DirectWrapper>
+    using get_state = typename DirectWrapper::state;
+
+    template <typename FeTarget>
+    using is_explicit_entry_point = mp11::mp_eval_if<
+        mpl::is_sequence<FeTarget>,
+        mp11::mp_true,
+        has_explicit_entry_be_tag,
+        FeTarget>;
+
+    template <typename Row, typename Event, typename Target>
+    static void call_entry(StateMachine& sm, const Event& event, Target& target)
+    {
+        using FeTarget = typename Row::Target;
+        auto& fsm = sm.get_fsm_argument();
+
+        if constexpr (is_explicit_entry_point<FeTarget>::value)
+        {
+            using targets = to_mp_list_t<FeTarget>;
+            using states = mp11::mp_transform<get_state, targets>;
+            target.template on_explicit_entry<states>(event, fsm);
+        }
+        else if constexpr (has_entry_pseudostate_be_tag<FeTarget>::value)
+        {
+            using targets = to_mp_list_t<FeTarget>;
+            using states = mp11::mp_transform<get_state, targets>;
+            target.template on_pseudo_entry<states>(event, fsm);
+        }
+        else
+        {
+            target.on_entry(event, fsm);
+            if constexpr (has_exit_pseudostate_be_tag<Target>::value)
+            {
+                // Execute the second part of the compound transition.
+                target.forward_event(event);
+            }
+        }
+    }
+
     // Template used to create transitions from rows in the transition table.
-    template<typename Row, bool HasAction, bool HasGuard>
+    template <typename Row, bool HasAction, bool HasGuard>
     struct transition
     {
         using transition_event = typename Row::Evt;
-        using current_state_type = convert_source_state<derived_t, typename Row::Source>;
-        using next_state_type = convert_target_state<derived_t, typename Row::Target>;
+        using current_state_type =
+            convert_source_state<derived_t, typename Row::Source>;
+        using next_state_type =
+            convert_target_state<derived_t, typename Row::Target>;
 
         // Take the transition action and return the next state.
         static process_result execute(StateMachine& sm,
                                       int& state_id,
                                       transition_event const& event)
         {
-            static constexpr int current_state_id = StateMachine::template get_state_id<current_state_type>();
-            static constexpr int next_state_id = StateMachine::template get_state_id<next_state_type>();
+            static constexpr int current_state_id =
+                StateMachine::template get_state_id<current_state_type>();
+            static constexpr int next_state_id =
+                StateMachine::template get_state_id<next_state_type>();
             BOOST_ASSERT(state_id == current_state_id);
 
             auto& source = sm.template get_state<current_state_type>();
@@ -83,26 +133,33 @@ struct transition_table_impl
                 // guard rejected the event, we stay in the current one
                 return process_result::HANDLED_GUARD_REJECT;
             }
-            state_id = active_state_switching::after_guard(current_state_id,next_state_id);
+            state_id = active_state_switching::after_guard(current_state_id,
+                                                           next_state_id);
 
             // first call the exit method of the current state
             source.on_exit(event, sm.get_fsm_argument());
-            state_id = active_state_switching::after_exit(current_state_id,next_state_id);
+            state_id = active_state_switching::after_exit(current_state_id,
+                                                          next_state_id);
 
             // then call the action method
-            process_result res = call_action_or_true<Row, HasAction>(sm, event, source, target);
-            state_id = active_state_switching::after_action(current_state_id,next_state_id);
+            process_result res =
+                call_action_or_true<Row, HasAction>(sm, event, source, target);
+            state_id = active_state_switching::after_action(current_state_id,
+                                                            next_state_id);
 
-            // and finally the entry method of the new current state
-            StateMachine::template convert_event_and_execute_entry<typename Row::Target>(target,event,sm);
-            state_id = active_state_switching::after_entry(current_state_id,next_state_id);
+            // and finally the entry method of the new state
+            call_entry<Row>(sm, event, target);
+            state_id = active_state_switching::after_entry(current_state_id,
+                                                           next_state_id);
 
             return res;
         }
     };
 
-    // Template used to create internal transitions from rows in the transition table.
-    template<typename Row, bool HasAction, bool HasGuard, typename State = typename Row::Source>
+    // Template used to create internal transitions
+    // from rows in the transition table.
+    template <typename Row, bool HasAction, bool HasGuard,
+              typename State = typename Row::Source>
     struct internal_transition
     {
         using transition_event = typename Row::Evt;
@@ -114,8 +171,10 @@ struct transition_table_impl
                                       [[maybe_unused]] int& state_id,
                                       transition_event const& event)
         {
-            BOOST_ASSERT(state_id == StateMachine::template get_state_id<current_state_type>());
-            
+            BOOST_ASSERT(
+                state_id ==
+                StateMachine::template get_state_id<current_state_type>());
+
             auto& source = sm.template get_state<current_state_type>();
             auto& target = source;
 
@@ -127,7 +186,8 @@ struct transition_table_impl
         }
     };
 
-    // Template used to create sm-internal transitions from rows in the transition table.
+    // Template used to create sm-internal transitions
+    // from rows in the transition table.
     template<typename Row, bool HasAction, bool HasGuard>
     struct internal_transition<Row, HasAction, HasGuard, StateMachine>
     {
@@ -250,9 +310,11 @@ struct transition_table_impl
             append_internal_transition_table>>;
 };
 template <typename StateMachine>
-using transition_table = typename transition_table_impl<StateMachine>::transition_table;
+using transition_table = 
+    typename transition_table_impl<StateMachine>::transition_table;
 template <typename StateMachine>
-using internal_transition_table = typename transition_table_impl<StateMachine>::internal_transition_table;
+using internal_transition_table = 
+    typename transition_table_impl<StateMachine>::internal_transition_table;
 
 }
 

@@ -347,19 +347,6 @@ struct has_deferred_event_impl<mp11::mp_list<States...>, Event>
 template <typename StateOrStates, typename Event>
 using has_deferred_event = typename has_deferred_event_impl<StateOrStates, Event>::type;
 
-// event used internally for wrapping a direct entry
-template <class State, class Event>
-struct direct_entry_event
-{
-  public:
-    typedef int direct_entry;
-    typedef State active_state;
-    typedef Event contained_event;
-
-    direct_entry_event(Event const& event):m_event(event){}
-    Event const& m_event;
-};
-
 // Builds flags from flag_list + internal_flag_list,
 // internal_flag_list is used for terminate/interrupt states.
 template <typename State>
