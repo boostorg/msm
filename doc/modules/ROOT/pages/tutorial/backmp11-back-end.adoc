@@ -34,8 +34,8 @@ It offers a significant reduction in compilation time and RAM usage, as can be s
 |                                      | Compile / sec | RAM / MB | Runtime / sec
 | back                                 | 68            | 2849     | 23
 | back_favor_compile_time              | 80            | 2551     | 261
-| backmp11                             | 8             | 357      | 11
-| backmp11_favor_compile_time          | 6             | 274      | 26
+| backmp11                             | 8             | 350      | 11
+| backmp11_favor_compile_time          | 6             | 266      | 26
 | backmp11_favor_compile_time_multi_cu | 5             | ~915     | 26
 | sml                                  | 40            | 1056     | 11
 |================================================================================
