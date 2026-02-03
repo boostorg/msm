@@ -694,20 +694,20 @@ class state_machine_base : public FrontEnd
     }
 
   protected:
-    static_assert(std::is_same_v<typename config_t::fsm_parameter, transition_owner> ||
+    static_assert(std::is_same_v<typename config_t::fsm_parameter, local_transition_owner> ||
                     (std::is_same_v<typename config_t::fsm_parameter, typename config_t::root_sm> &&
                      !std::is_same_v<typename config_t::root_sm, no_root_sm>),
-                  "fsm_parameter must be transition_owner or root_sm"
+                  "fsm_parameter must be local_transition_owner or root_sm"
                  );
     using fsm_parameter_t = mp11::mp_if_c<
-        std::is_same_v<typename config_t::fsm_parameter, transition_owner>,
+        std::is_same_v<typename config_t::fsm_parameter, local_transition_owner>,
         derived_t,
         typename config_t::root_sm>;
 
     fsm_parameter_t& get_fsm_argument()
     {
         if constexpr (std::is_same_v<typename config_t::fsm_parameter,
-                                     transition_owner>)
+                                     local_transition_owner>)
         {
             return *static_cast<derived_t*>(this);
         }
@@ -1021,19 +1021,19 @@ private:
                                      front::no_history>)
         {
             mp11::mp_for_each<initial_state_identities>(
-                [this, &event, &fsm](auto state_identity)
+                [this, &event](auto state_identity)
                 {
                     using State = typename decltype(state_identity)::type;
                     auto& state = this->get_state<State>();
-                    state.on_entry(event, fsm);
+                    state.on_entry(event, get_fsm_argument());
                 });
         }
         else
         {
             visit<visit_mode::active_non_recursive>(
-                [&event, &fsm](auto& state)
+                [this, &event](auto& state)
                 {
-                    state.on_entry(event, fsm);
+                    state.on_entry(event, get_fsm_argument());
                 });
         }
 
@@ -1068,19 +1068,19 @@ private:
         if constexpr (all_regions_defined)
         {
             mp11::mp_for_each<state_identities>(
-                [this, &event, &fsm](auto state_identity)
+                [this, &event](auto state_identity)
                 {
                     using State = typename decltype(state_identity)::type;
                     auto& state = this->get_state<State>();
-                    state.on_entry(event, fsm);
+                    state.on_entry(event, get_fsm_argument());
                 });
         }
         else
         {
             visit<visit_mode::active_non_recursive>(
-                [&event, &fsm](auto& state)
+                [this, &event](auto& state)
                 {
-                    state.on_entry(event, fsm);
+                    state.on_entry(event, get_fsm_argument());
                 });
         }
 
@@ -1101,13 +1101,13 @@ private:
     {
         // First exit the substates.
         visit<visit_mode::active_non_recursive>(
-            [&event, &fsm](auto& state)
+            [this, &event](auto& state)
             {
-                state.on_exit(event, fsm);
+                state.on_exit(event, get_fsm_argument());
             }
         );
         // Then call our own exit.
-        (static_cast<front_end_t*>(this))->on_exit(event,fsm);
+        (static_cast<front_end_t*>(this))->on_exit(event, fsm);
         // Give the history a chance to handle this (or not).
         m_history.on_exit(this->m_active_state_ids);
         // History decides what happens with deferred events.

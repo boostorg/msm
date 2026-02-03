@@ -81,7 +81,7 @@ struct hierarchical_machine
         using root_sm = RootSm;
         using fsm_parameter = mp11::mp_if_c<TestRootFsmParameter,
             root_sm,
-            transition_owner
+            local_transition_owner
             >;
     };
 
