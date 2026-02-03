@@ -47,7 +47,7 @@ There are still a couple more optimizations to come, the tables in the repositor
 
 == Deprecation timeline
 
-Deprecations of features with more context information are listed in below table.
+Deprecations of features and other changes with additional context are listed in the table below.
 
 [width=95%, cols="16,5,40"]
 |===
@@ -66,6 +66,12 @@ a| Deferring an event as an action triggered by the same event is not foreseen i
 a| The event container can be accessed and manipulated via public APIs. Manipulation of the container outside of the library code can lead to undefined behavior.
 
 *Change:* The public API to access the event container will be changed to `protected`. If needed, users can inherit from `state_machine` to access the event container, but without guarantees about correct functionality and API consistency.
+
+| Renaming of `transition_owner` to `local_transition_owner`
+| 1.91 / 1.92
+a| The default setting of the `Fsm` parameter was named `transition_owner`, which was intended to reflect the same behavior as in `back`. However, `transition_owner` does have a different behavior from `back`. Furthermore, it was not implemented correctly.
+
+*Change:* The behavior will be corrected to match `back` and the default setting will be renamed to `local_transition_owner` in 1.91. The previous setting name `transition_owner` will be deprecated in 1.91 and removed in 1.92.
 
 |===
 
@@ -167,8 +173,6 @@ class state_machine;
 
 You can define state machine back-ends with a `using MyStateMachine = state_machine<...>;` declaration or by inheriting from `state_machine`.
 
-**IMPORTANT:** The parameter `Derived` has to be set to the derived class, if the `state_machine` class gets extended.
-
 
 === All settings are bundled in one Config parameter
 
@@ -181,7 +185,7 @@ struct default_state_machine_config
     using compile_policy = favor_runtime_speed;
     using context = no_context;
     using root_sm = no_root_sm;
-    using fsm_parameter = transition_owner;
+    using fsm_parameter = local_transition_owner;
     template<typename T>
     using queue_container = std::deque<T>;
 };
@@ -225,23 +229,50 @@ It is highly recommended to always configure the `root_sm` in hierarchical state
 This reduces the compilation time, because it enables the back-end to instantiate the full set of construction-related methods
 only for the root and it can omit them for sub-state machines.
 
-**IMPORTANT:** If a `context` is used in a hierarchical state machine, then also the `root_sm` should be set.
+[IMPORTANT]
+====
+If a `context` is used in a hierarchical state machine, then also the `root_sm` should be set.
 The `context` is then automatically accessed through the `root_sm`.
+====
 
 
 === New state machine setting for defining the `Fsm` parameter of actions and guards
 
 The setting `fsm_parameter` defines the instance of the `Fsm& fsm` parameter that is passed to actions and guards in hierarchical state machines.
 
-By default it is set to `transition_owner`, which reflects the same behavior as in `back`:
+By default it is set to `local_transition_owner`, which reflects the same behavior as in `back`:
 
-- Actions and guards with transitions in the same transition table receive the SM instance processing the event, while
-- entry and exit actions receive the SM instance from which the transition originates.
+- Actions and guards for transitions in the same transition table receive the SM instance that owns the transition (the one processing the event)
+- Entry and exit actions receive the "local" transition owner from the perspective of the state being entered/exited (the immediate parent SM)
+
+
+[NOTE]
+====
+In UML, the "transition owner" is the region or state machine that contains the transition.
+The term "local transition owner" extends this UML terminology, because the `Fsm` parameter in entry and exit actions is not necessarily the state machine containing the transition. It refers to the _immediate parent_ state machine of the state being entered/exited, which is the transition owner from the local perspective of that state.
+
+**Example:** Consider a hierarchical state machine with nested state machines:
+
+```
+SM1 (root)
+  └─ SM2
+      └─ SM3
+          └─ State S0 (active)
+```
+
+When a transition defined in SM1 causes SM2 and SM3 to exit:
+
+- S0's exit action receives SM3 as `Fsm` (S0's immediate parent)
+- SM3's exit action receives SM2 as `Fsm` (SM3's immediate parent)
+- SM2's exit action receives SM1 as `Fsm` (SM2's immediate parent)
+====
 
 You can alternatively set it to `root_sm`, in which case always the root sm is passed as `Fsm` parameter.
-If `using fsm_parameter = root_sm;` is defined in the config, the setting takes effect.
 
-**IMPORTANT:** If the `fsm_parameter` is set to `root_sm`, then also the `root_sm` must be set.
+[IMPORTANT]
+====
+If the `fsm_parameter` is set to `root_sm`, then also the `root_sm` must be set.
+====
 
 
 === Generic support for serializers
@@ -256,7 +287,10 @@ friend void serialize(T&, state_machine<A0, A1, A2>&);
 
 A similar friend declaration is available in the `history_impl` classes.
 
-**IMPORTANT:** This design allows you to provide any serializer implementation, but due to the need to access private members there is no guarantee that your implementation breaks in a new version of the back-end.
+[IMPORTANT]
+====
+This design allows you to provide any serializer implementation, but due to the need to access private members there is no guarantee that your implementation breaks in a new version of the back-end.
+====
 
 
 == Resolved issues with respect to `back`

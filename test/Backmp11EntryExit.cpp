@@ -9,15 +9,15 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-// back-end
-#include "BackCommon.hpp"
-//front-end
-#include <boost/msm/front/state_machine_def.hpp>
-#include <boost/msm/front/functor_row.hpp>
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
 #define BOOST_TEST_MODULE backmp11_entry_exit_test
 #endif
 #include <boost/test/unit_test.hpp>
+
+// back-end
+#include "BackCommon.hpp"
+//front-end
+#include "FrontCommon.hpp"
 
 namespace mp11 = boost::mp11;
 using namespace boost::msm::front;
@@ -41,55 +41,58 @@ struct SomeEvent
 };
 
 // states
-struct StateBase : state<>
+template <typename ExpectedFsm>
+struct StateBase : test::StateBase
 {
     template <class Event, class Fsm>
-    void on_entry(const Event&, Fsm&)
+    void on_entry(const Event& event, Fsm& fsm)
     {
-        entry_counter++;
+        static_assert(std::is_same_v<Fsm, ExpectedFsm>);
+        test::StateBase::on_entry(event, fsm);
     }
-    
+
     template <class Event, class Fsm>
-    void on_exit(const Event&, Fsm&)
+    void on_exit(const Event& event, Fsm& fsm)
     {
-        exit_counter++;
+        static_assert(std::is_same_v<Fsm, ExpectedFsm>);
+        test::StateBase::on_exit(event, fsm);
     }
-
-    size_t entry_counter{};
-    size_t exit_counter{};
-};
-
-template <typename T>
-struct StateMachineBase_ : state_machine_def<T>
-{
-    template <class Event, class Fsm>
-    void on_entry(const Event&, Fsm&)
-    {
-        entry_counter++;
-    }
-    
-    template <class Event, class Fsm>
-    void on_exit(const Event&, Fsm&)
-    {
-        exit_counter++;
-    }
-
-    template <class FSM,class Event>
-    void no_transition(Event const& , FSM&,int )
-    {
-        BOOST_FAIL("no_transition called!");
-    }
-
-    size_t entry_counter{};
-    size_t exit_counter{};
 };
 
 template<typename Config = default_state_machine_config>
 struct hierarchical_state_machine
 {
+    // Forward declarations required for static assertions on FSM parameters.
+    struct Machine_;
+    using Machine = state_machine<Machine_, Config>;
+    struct Submachine_;
+    using Submachine = state_machine<Submachine_, Config>;
+
+    template <typename FrontEnd>
+    struct StateMachineBase_ : test::StateMachineBase_<FrontEnd>
+    {
+        template <class Event, class Fsm>
+        void on_entry(const Event& event, Fsm& fsm)
+        {
+            // Both machines should receive the parent SM as Fsm argument.
+            static_assert(std::is_same_v<Fsm, Machine>);
+            test::StateMachineBase_<FrontEnd>::on_entry(event, fsm);
+        }
+
+        template <class Event, class Fsm>
+        void on_exit(const Event& event, Fsm& fsm)
+        {
+            // Both machines should receive the parent SM as Fsm argument.
+            static_assert(std::is_same_v<Fsm, Machine>);
+            test::StateMachineBase_<FrontEnd>::on_exit(event, fsm);
+        }
+    };
+
     struct Submachine_ : StateMachineBase_<Submachine_>
     {
         BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(Submachine_)
+
+        using StateBase = ::StateBase<Submachine>;
 
         struct Substate0 : StateBase {};
         struct Substate1 : StateBase {};
@@ -104,12 +107,14 @@ struct hierarchical_state_machine
             template <class Event, class Fsm>
             void on_entry(const Event&, Fsm&)
             {
+                static_assert(std::is_same_v<Fsm, Submachine>);
                 entry_counter++;
             }
             
             template <class Event, class Fsm>
             void on_exit(const Event&, Fsm&)
             {
+                static_assert(std::is_same_v<Fsm, Submachine>);
                 exit_counter++;
             }
 
@@ -124,12 +129,14 @@ struct hierarchical_state_machine
             template <class Event, class Fsm>
             void on_entry(const Event&, Fsm&)
             {
+                static_assert(std::is_same_v<Fsm, Submachine>);
                 entry_counter++;
             }
             
             template <class Event, class Fsm>
             void on_exit(const Event&, Fsm&)
             {
+                static_assert(std::is_same_v<Fsm, Submachine>);
                 exit_counter++;
             }
 
@@ -169,11 +176,11 @@ struct hierarchical_state_machine
         >;
     };
 
-    using Submachine = state_machine<Submachine_, Config>;
-
     struct Machine_ : StateMachineBase_<Machine_>
     {
         BOOST_MSM_TEST_DEFINE_DEPENDENT_TEMPLATES(Machine_)
+
+        using StateBase = ::StateBase<Machine>;
 
         struct State0 : StateBase {};
 
@@ -245,8 +252,6 @@ struct hierarchical_state_machine
             Row < SubmachineExitPt , SomeEvent                    , State0                    >
         >;
     };
-
-    using Machine = state_machine<Machine_, Config>;
 };
 
 using TestMachines = mp11::mp_list<

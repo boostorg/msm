@@ -44,8 +44,11 @@ struct no_context {};
 struct no_root_sm {};
 
 // Config for the default fsm parameter
-// (transition owner)
-struct transition_owner{};
+// (local transition owner)
+struct local_transition_owner{};
+
+using transition_owner [[deprecated("Use local_transition_owner instead")]] =
+    local_transition_owner;
 
 // Default state machine config.
 struct default_state_machine_config
@@ -53,7 +56,7 @@ struct default_state_machine_config
     using compile_policy = favor_runtime_speed;
     using context = no_context;
     using root_sm = no_root_sm;
-    using fsm_parameter = transition_owner;
+    using fsm_parameter = local_transition_owner;
     template<typename T>
     using queue_container = std::deque<T>;
 
