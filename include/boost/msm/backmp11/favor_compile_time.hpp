@@ -71,9 +71,10 @@ struct compile_policy_impl<favor_compile_time>
     };
 #endif
 
-    // Bitmask for process result checks.
-    static constexpr process_result handled_or_deferred =
-        process_result::HANDLED_TRUE | process_result::HANDLED_DEFERRED;
+    constexpr static const any_event& normalize_event(const any_event& event)
+    {
+        return event;
+    }
 
     static bool is_completion_event(const any_event& event)
     {
@@ -92,42 +93,6 @@ struct compile_policy_impl<favor_compile_time>
     {
         return any_event{event};
     }
-
-    constexpr static const any_event& normalize_event(const any_event& event)
-    {
-        return event;
-    }
-
-    template <typename StateMachine>
-    class deferred_event_impl : public deferred_event
-    {
-      public:
-        deferred_event_impl(StateMachine& sm, const any_event& event, size_t seq_cnt)
-            : deferred_event(seq_cnt), m_sm(sm), m_event(event)
-        {
-        }
-
-        process_result process() override
-        {
-            return m_sm.process_event_internal(
-                m_event,
-                EventSource::EVENT_SOURCE_DEFERRED);
-        }
-
-        bool is_deferred() const override
-        {
-            return is_event_deferred(m_sm, m_event);
-        }
-
-      private:
-        StateMachine& m_sm;
-        any_event m_event;
-    };
-
-    // For this policy we cannot determine whether a specific event
-    // is deferred at compile-time, as all events are any_events.
-    template <typename StateOrStates, typename Event>
-    using has_deferred_event = has_deferred_events<StateOrStates>;
 
     template <typename State>
     static const std::unordered_set<std::type_index>& get_deferred_event_type_indices()
@@ -153,25 +118,32 @@ struct compile_policy_impl<favor_compile_time>
     template <typename StateMachine>
     static bool is_event_deferred(const StateMachine& sm, const any_event& event)
     {
-        bool result = false;
-        const std::type_index type_index = event.type();
-        auto visitor = [&result, type_index](const auto& state)
+        if constexpr (
+            !mp11::mp_empty<typename StateMachine::deferring_states>::value)
         {
-            using State = std::decay_t<decltype(state)>;
-            const auto& set = get_deferred_event_type_indices<State>();
-            result |= (set.find(type_index) != set.end());
-        };
-        sm.template visit_if<visit_mode::active_non_recursive,
-                             has_deferred_events>(visitor);
-        return result;
+            bool result = false;
+            const std::type_index type_index = event.type();
+            auto visitor = [&result, type_index](const auto& state)
+            {
+                using State = std::decay_t<decltype(state)>;
+                const auto& set = get_deferred_event_type_indices<State>();
+                result |= (set.find(type_index) != set.end());
+            };
+            sm.template visit_if<visit_mode::active_non_recursive,
+                                has_deferred_events>(visitor);
+            return result;
+        }
+        else
+        {
+            return false;
+        }
     }
 
     template <typename StateMachine>
-    static void defer_event(StateMachine& sm, any_event const& event)
+    static void defer_event(StateMachine& sm, any_event const& event,
+                            bool next_rtc_seq)
     {
-        auto& deferred_events = sm.get_deferred_events();
-        deferred_events.queue.push_back(basic_unique_ptr<deferred_event>{
-            new deferred_event_impl(sm, event, deferred_events.cur_seq_cnt)});
+        sm.do_defer_event(event, next_rtc_seq);
     }
 
     // Convert an event to a type index.
@@ -228,10 +200,10 @@ struct compile_policy_impl<favor_compile_time>
             for (const generic_cell cell : m_transition_cells)
             {
                 result |= reinterpret_cast<cell_t>(cell)(sm, state_id, event);
-                if (result & handled_or_deferred)
+                if (result & handled_true_or_deferred)
                 {
                     // If a guard rejected previously, ensure this bit is not present.
-                    return result & handled_or_deferred;
+                    return result & handled_true_or_deferred;
                 }
             }
             // At this point result can be HANDLED_FALSE or HANDLED_GUARD_REJECT.
@@ -262,10 +234,10 @@ struct compile_policy_impl<favor_compile_time>
             for (const generic_cell cell : m_transition_cells)
             {
                 result |= reinterpret_cast<cell_t>(cell)(sm, event);
-                if (result & handled_or_deferred)
+                if (result & handled_true_or_deferred)
                 {
                     // If a guard rejected previously, ensure this bit is not present.
-                    return result & handled_or_deferred;
+                    return result & handled_true_or_deferred;
                 }
             }
             // At this point result can be HANDLED_FALSE or HANDLED_GUARD_REJECT.
@@ -393,7 +365,8 @@ struct compile_policy_impl<favor_compile_time>
             template <typename Submachine>
             static process_result call_process_event(StateMachine& sm, const any_event& event)
             {
-                return sm.template get_state<Submachine&>().process_event_internal(event);
+                return sm.template get_state<Submachine&>()
+                    .process_event_internal(event, process_info::submachine_call);
             }
 
             std::unordered_map<std::type_index, transition_chain> m_transition_chains;

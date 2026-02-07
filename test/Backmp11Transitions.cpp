@@ -71,6 +71,8 @@ struct SmConfig : state_machine_config
 {
     using root_sm = StateMachine;
     // using compile_policy = favor_compile_time;
+    template <typename T>
+    using event_container = no_event_container<T>;
 };
 
 struct StateMachine_ : public state_machine_def<StateMachine_>
@@ -116,10 +118,6 @@ class StateMachine : public state_machine<StateMachine_, SmConfig, StateMachine>
 BOOST_AUTO_TEST_CASE( backmp11_members_test )
 {
     StateMachine test_machine;
-    [[maybe_unused]] auto& events_queue = test_machine.get_events_queue();
-    [[maybe_unused]] const auto& const_events_queue = static_cast<const StateMachine*>(&test_machine)->get_events_queue();
-    [[maybe_unused]] auto& deferred_events_queue = test_machine.get_deferred_events_queue();
-    [[maybe_unused]] const auto& const_deferred_events_queue = static_cast<const StateMachine*>(&test_machine)->get_deferred_events_queue();
 
     test_machine.start();
     BOOST_REQUIRE(test_machine.entry_calls == 1);
