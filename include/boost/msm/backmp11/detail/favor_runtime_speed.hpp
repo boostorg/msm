@@ -30,9 +30,11 @@ struct compile_policy_impl;
 template <>
 struct compile_policy_impl<favor_runtime_speed>
 {
-    // Bitmask for process result checks.
-    static constexpr process_result handled_or_deferred =
-        process_result::HANDLED_TRUE | process_result::HANDLED_DEFERRED;
+    template <typename Event>
+    constexpr static const Event& normalize_event(const Event& event)
+    {
+        return event;
+    }
 
     template <typename Event>
     static constexpr bool is_completion_event(const Event&)
@@ -45,41 +47,6 @@ struct compile_policy_impl<favor_runtime_speed>
     {
         return sm.template is_flag_active<EndInterruptFlag<Event>>();
     }
-
-    template <typename Event>
-    constexpr static const Event& normalize_event(const Event& event)
-    {
-        return event;
-    }
-
-    template <typename StateMachine, typename Event>
-    class deferred_event_impl : public deferred_event
-    {
-      public:
-        deferred_event_impl(StateMachine& sm, const Event& event, size_t seq_cnt)
-            : deferred_event(seq_cnt), m_sm(sm), m_event(event)
-        {
-        }
-
-        process_result process() override
-        {
-            return m_sm.process_event_internal(
-                m_event,
-                EventSource::EVENT_SOURCE_DEFERRED);
-        }
-
-        bool is_deferred() const override
-        {
-            return is_event_deferred(m_sm, m_event);
-        }
-
-      private:
-        StateMachine& m_sm;
-        Event m_event;
-    };
-
-    template <typename StateOrStates, typename Event>
-    using has_deferred_event = has_deferred_event<StateOrStates, Event>;
 
     template <typename StateMachine, typename Event>
     class is_event_deferred_helper
@@ -108,12 +75,22 @@ struct compile_policy_impl<favor_runtime_speed>
     template <typename StateMachine, typename Event>
     static bool is_event_deferred(const StateMachine& sm, const Event&)
     {
-        using helper = is_event_deferred_helper<StateMachine, Event>;
-        return helper::execute(sm);
+        if constexpr (has_deferred_event<
+                          typename StateMachine::deferring_states,
+                          Event>::value)
+        {
+            using helper = is_event_deferred_helper<StateMachine, Event>;
+            return helper::execute(sm);
+        }
+        else
+        {
+            return false;
+        }
     }
 
     template <typename StateMachine, typename Event>
-    static void defer_event(StateMachine& sm, Event const& event)
+    static void defer_event(StateMachine& sm, Event const& event,
+                            bool next_rtc_seq)
     {
         if constexpr (is_kleene_event<Event>::value)
         {
@@ -121,12 +98,13 @@ struct compile_policy_impl<favor_runtime_speed>
                 typename StateMachine::front_end_t::transition_table>;
             bool found =
                 mp_for_each_until<mp11::mp_transform<mp11::mp_identity, event_set>>(
-                    [&sm, &event](auto event_identity)
+                    [&sm, &event, next_rtc_seq](auto event_identity)
                     {
                         using KnownEvent = typename decltype(event_identity)::type;
                         if (event.type() == typeid(KnownEvent))
                         {
-                            do_defer_event(sm, *any_cast<KnownEvent>(&event));
+                            sm.do_defer_event(*any_cast<KnownEvent>(&event),
+                                              next_rtc_seq);
                             return true;
                         }
                         return false;
@@ -142,17 +120,8 @@ struct compile_policy_impl<favor_runtime_speed>
         }
         else
         {
-            do_defer_event(sm, event);
+            sm.do_defer_event(event, next_rtc_seq);
         }
-    }
-
-    template <typename StateMachine, class Event>
-    static void do_defer_event(StateMachine& sm, const Event& event)
-    {
-        auto& deferred_events = sm.get_deferred_events();
-        deferred_events.queue.push_back(basic_unique_ptr<deferred_event>{
-            new deferred_event_impl<StateMachine, Event>(
-                sm, event, deferred_events.cur_seq_cnt)});
     }
 
     // Generates a singleton runtime lookup table that maps current state
@@ -163,7 +132,8 @@ struct compile_policy_impl<favor_runtime_speed>
     {
       public:
         // Dispatch an event.
-        static process_result dispatch(StateMachine& sm, int& state_id, const Event& event)
+        static process_result dispatch(StateMachine& sm, int& state_id,
+                                       const Event& event)
         {
             if constexpr (has_transitions::value ||
                           has_forward_transitions::value)
@@ -175,7 +145,8 @@ struct compile_policy_impl<favor_runtime_speed>
         }
 
         // Dispatch an event to the SM's internal table.
-        static process_result internal_dispatch(StateMachine& sm, const Event& event)
+        static process_result internal_dispatch(StateMachine& sm,
+                                                const Event& event)
         {
             if constexpr (has_internal_transitions::value)
             {
@@ -360,8 +331,11 @@ struct compile_policy_impl<favor_runtime_speed>
                     Event const& event)
                 {
                     BOOST_ASSERT(state_id == StateMachine::template get_state_id<Submachine>());
+                    constexpr process_info info =
+                        process_info::submachine_call;
                     process_result result =
-                        sm.template get_state<Submachine>().process_event_internal(event);
+                        sm.template get_state<Submachine>()
+                            .process_event_internal(event, info);
                     return result;
                 }
             };
@@ -387,10 +361,10 @@ struct compile_policy_impl<favor_runtime_speed>
                         {
                             using Transition = decltype(transition);
                             result |= Transition::execute(sm, state_id, evt);
-                            if (result & handled_or_deferred)
+                            if (result & handled_true_or_deferred)
                             {
                                 // If a guard rejected previously, ensure this bit is not present.
-                                result &= handled_or_deferred;
+                                result &= handled_true_or_deferred;
                                 return true;
                             }
                             return false;
@@ -469,11 +443,11 @@ struct compile_policy_impl<favor_runtime_speed>
                         {
                             using Transition = decltype(transition);
                             result |= Transition::execute(sm, evt);
-                            if (result & handled_or_deferred)
+                            if (result & handled_true_or_deferred)
                             {
                                 // If a guard rejected previously,
                                 // ensure this bit is not present.
-                                result &= handled_or_deferred;
+                                result &= handled_true_or_deferred;
                                 return true;
                             }
                             return false;

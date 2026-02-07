@@ -44,8 +44,12 @@ struct no_context {};
 struct no_root_sm {};
 
 // Config for the default fsm parameter
-// (local transition owner)
+// (local transition owner).
 struct local_transition_owner{};
+
+// Config for disabling the event pool.
+template <typename T>
+struct no_event_container;
 
 using transition_owner [[deprecated("Use local_transition_owner instead")]] =
     local_transition_owner;
@@ -53,12 +57,20 @@ using transition_owner [[deprecated("Use local_transition_owner instead")]] =
 // Default state machine config.
 struct default_state_machine_config
 {
+    // Tune characteristics related to
+    // compile time, runtime performance, and code size.
     using compile_policy = favor_runtime_speed;
+    // A common context that is shared by all SMs
+    // in hierarchical state machines.
     using context = no_context;
+    // Identifier for the upper-most SM
+    // in hierarchical state machines.
     using root_sm = no_root_sm;
+    // Type of the Fsm parameter passed in actions and guards.
     using fsm_parameter = local_transition_owner;
-    template<typename T>
-    using queue_container = std::deque<T>;
+    // Which event container to use for the event pool.
+    template <typename T>
+    using event_container = std::deque<T>;
 
     struct internal
     {

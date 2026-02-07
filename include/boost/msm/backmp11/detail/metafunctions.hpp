@@ -307,6 +307,7 @@ template <typename FeTransitionTable>
 using generate_event_set =
     typename generate_event_set_impl<FeTransitionTable>::type;
 
+// Check if one or multiple states have any deferred events.
 template <typename State>
 struct has_deferred_events_impl
 {
@@ -326,6 +327,7 @@ struct has_deferred_events_impl<mp11::mp_list<States...>>
 template <typename StateOrStates>
 using has_deferred_events = typename has_deferred_events_impl<StateOrStates>::type;
 
+// Check if one or multiple states have a specific deferred event.
 template <typename State, typename Event>
 struct has_deferred_event_impl
 {
@@ -343,6 +345,11 @@ struct has_deferred_event_impl<mp11::mp_list<States...>, Event>
     using subset = mp11::mp_copy_if<states, has_deferred_event>;
 
     using type = mp11::mp_any_of<states, has_deferred_event>;
+};
+template <typename Event>
+struct has_deferred_event_impl<mp11::mp_list<>, Event>
+{
+    using type = mp11::mp_false;
 };
 template <typename StateOrStates, typename Event>
 using has_deferred_event = typename has_deferred_event_impl<StateOrStates, Event>::type;

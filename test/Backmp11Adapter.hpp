@@ -95,32 +95,38 @@ class state_machine_adapter
 
     auto& get_message_queue()
     {
-        return this->get_events_queue();
+        return this->get_event_pool().events;
     }
 
     size_t get_message_queue_size() const
     {
-        return this->get_events_queue().size();
+        return this->get_event_pool().events.size();
+    }
+
+    template <class Event>
+    void enqueue_event(Event const& event)
+    {
+        this->defer_event(event);
     }
 
     void execute_queued_events()
     {
-        this->process_queued_events();
+        this->process_event_pool();
     }
 
     void execute_single_queued_event()
     {
-        this->process_single_queued_event();
+        this->process_event_pool(1);
     }
 
     auto& get_deferred_queue()
     {
-        return this->get_deferred_events_queue();
+        return this->get_event_pool().events;
     }
 
     void clear_deferred_queue()
     {
-        this->get_deferred_events_queue().clear();
+        this->get_event_pool().events.clear();
     }
 
     // No adapter.

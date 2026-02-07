@@ -47,9 +47,9 @@ class history_impl<front::no_history, NumberOfRegions>
 
     // this policy deletes all waiting deferred events
     template <class Event>
-    bool process_deferred_events(Event const&) const
+    bool clear_event_pool(Event const&) const
     {
-        return false;
+        return true;
     }
 
   private:
@@ -82,9 +82,9 @@ public:
 
     // the history policy keeps all deferred events until next reentry
     template <class Event>
-    bool process_deferred_events(Event const&)const
+    bool clear_event_pool(Event const&)const
     {
-        return true;
+        return false;
     }
 
 private:
@@ -124,9 +124,9 @@ public:
 
     // the history policy keeps deferred events until next reentry if coming from our history event
     template <class Event>
-    bool process_deferred_events(Event const&) const
+    bool clear_event_pool(Event const&) const
     {
-        return mp11::mp_contains<events_mp11,Event>::value;
+        return !mp11::mp_contains<events_mp11,Event>::value;
     }
 
   private:

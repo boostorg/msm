@@ -107,8 +107,8 @@ struct StateMachine_ : StateMachineBase_<StateMachine_>
 // Pick a back-end
 using Fsms = mp11::mp_list<
 #ifndef BOOST_MSM_TEST_SKIP_BACKMP11
-    state_machine<StateMachine_>,
-    state_machine<StateMachine_, favor_compile_time_config>
+    StateMachine<StateMachine_>,
+    StateMachine<StateMachine_, favor_compile_time_config>
 #endif // BOOST_MSM_TEST_SKIP_BACKMP11
     >;
 
@@ -122,34 +122,34 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(uml_deferred, Fsm, Fsms)
     fsm.process_event(Event1{});
     BOOST_REQUIRE(fsm.check_and_reset_event1_action_calls(0));
     BOOST_REQUIRE(fsm.check_and_reset_event2_action_calls(0));
-    BOOST_REQUIRE(fsm.get_deferred_events_queue().size() == 1);
+    BOOST_REQUIRE(fsm.get_pending_events().size() == 1);
     
     fsm.process_event(Event2{});
     BOOST_REQUIRE(fsm.check_and_reset_event1_action_calls(0));
     BOOST_REQUIRE(fsm.check_and_reset_event2_action_calls(0));
-    BOOST_REQUIRE(fsm.get_deferred_events_queue().size() == 2);
+    BOOST_REQUIRE(fsm.get_pending_events().size() == 2);
     
     fsm.process_event(FromDeferEvent1And2ToDeferEvent1{});
     BOOST_REQUIRE(fsm.check_and_reset_event1_action_calls(0));
     BOOST_REQUIRE(fsm.check_and_reset_event2_action_calls(1));
-    BOOST_REQUIRE(fsm.get_deferred_events_queue().size() == 1);
+    BOOST_REQUIRE(fsm.get_pending_events().size() == 1);
     
     fsm.process_event(FromDeferEvent1ToHandleNone{});
     BOOST_REQUIRE(fsm.check_and_reset_event1_action_calls(1));
     BOOST_REQUIRE(fsm.check_and_reset_event2_action_calls(0));
-    BOOST_REQUIRE(fsm.get_deferred_events_queue().size() == 0);
+    BOOST_REQUIRE(fsm.get_pending_events().size() == 0);
 
     fsm.process_event(ManualDeferEvent{});
     BOOST_REQUIRE(fsm.check_and_reset_event1_action_calls(0));
     BOOST_REQUIRE(fsm.check_and_reset_event2_action_calls(0));
-    BOOST_REQUIRE(fsm.get_deferred_events_queue().size() == 1);
+    BOOST_REQUIRE(fsm.get_pending_events().size() == 1);
 
     // The new event gets deferred: +1
     // The deferred event gets consumed and deferred again: -1, +1
     fsm.process_event(ManualDeferEvent{});
     BOOST_REQUIRE(fsm.check_and_reset_event1_action_calls(0));
     BOOST_REQUIRE(fsm.check_and_reset_event2_action_calls(0));
-    BOOST_REQUIRE(fsm.get_deferred_events_queue().size() == 2);
+    BOOST_REQUIRE(fsm.get_pending_events().size() == 2);
 
     fsm.stop();
 }
@@ -194,8 +194,8 @@ struct StateMachine_ : StateMachineBase_<StateMachine_>
 // Pick a back-end
 using Fsms = mp11::mp_list<
 #ifndef BOOST_MSM_TEST_SKIP_BACKMP11
-    state_machine<StateMachine_>,
-    state_machine<StateMachine_, favor_compile_time_config>
+    StateMachine<StateMachine_>,
+    StateMachine<StateMachine_, favor_compile_time_config>
 #endif // BOOST_MSM_TEST_SKIP_BACKMP11
     >;
 
@@ -210,7 +210,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(action_deferred, Fsm, Fsms)
     // Processed by StateHandleAll, deferred by StateDeferEvent1And2.
     // Queue: Event1
     BOOST_REQUIRE(fsm.check_and_reset_event1_action_calls(1));
-    BOOST_REQUIRE(fsm.get_deferred_events_queue().size() == 1);
+    BOOST_REQUIRE(fsm.get_pending_events().size() == 1);
     
     fsm.process_event(Event2{});
     // Processed by StateHandleAll, deferred by StateDeferEvent1And2.
@@ -218,7 +218,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(action_deferred, Fsm, Fsms)
     // Queue: Event2, Event1
     BOOST_REQUIRE(fsm.check_and_reset_event1_action_calls(1));
     BOOST_REQUIRE(fsm.check_and_reset_event2_action_calls(1));
-    BOOST_REQUIRE(fsm.get_deferred_events_queue().size() == 2);
+    BOOST_REQUIRE(fsm.get_pending_events().size() == 2);
     
     fsm.process_event(FromDeferEvent1And2ToDeferEvent1{});
     // Event2 is no more deferred.
@@ -227,13 +227,13 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(action_deferred, Fsm, Fsms)
     // Queue: Event1
     BOOST_REQUIRE(fsm.check_and_reset_event1_action_calls(1));
     BOOST_REQUIRE(fsm.check_and_reset_event2_action_calls(1));
-    BOOST_REQUIRE(fsm.get_deferred_events_queue().size() == 1);
+    BOOST_REQUIRE(fsm.get_pending_events().size() == 1);
     
     fsm.process_event(FromDeferEvent1ToHandleNone{});
     // Event1 is no more deferred.
     // StateHandleAll processes Event1.
     BOOST_REQUIRE(fsm.check_and_reset_event1_action_calls(1));
-    BOOST_REQUIRE(fsm.get_deferred_events_queue().size() == 0);
+    BOOST_REQUIRE(fsm.get_pending_events().size() == 0);
 
     fsm.stop();
 }
