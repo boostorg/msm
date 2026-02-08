@@ -71,6 +71,12 @@ struct compile_policy_impl<favor_compile_time>
     };
 #endif
 
+    template <typename Event>
+    static any_event normalize_event(const Event& event)
+    {
+        return any_event{event};
+    }
+
     constexpr static const any_event& normalize_event(const any_event& event)
     {
         return event;
@@ -88,32 +94,76 @@ struct compile_policy_impl<favor_compile_time>
         return helper.is_end_interrupt_event(event);
     }
 
-    template <typename Event>
-    static any_event normalize_event(const Event& event)
+    // Dispatch table for event deferral checks.
+    // Converts any_events and calls 'is_event_deferred' on states.
+    template <typename StateMachine>
+    class is_event_deferred_dispatch_table
     {
-        return any_event{event};
-    }
-
-    template <typename State>
-    static const std::unordered_set<std::type_index>& get_deferred_event_type_indices()
-    {
-        static std::unordered_set<std::type_index> type_indices = []()
+      public:
+        template <typename State>
+        static bool dispatch(const StateMachine& sm, const State& state,
+                             const any_event& event)
         {
-            std::unordered_set<std::type_index> indices;
+            static const is_event_deferred_dispatch_table table{state};
+            auto it = table.m_cells.find(event.type());
+            if (it != table.m_cells.end())
+            {
+                using real_cell =
+                    bool (*)(const StateMachine&, const State&, const any_event&);
+                auto cell = reinterpret_cast<real_cell>(it->second);
+                return (*cell)(sm, state, event);
+            }
+            return false;
+        }
+
+      private:
+        template <typename State>
+        is_event_deferred_dispatch_table(const State&)
+        {
             using deferred_events = to_mp_list_t<typename State::deferred_events>;
             using deferred_event_identities =
                 mp11::mp_transform<mp11::mp_identity, deferred_events>;
             mp11::mp_for_each<deferred_event_identities>(
-                [&indices](auto event_identity)
+                [this](auto event_identity)
                 {
                     using Event = typename decltype(event_identity)::type;
-                    indices.emplace(to_type_index<Event>());
-                }
-            );
-            return indices;
-        }();
-        return type_indices;
-    }
+                    m_cells[to_type_index<Event>()] =
+                        reinterpret_cast<generic_cell>(&convert_and_execute<State, Event>);
+                });
+        }
+
+        template<typename State, typename Event>
+        static bool convert_and_execute(const StateMachine& sm, const State& state,
+                                        const any_event& event)
+        {
+            return state.is_event_deferred(*any_cast<Event>(&event), sm.get_fsm_argument());
+        }
+
+        std::unordered_map<std::type_index, generic_cell> m_cells;
+    };
+
+    template <typename StateMachine>
+    struct is_event_deferred_visitor
+    {
+        template <typename State>
+        using predicate = has_deferred_events<State>;
+
+        is_event_deferred_visitor(const StateMachine& sm, const any_event& event)
+            : sm(sm), event(event)
+        {
+        }
+
+        template <typename State>
+        void operator()(const State& state)
+        {
+            using table = is_event_deferred_dispatch_table<StateMachine>;
+            result |= table::dispatch(sm, state, event);
+        }
+
+        const StateMachine& sm;
+        const any_event& event;
+        bool result{false};
+    };
 
     template <typename StateMachine>
     static bool is_event_deferred(const StateMachine& sm, const any_event& event)
@@ -121,17 +171,11 @@ struct compile_policy_impl<favor_compile_time>
         if constexpr (
             !mp11::mp_empty<typename StateMachine::deferring_states>::value)
         {
-            bool result = false;
-            const std::type_index type_index = event.type();
-            auto visitor = [&result, type_index](const auto& state)
-            {
-                using State = std::decay_t<decltype(state)>;
-                const auto& set = get_deferred_event_type_indices<State>();
-                result |= (set.find(type_index) != set.end());
-            };
+            using visitor_t = is_event_deferred_visitor<StateMachine>;
+            visitor_t visitor{sm, event};
             sm.template visit_if<visit_mode::active_non_recursive,
-                                has_deferred_events>(visitor);
-            return result;
+                                 visitor_t::template predicate>(visitor);
+            return visitor.result;
         }
         else
         {
@@ -320,8 +364,10 @@ struct compile_policy_impl<favor_compile_time>
         template<typename Transition>
         using get_init_cell_constant = typename get_init_cell_constant_impl<Transition>::type;
 
-        using has_internal_transitions = mp11::mp_not<mp11::mp_empty<internal_transition_table<StateMachine>>>;
-        using has_transitions = mp11::mp_not<mp11::mp_empty<transition_table<StateMachine>>>;
+        using has_internal_transitions =
+            mp11::mp_not<mp11::mp_empty<internal_transition_table<StateMachine>>>;
+        using has_transitions =
+            mp11::mp_not<mp11::mp_empty<transition_table<StateMachine>>>;
 
         // Dispatch table for one state.
         class state_dispatch_table

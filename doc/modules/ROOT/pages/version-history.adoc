@@ -7,6 +7,7 @@
 * feat(backmp11): Further optimized compilation, with up to 25% faster compile times and less RAM consumption than the 1.90 version
 * fix(backmp11): Incorrect FSM type in call on_entry() & on_exit() (https://github.com/boostorg/msm/issues/167[#167])
 * feat(backmp11): Merge queued & deferred events into a single event pool (https://github.com/boostorg/msm/issues/168[#168])
+* feat(backmp11): Support conditional deferral with the `deferred_events` property (https://github.com/boostorg/msm/issues/155[#155])
 
 == Boost 1.90
 

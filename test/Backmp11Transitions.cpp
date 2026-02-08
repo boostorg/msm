@@ -16,8 +16,7 @@
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
 
-#include <boost/msm/back/queue_container_circular.hpp>
-#include <boost/msm/back/history_policies.hpp>
+#include "Utils.hpp"
 
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
 #define BOOST_TEST_MODULE backmp11_members_test
@@ -112,8 +111,6 @@ class StateMachine : public state_machine<StateMachine_, SmConfig, StateMachine>
     size_t exit_calls{};
     Counters action_calls{};
 };
-
-#define ASSERT_ONE_AND_RESET(value) BOOST_REQUIRE(value == 1); value = 0
 
 BOOST_AUTO_TEST_CASE( backmp11_members_test )
 {
