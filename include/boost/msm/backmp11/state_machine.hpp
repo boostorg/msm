@@ -655,7 +655,7 @@ class state_machine_base : public FrontEnd
         derived_t,
         typename config_t::root_sm>;
 
-    fsm_parameter_t& get_fsm_argument()
+    const fsm_parameter_t& get_fsm_argument() const
     {
         if constexpr (std::is_same_v<typename config_t::fsm_parameter,
                                      local_transition_owner>)
@@ -666,6 +666,12 @@ class state_machine_base : public FrontEnd
         {
             return get_root_sm();
         }
+    }
+
+    fsm_parameter_t& get_fsm_argument()
+    {
+        return const_cast<fsm_parameter_t&>
+            (static_cast<const state_machine_base&>(*this).get_fsm_argument());
     }
 
     // Checks if an event is an end interrupt event.

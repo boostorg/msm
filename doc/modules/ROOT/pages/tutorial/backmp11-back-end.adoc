@@ -316,6 +316,27 @@ This design allows you to provide any serializer implementation, but due to the 
 ====
 
 
+=== Support for conditional event deferral with the `deferred_events` property
+
+In `back` & `back11`, the events mentioned in a state's `deferred_events` property are always deferred.
+In `backmp11``, they can be deferred conditionally by defining a method `is_event_deferred` for them:
+
+```cpp
+struct MyState : boost::msm::front::state<>
+{
+    using deferred_events = mp11::mp_list<MyEvent>;
+
+    template <typename Fsm>
+    bool is_event_deferred(const MyEvent& event, Fsm& fsm) const
+    {
+        // Return false or true to decide
+        // whether the event shall be deferred.
+        ...
+    }
+};
+```
+
+
 == Resolved issues with respect to `back`
 
 === Deferring events in orthogonal regions
@@ -463,7 +484,7 @@ Also the `set_states` API is removed. If setting a state is required, this can s
 ==== The method `get_state_by_id` is removed
 
 If you really need to get a state by id, please use the universal visitor API to implement the function on your own.
-The backmp11 state_machine has a new method to support getting the id of a state in the visitor:
+The `backmp11` `state_machine` has a new method to support getting the id of a state in the visitor:
 
 ```cpp
 template<typename State>

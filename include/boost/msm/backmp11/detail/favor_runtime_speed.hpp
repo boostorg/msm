@@ -49,38 +49,45 @@ struct compile_policy_impl<favor_runtime_speed>
     }
 
     template <typename StateMachine, typename Event>
-    class is_event_deferred_helper
+    struct is_event_deferred_visitor
     {
-      public:
-        static bool execute(const StateMachine& sm)
+        // Apply a pre-filter with the 'has_deferred_events' predicate
+        // to consider only deferring states
+        // (this subset needs to be instantiated only once for the SM).
+        template <typename State>
+        using predicate = has_deferred_events<State>;
+        template <typename State>
+        using predicate2 = has_deferred_event<State, Event>;
+
+        is_event_deferred_visitor(const StateMachine& sm, const Event& event)
+            : sm(sm), event(event)
         {
-            bool result = false;
-            auto visitor = [&result](const auto& /*state*/)
-            {
-                result = true;
-            };
-            // Apply a pre-filter with the 'has_deferred_events' predicate,
-            // since this subset needs to be instantiated only once for the SM.
-            sm.template visit_if<visit_mode::active_non_recursive,
-                                 has_deferred_events, has_deferred_event>(visitor);
-            return result;
         }
 
-      private:
-        using deferring_states = typename StateMachine::deferring_states;
         template <typename State>
-        using has_deferred_event = has_deferred_event<State, Event>;
+        void operator()(const State& state)
+        {
+            result |= state.is_event_deferred(event, sm.get_fsm_argument());
+        }
+
+        const StateMachine& sm;
+        const Event& event;
+        bool result{false};
     };
 
     template <typename StateMachine, typename Event>
-    static bool is_event_deferred(const StateMachine& sm, const Event&)
+    static bool is_event_deferred(const StateMachine& sm, const Event& event)
     {
         if constexpr (has_deferred_event<
                           typename StateMachine::deferring_states,
                           Event>::value)
         {
-            using helper = is_event_deferred_helper<StateMachine, Event>;
-            return helper::execute(sm);
+            using visitor_t = is_event_deferred_visitor<StateMachine, Event>;
+            visitor_t visitor{sm, event};
+            sm.template visit_if<visit_mode::active_non_recursive,
+                                 visitor_t::template predicate,
+                                 visitor_t::template predicate2>(visitor);
+            return visitor.result;
         }
         else
         {

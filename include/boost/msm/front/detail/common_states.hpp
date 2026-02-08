@@ -70,10 +70,15 @@ struct state_base : public inherit_attributes<Attributes>, USERBASE
 
     // empty implementation for the states not wishing to define an entry condition
     // will not be called polymorphic way
-    template <class Event,class FSM>
-    void on_entry(Event const& ,FSM&){}
-    template <class Event,class FSM>
-    void on_exit(Event const&,FSM& ){}
+    template <class Event, class FSM>
+    void on_entry(Event const&, FSM&) {}
+    template <class Event, class FSM>
+    void on_exit(Event const&, FSM&) {}
+    template <class Event, class FSM>
+    bool is_event_deferred(Event const&, FSM&) const
+    {
+        return true;
+    }
     // default (empty) transition table;
     typedef ::boost::mpl::vector<>  internal_transition_table;
     typedef ::boost::fusion::vector<>  internal_transition_table11;
