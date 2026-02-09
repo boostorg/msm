@@ -16,6 +16,7 @@
 
 #include <boost/msm/active_state_switching_policies.hpp>
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
+#include "boost/msm/backmp11/state_machine_config.hpp"
 
 namespace boost::msm::backmp11::detail
 {
@@ -116,9 +117,10 @@ struct transition_table_impl
 
         // Take the transition action and return the next state.
         static process_result execute(StateMachine& sm,
-                                      int& state_id,
+                                      int region_id,
                                       transition_event const& event)
         {
+            int& state_id = sm.m_active_state_ids[region_id]; 
             static constexpr int current_state_id =
                 StateMachine::template get_state_id<current_state_type>();
             static constexpr int next_state_id =
@@ -152,6 +154,9 @@ struct transition_table_impl
             state_id = active_state_switching::after_entry(current_state_id,
                                                            next_state_id);
 
+            // Give a chance to handle completion transitions.
+            sm.template on_state_entry_completed<next_state_type>(region_id);
+
             return res;
         }
     };
@@ -168,9 +173,10 @@ struct transition_table_impl
 
         // Take the transition action and return the next state.
         static process_result execute(StateMachine& sm,
-                                      [[maybe_unused]] int& state_id,
+                                      int region_id,
                                       transition_event const& event)
         {
+            [[maybe_unused]] const int state_id = sm.m_active_state_ids[region_id];
             BOOST_ASSERT(
                 state_id ==
                 StateMachine::template get_state_id<current_state_type>());
@@ -308,14 +314,81 @@ struct transition_table_impl
             mp11::mp_remove_if<state_set, append_state_transition_tables_predicate>,
             sm_transition_table,
             append_internal_transition_table>>;
+
+    // Completion transitions are handled separately per state.
+    template <typename Transition>
+    using has_completion_event = has_completion_event<typename Transition::transition_event>;
+    using completion_transition_table =
+        mp11::mp_copy_if<transition_table, has_completion_event>;
+    static_assert(
+        mp11::mp_empty<completion_transition_table>::value || 
+        !std::is_same_v<
+            typename StateMachine::template event_container<void>,
+            no_event_container<void>>,
+        "Completion transitions require an event pool");
+    template <typename State, typename Table = completion_transition_table>
+    struct completion_transitions_impl
+    {
+        template <typename Transition>
+        using predicate = std::is_same<typename Transition::current_state_type, State>;
+
+        using type = mp11::mp_copy_if<Table, predicate>;
+    };
+    template <typename State>
+    struct completion_transitions_impl<State, mp11::mp_list<>>
+    {
+        using type = mp11::mp_list<>;
+    };
+    template <typename State>
+    using completion_transitions = typename completion_transitions_impl<State>::type;
 };
+
 template <typename StateMachine>
 using transition_table = 
     typename transition_table_impl<StateMachine>::transition_table;
+
 template <typename StateMachine>
 using internal_transition_table = 
     typename transition_table_impl<StateMachine>::internal_transition_table;
 
-}
+template <typename StateMachine, typename State>
+using completion_transitions = 
+    typename transition_table_impl<StateMachine>::template completion_transitions<State>;
+
+template <typename StateMachine, typename State>
+using has_completion_transitions =
+    mp11::mp_not<mp11::mp_empty<completion_transitions<StateMachine, State>>>;
+
+// Class used to execute a chain of transitions for a given event and state.
+// Handles transition conflicts.
+template <typename StateMachine, typename State, typename Transitions, typename Event>
+struct transition_chain
+{
+    using current_state_type = State;
+    using transition_event = Event;
+
+    static process_result execute(StateMachine& sm, int region_id, Event const& evt)
+    {
+        process_result result = process_result::HANDLED_FALSE;
+        mp_for_each_until<Transitions>(
+            [&result, &sm, region_id, &evt](auto transition)
+            {
+                using Transition = decltype(transition);
+                result |= Transition::execute(sm, region_id, evt);
+                if (result & handled_true_or_deferred)
+                {
+                    // If a guard rejected previously, ensure this bit is not present.
+                    result &= handled_true_or_deferred;
+                    return true;
+                }
+                return false;
+            }
+        );
+        return result;
+    }
+};
+
+
+} // namespace boost::msm::backmp11::detail
 
 #endif // BOOST_MSM_BACKMP11_DETAIL_TRANSITION_TABLE_HPP

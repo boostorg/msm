@@ -54,8 +54,8 @@ struct StateMachineBase_ : state_machine_def<T>
         exit_counter++;
     }
 
-    template <class FSM,class Event>
-    void no_transition(Event const& , FSM&,int )
+    template <class FSM, class Event>
+    void no_transition(Event const&, FSM&, int)
     {
         BOOST_TEST_FAIL("no_transition called!");
     }
@@ -65,5 +65,5 @@ struct StateMachineBase_ : state_machine_def<T>
 };
 
 
-} // inline namespace test
+} // namespace test
 }}} // namespace boost::msm::front
