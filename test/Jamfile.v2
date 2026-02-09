@@ -76,6 +76,7 @@ test-suite msm-unit-tests
 
 test-suite msm-unit-tests-cxxstd17
     :
+    [ run Backmp11Completion.cpp ]
     [ run Backmp11Constructor.cpp ]
     [ run Backmp11Context.cpp ]
     [ run Backmp11Deferred.cpp ]

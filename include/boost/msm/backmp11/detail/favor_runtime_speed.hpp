@@ -36,12 +36,6 @@ struct compile_policy_impl<favor_runtime_speed>
         return event;
     }
 
-    template <typename Event>
-    static constexpr bool is_completion_event(const Event&)
-    {
-        return has_completion_event<Event>::value;
-    }
-
     template <typename StateMachine, typename Event>
     static bool is_end_interrupt_event(StateMachine& sm, const Event&)
     {
@@ -139,14 +133,14 @@ struct compile_policy_impl<favor_runtime_speed>
     {
       public:
         // Dispatch an event.
-        static process_result dispatch(StateMachine& sm, int& state_id,
+        static process_result dispatch(StateMachine& sm, int region_id,
                                        const Event& event)
         {
             if constexpr (has_transitions::value ||
                           has_forward_transitions::value)
             {
                 const dispatch_table_impl& self = dispatch_table_impl::instance();
-                return self.dispatch(sm, state_id, event);
+                return self.dispatch(sm, region_id, event);
             }
             return process_result::HANDLED_FALSE;
         }
@@ -163,7 +157,7 @@ struct compile_policy_impl<favor_runtime_speed>
         }
 
       private:
-        using cell_t = process_result (*)(StateMachine&, int&, Event const&);
+        using cell_t = process_result (*)(StateMachine&, int /*region_id*/, Event const&);
 
         // All dispatch tables are friend with each other to check recursively
         // whether forward transitions are required.
@@ -242,12 +236,13 @@ struct compile_policy_impl<favor_runtime_speed>
             }
 
             process_result dispatch(
-                StateMachine& sm, int& state_id, const Event& event) const
+                StateMachine& sm, int region_id, const Event& event) const
             {
+                const int state_id = sm.m_active_state_ids[region_id];
                 const cell_t& cell = m_cells[state_id];
                 if (cell)
                 {
-                    return cell(sm, state_id, event);
+                    return cell(sm, region_id, event);
                 }
                 return process_result::HANDLED_FALSE;
             }
@@ -277,11 +272,11 @@ struct compile_policy_impl<favor_runtime_speed>
 
             template <typename Transition>
             static process_result convert_event_and_execute(StateMachine& sm,
-                                                            int& state_id,
+                                                            int region_id,
                                                             Event const& evt)
             {
                 typename Transition::transition_event kleene_event{evt};
-                return Transition::execute(sm, state_id, kleene_event);
+                return Transition::execute(sm, region_id, kleene_event);
             }
 
             template <size_t index, cell_t cell>
@@ -334,9 +329,10 @@ struct compile_policy_impl<favor_runtime_speed>
 
                 static process_result execute(
                     StateMachine& sm,
-                    [[maybe_unused]] int& state_id,
+                    int region_id,
                     Event const& event)
                 {
+                    [[maybe_unused]] const int state_id = sm.m_active_state_ids[region_id];
                     BOOST_ASSERT(state_id == StateMachine::template get_state_id<Submachine>());
                     constexpr process_info info =
                         process_info::submachine_call;
@@ -352,35 +348,6 @@ struct compile_policy_impl<favor_runtime_speed>
                 Submachine,
                 mp11::mp_list<forward_transition<Submachine>>>;
 
-            // Class used to execute a chain of transitions for a given event and state.
-            // Handles transition conflicts.
-            template <typename State, typename Transitions>
-            struct transition_chain
-            {
-                using current_state_type = State;
-                using transition_event = Event;
-
-                static process_result execute(StateMachine& sm, int& state_id, Event const& evt)
-                {
-                    process_result result = process_result::HANDLED_FALSE;
-                    mp_for_each_until<Transitions>(
-                        [&result, &sm, &state_id, &evt](auto transition)
-                        {
-                            using Transition = decltype(transition);
-                            result |= Transition::execute(sm, state_id, evt);
-                            if (result & handled_true_or_deferred)
-                            {
-                                // If a guard rejected previously, ensure this bit is not present.
-                                result &= handled_true_or_deferred;
-                                return true;
-                            }
-                            return false;
-                        }
-                    );
-                    return result;
-                }
-            };
-
             // Merge each list of transitions into a chain if needed.
             template <typename State, typename Transitions>
             struct merge_transitions_impl;
@@ -392,7 +359,8 @@ struct compile_policy_impl<favor_runtime_speed>
             template <typename State, typename... Transitions>
             struct merge_transitions_impl<State, mp11::mp_list<Transitions...>>
             {
-                using type = transition_chain<State, mp11::mp_list<Transitions...>>;
+                using type = transition_chain<
+                    StateMachine, State, mp11::mp_list<Transitions...>, Event>;
             };
             template <typename StateAndTransitions>
             using merge_transitions = typename merge_transitions_impl<

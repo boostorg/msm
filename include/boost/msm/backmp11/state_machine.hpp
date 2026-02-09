@@ -694,28 +694,6 @@ class state_machine_base : public FrontEnd
        m_history.reset_active_state_ids(m_active_state_ids);
     }
 
-    // Handling of completion transitions.
-    template <typename Transition>
-    using is_completion_transition =
-        has_completion_event<typename Transition::transition_event>;
-
-    void try_process_completion_event(bool handled)
-    {
-        // MSVC requires a detail prefix.
-        using table = detail::transition_table<derived_t>;
-        using index = mp11::mp_find_if<table, is_completion_transition>;
-
-        if constexpr (index::value != mp11::mp_size<table>::value)
-        {
-            if (handled)
-            {
-                using completion_event =
-                    typename mp11::mp_at<table, index>::transition_event;
-                process_event(completion_event{});
-            }
-        }
-    }
-    
     // Main function used internally to process events.
     // Explicitly not inline, because code size can significantly increase if
     // this method's content is inlined in all existing process_info contexts.
@@ -791,10 +769,6 @@ class state_machine_base : public FrontEnd
 #endif
         m_event_processing = false;
 
-        // Process completion transitions BEFORE any other event in the
-        // pool (UML Standard 2.3 15.3.14)
-        try_process_completion_event(result & process_result::HANDLED_TRUE);
-
         // After handling, look if we have more to process in the event pool
         // (but only if we're not already processing from it).
         if constexpr (event_pool_member::value)
@@ -820,8 +794,7 @@ class state_machine_base : public FrontEnd
         // Dispatch the event to every region.
         for (int region_id = 0; region_id < nr_regions; region_id++)
         {
-            result |= dispatch_table::dispatch(
-                self(), m_active_state_ids[region_id], event);
+            result |= dispatch_table::dispatch(self(), region_id, event);
         }
         // Dispatch the event to the SM-internal table if it hasn't been consumed yet.
         if (!(result & handled_true_or_deferred))
@@ -833,14 +806,102 @@ class state_machine_base : public FrontEnd
         // generate an error on every active state.
         // For events coming from upper machines, do not handle
         // but let the upper sm handle the error.
-        // Completion events do not produce an error.
-        if (!(result || (info == process_info::submachine_call) || compile_policy_impl::is_completion_event(event)))
+        if (!result && !(info == process_info::submachine_call))
         {
             for (const auto state_id: m_active_state_ids)
             {
                 this->no_transition(event, get_fsm_argument(), state_id);
             }
         }
+        return result;
+    }
+
+    // MSCV Bug:
+    // Compile error if this class is named completion_event.
+    template <typename State>
+    class completion_event_occurrence : public event_occurrence
+    {
+        // Merge each list of transitions into a chain if needed.
+        template <typename Transitions>
+        struct merge_transitions_impl;
+        template <typename Transition>
+        struct merge_transitions_impl<mp11::mp_list<Transition>>
+        {
+            using type = Transition;
+        };
+        template <typename... Transitions>
+        struct merge_transitions_impl<mp11::mp_list<Transitions...>>
+        {
+            using list = mp11::mp_list<Transitions...>;
+            using completion_event =
+                typename mp11::mp_first<list>::transition_event;
+            using type =
+                transition_chain<derived_t, State, list, completion_event>;
+        };
+        template <typename Transitions>
+        using merge_transitions =
+            typename merge_transitions_impl<Transitions>::type;
+        using completion_transitions =
+            detail::completion_transitions<derived_t, State>;
+        using completion_transition = merge_transitions<completion_transitions>;
+
+      public:
+        completion_event_occurrence(derived_t& sm, int region_id)
+            : m_sm(sm), m_region_id(region_id)
+        {
+        }
+
+        std::optional<process_result> process(uint16_t /*seq_cnt*/) override
+        {
+            marked_for_deletion = true;
+            return m_sm.template
+                process_completion_transition<completion_transition>(m_region_id);
+        }
+
+      private:
+        derived_t& m_sm;
+        int m_region_id;
+    };
+
+    template <typename Transition>
+    process_result process_completion_transition(int region_id)
+    {
+        // If the state machine has terminate or interrupt flags, check them.
+        if constexpr (mp11::mp_any_of<state_set, is_state_blocking>::value)
+        {
+            // If the state machine is interrupted or terminated, do not handle any event.
+            if (is_flag_active<TerminateFlag>() || is_flag_active<InterruptedFlag>())
+            {
+                return process_result::HANDLED_TRUE;
+            }
+        }
+
+        // Process the event.
+        using completion_event = typename Transition::transition_event;
+        completion_event event{};
+        m_event_processing = true;
+        process_result result;
+#ifndef BOOST_NO_EXCEPTIONS
+        if constexpr (has_no_exception_thrown<front_end_t>::value)
+        {
+            result = Transition::execute(self(), region_id, event);
+        }
+        else
+        {
+            try
+            {
+                result = Transition::execute(self(), region_id, event);
+            }
+            catch (std::exception& e)
+            {
+                // give a chance to the concrete state machine to handle
+                this->exception_caught(event, get_fsm_argument(), e);
+            }
+        }
+#else
+        result = Transition::execute(self(), state_id, event);
+#endif
+        m_event_processing = false;
         return result;
     }
 
@@ -953,10 +1014,6 @@ class state_machine_base : public FrontEnd
     {
         m_event_processing = false;
 
-        // Process completion transitions BEFORE any other event in the
-        // pool (UML Standard 2.3 15.3.14)
-        try_process_completion_event(true);
-
         // After handling, look if we have more to process in the event pool.
         if constexpr (event_pool_member::value)
         {
@@ -977,11 +1034,13 @@ class state_machine_base : public FrontEnd
         void operator()(State& state)
         {
             state.on_entry(m_event, m_self.get_fsm_argument());
+            m_self.template on_state_entry_completed<State>(m_region_id++);
         }
 
       private:
         derived_t& m_self;
         const Event& m_event;
+        int m_region_id{};
     };
 
 
@@ -1064,6 +1123,24 @@ class state_machine_base : public FrontEnd
 
         // Execute the second part of the compound transition.
         process_event(event);
+    }
+
+    template <typename State>
+    void on_state_entry_completed(int region_id)
+    {
+        // Exclude composite states from completion transitions,
+        // these should fire when all their regions reach a final state
+        // (and final states do not exist yet).
+        if constexpr(
+            !is_composite<State>::value &&
+            has_completion_transitions<derived_t, State>::value)
+        {
+            auto& event_pool = get_event_pool();
+            // Process completion transitions BEFORE any other event in the
+            // pool (UML Standard 2.3 15.3.14).
+            event_pool.events.push_front(basic_unique_ptr<event_occurrence>{
+                new completion_event_occurrence<State>(self(), region_id)});
+        }
     }
 
     template <class Event, class Fsm>
