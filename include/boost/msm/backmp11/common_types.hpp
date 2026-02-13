@@ -91,24 +91,6 @@ constexpr visit_mode operator|(visit_mode lhs, visit_mode rhs)
 namespace detail
 {
 
-// Occurrence of an event.
-// Event occurrences are placed in an event pool for later processing.
-class event_occurrence
-{
-  public:
-    virtual ~event_occurrence() = default;
-
-    // Try to process the event.
-    // A return value std::nullopt means that the conditions for processing
-    // were not given and the event has not been dispatched.
-    virtual std::optional<process_result> process(uint16_t seq_cnt) = 0;
-
-    // Flag set when this event has been processed and can be erased.
-    // Deletion is deferred to allow the use of std::deque,
-    // which provides better cache locality and lower per-element overhead.
-    bool marked_for_deletion{};
-};
-
 // Additional info required for event processing.
 enum class process_info
 {
@@ -121,55 +103,80 @@ enum class process_info
 static constexpr process_result handled_true_or_deferred =
     process_result::HANDLED_TRUE | process_result::HANDLED_DEFERRED;
 
-// Minimal implementation of a unique_ptr.
-// Used to keep header dependencies to a minimum
-// (from C++20 the memory header includes ostream).
-template <typename T>
-class basic_unique_ptr
+// Occurrence of an event.
+// Event occurrences are placed in an event pool for later processing.
+class event_occurrence
 {
+    using process_fnc_t = std::optional<process_result> (*)(
+        event_occurrence&, void* /*sm*/, uint16_t /*seq_cnt*/);
+
   public:
-    explicit basic_unique_ptr(T* ptr) noexcept : m_ptr(ptr)
+    event_occurrence(process_fnc_t process_fnc) : m_process_fnc(process_fnc)
     {
     }
 
-    ~basic_unique_ptr()
+    // Try to process the event.
+    // A return value std::nullopt means that the conditions for processing
+    // were not given and the event has not been dispatched.
+    template <typename StateMachine>
+    std::optional<process_result> try_process(StateMachine& sm, uint16_t seq_cnt)
     {
-        delete m_ptr;
-    }
-    
-    basic_unique_ptr(const basic_unique_ptr&) = delete;
-    basic_unique_ptr& operator=(const basic_unique_ptr&) = delete;
-
-    basic_unique_ptr(basic_unique_ptr&& other) noexcept : m_ptr(other.m_ptr)
-    {
-        other.m_ptr = nullptr;
+        return m_process_fnc(*this, static_cast<void*>(&sm), seq_cnt);
     }
 
-    basic_unique_ptr& operator=(basic_unique_ptr&& other) noexcept
+    void mark_for_deletion()
     {
-        delete m_ptr;
-        m_ptr = other.m_ptr;
-        other.m_ptr = nullptr;
-        return *this;
+        m_marked_for_deletion = true;
     }
 
-    T* get() const noexcept
+    bool marked_for_deletion() const
     {
-        return m_ptr;
-    }
-
-    T& operator*() const noexcept
-    {
-        return *m_ptr;
-    }
-
-    T* operator->() const noexcept
-    {
-        return m_ptr;
+        return m_marked_for_deletion;
     }
 
   private:
-    T* m_ptr{};
+    process_fnc_t m_process_fnc{};
+    // Flag set when this event has been processed and can be erased.
+    // Deletion is deferred to allow the use of std::deque,
+    // which provides better cache locality and lower per-element overhead.
+    bool m_marked_for_deletion{};
+};
+
+template <typename Event>
+class deferred_event : public event_occurrence
+{
+
+  public:
+    template <typename StateMachine>
+    deferred_event(StateMachine&, const Event& event, uint16_t seq_cnt) noexcept
+        : event_occurrence(&try_process<StateMachine>), m_seq_cnt(seq_cnt), m_event(event)
+    {
+    }
+
+    template <typename StateMachine>
+    static std::optional<process_result> try_process(event_occurrence& self, void* sm, uint16_t seq_cnt)
+    {
+        return static_cast<deferred_event*>(&self)
+            ->try_process_impl<StateMachine>(*reinterpret_cast<StateMachine*>(sm), seq_cnt);
+    }
+
+    template <typename StateMachine>
+    std::optional<process_result> try_process_impl(StateMachine& sm, uint16_t seq_cnt)
+    {
+        if ((m_seq_cnt == seq_cnt) ||
+            StateMachine::compile_policy_impl::is_event_deferred(sm, m_event))
+        {
+            return std::nullopt;
+        }
+        mark_for_deletion();
+        return sm.process_event_internal(
+            m_event,
+            process_info::event_pool);
+    }
+
+  private:
+    uint16_t m_seq_cnt;
+    Event m_event;
 };
 
 } // namespace detail

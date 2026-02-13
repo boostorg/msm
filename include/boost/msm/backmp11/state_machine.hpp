@@ -24,8 +24,9 @@
 
 #include <boost/msm/active_state_switching_policies.hpp>
 #include <boost/msm/row_tags.hpp>
-#include <boost/msm/backmp11/detail/history_impl.hpp>
+#include <boost/msm/backmp11/detail/basic_polymorphic_value.hpp>
 #include <boost/msm/backmp11/detail/favor_runtime_speed.hpp>
+#include <boost/msm/backmp11/detail/history_impl.hpp>
 #include <boost/msm/backmp11/detail/state_visitor.hpp>
 #include <boost/msm/backmp11/detail/transition_table.hpp>
 #include <boost/msm/backmp11/common_types.hpp>
@@ -216,10 +217,10 @@ class state_machine_base : public FrontEnd
     using states_t = mp11::mp_rename<typename internal::state_set, std::tuple>;
 
   protected:
+    using processable_event = basic_polymorphic_value<event_occurrence>;
     template <typename T>
     using event_container = typename config_t::template event_container<T>;
-    using event_container_t =
-        event_container<basic_unique_ptr<event_occurrence>>;
+    using event_container_t = event_container<processable_event>;
 
     struct event_pool_t
     {
@@ -270,6 +271,9 @@ class state_machine_base : public FrontEnd
 
     template <typename, typename, visit_mode, typename, template <typename> typename...>
     friend class state_visitor_impl;
+
+    template <typename Event>
+    friend class deferred_event;
 
     // Allow access to private members for serialization.
     // WARNING:
@@ -846,20 +850,25 @@ class state_machine_base : public FrontEnd
         using completion_transition = merge_transitions<completion_transitions>;
 
       public:
-        completion_event_occurrence(derived_t& sm, int region_id)
-            : m_sm(sm), m_region_id(region_id)
+        completion_event_occurrence(int region_id)
+            : event_occurrence(&try_process), m_region_id(region_id)
         {
         }
 
-        std::optional<process_result> process(uint16_t /*seq_cnt*/) override
+        static std::optional<process_result> try_process(event_occurrence& self, void* sm, uint16_t /*seq_cnt*/)
         {
-            marked_for_deletion = true;
-            return m_sm.template
-                process_completion_transition<completion_transition>(m_region_id);
+            return static_cast<completion_event_occurrence*>(&self)
+                ->try_process_impl(*reinterpret_cast<derived_t*>(sm));
         }
 
       private:
-        derived_t& m_sm;
+            std::optional<process_result> try_process_impl(derived_t& sm)
+            {
+                mark_for_deletion();
+                return sm.template
+                    process_completion_transition<completion_transition>(m_region_id);
+            }
+
         int m_region_id;
     };
 
@@ -920,14 +929,14 @@ class state_machine_base : public FrontEnd
         {
             event_occurrence& event = **it;
             // The event was already processed.
-            if (event.marked_for_deletion)
+            if (event.marked_for_deletion())
             {
                 it = event_pool.events.erase(it);
                 continue;
             }
 
             std::optional<process_result> result =
-                event.process(event_pool.cur_seq_cnt);
+                event.try_process(self(), event_pool.cur_seq_cnt);
             // The event has not been dispatched.
             if (!result.has_value())
             {
@@ -961,43 +970,14 @@ class state_machine_base : public FrontEnd
         return processed_events;
     }
 
-    template <typename Event>
-    class deferred_event : public event_occurrence
-    {
-      public:
-        deferred_event(derived_t& sm, const Event& event, uint16_t seq_cnt)
-            : m_sm(sm), m_seq_cnt(seq_cnt), m_event(event)
-        {
-        }
-
-        std::optional<process_result> process(uint16_t seq_cnt) override
-        {
-            auto& sm = m_sm;
-            if ((m_seq_cnt == seq_cnt) ||
-                compile_policy_impl::is_event_deferred(sm, m_event))
-            {
-                return std::nullopt;
-            }
-            this->marked_for_deletion = true;
-            return sm.process_event_internal(
-                m_event,
-                process_info::event_pool);
-        }
-
-      private:
-        derived_t& m_sm;
-        const uint16_t m_seq_cnt;
-        const Event m_event;
-    };
-
     template <class Event>
     void do_defer_event(const Event& event, bool next_rtc_seq)
     {
         auto& event_pool = get_event_pool();
         const uint16_t seq_cnt = next_rtc_seq ? event_pool.cur_seq_cnt
                                               : event_pool.cur_seq_cnt - 1;
-        event_pool.events.push_back(basic_unique_ptr<event_occurrence>{
-            new deferred_event<Event>(self(), event, seq_cnt)});
+        event_pool.events.push_back(processable_event::make(
+            deferred_event<Event>{self(), event, seq_cnt}));
     }
 
     template <class Event, class Fsm>
@@ -1138,8 +1118,9 @@ class state_machine_base : public FrontEnd
             auto& event_pool = get_event_pool();
             // Process completion transitions BEFORE any other event in the
             // pool (UML Standard 2.3 15.3.14).
-            event_pool.events.push_front(basic_unique_ptr<event_occurrence>{
-                new completion_event_occurrence<State>(self(), region_id)});
+            event_pool.events.push_front(
+                processable_event::make(
+                    completion_event_occurrence<State>{region_id}));
         }
     }
 
