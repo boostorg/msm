@@ -103,12 +103,6 @@ class state_machine_adapter
         return this->get_event_pool().events.size();
     }
 
-    template <class Event>
-    void enqueue_event(Event const& event)
-    {
-        this->defer_event(event);
-    }
-
     void execute_queued_events()
     {
         this->process_event_pool();
@@ -134,7 +128,7 @@ class state_machine_adapter
     // void visit_current_states(...) {...}
 
     // No adapter.
-    // States can be set with `get_state<...>()` or the visitor API.
+    // States can be set with `get_state<...>() = ...` or the visitor API.
     // void set_states(...) {...}
 
     // No adapter.

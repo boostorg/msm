@@ -141,7 +141,7 @@ class state_machine_base : public FrontEnd
         using state = ExitPseudostate;
         using owner = derived_t;
         using event = typename ExitPseudostate::event;
-        using forward_function = std::function<process_result(event const&)>;
+        using forward_function = std::function<void(event const&)>;
 
         // forward event to the higher-level FSM
         template <class ForwardEvent>
@@ -296,6 +296,7 @@ class state_machine_base : public FrontEnd
     using history_impl = detail::history_impl<typename front_end_t::history, nr_regions>;
 
     using deferring_states = mp11::mp_copy_if<state_set, has_deferred_events>;
+    using has_deferring_states = mp11::mp_not<mp11::mp_empty<deferring_states>>;
 
     using context_member =
         optional_instance<context_t*,
@@ -462,18 +463,16 @@ class state_machine_base : public FrontEnd
         return do_process_event_pool(max_events);
     }
 
-    // Enqueues an event in the message queue.
-    // Call process_queued_events to process all queued events.
-    // Be careful if you do this during event processing, the event will be processed immediately
-    // and not kept in the queue.
+    // Enqueues an event in the event pool for later processing.
+    // If the state machine is already processing, the event will be processed
+    // after the current event completes.
     template <class Event,
               bool C = event_pool_member::value,
               typename = std::enable_if_t<C>>
-    [[deprecated ("Use defer_event(event) instead")]]
     void enqueue_event(Event const& event)
     {
         compile_policy_impl::defer_event(
-            *this, compile_policy_impl::normalize_event(event), !m_event_processing);
+            *this, compile_policy_impl::normalize_event(event), false);
     }
 
     // Process all queued events.
@@ -676,6 +675,12 @@ class state_machine_base : public FrontEnd
     {
         return const_cast<fsm_parameter_t&>
             (static_cast<const state_machine_base&>(*this).get_fsm_argument());
+    }
+
+    template <typename Event>
+    bool is_event_deferred(const Event& event) const
+    {
+        return compile_policy_impl::is_event_deferred(self(), event);
     }
 
     // Checks if an event is an end interrupt event.
@@ -1179,7 +1184,7 @@ class state_machine_base : public FrontEnd
                     state.set_forward_fct(
                         [&root_sm](typename State::event const& event)
                         {
-                            return root_sm.process_event(event);
+                            return root_sm.enqueue_event(event);
                         }
                     );
                 }

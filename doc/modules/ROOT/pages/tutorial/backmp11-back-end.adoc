@@ -75,18 +75,24 @@ a| The default setting of the `Fsm` parameter was named `transition_owner`, whic
 
 *Change:* The behavior will be corrected to match `back` and the default setting will be renamed to `local_transition_owner` in 1.91. The previous setting name `transition_owner` will be deprecated in 1.91 and removed in 1.92.
 
-| Removal of APIs to enqueue events and process queued events
+| Removal of APIs to process queued events
 | 1.91 / 1.92
-a| The event containers for queued events and deferred events have been merged into a single event pool. The APIs related to queued events are obsolete.
+a| The event containers for queued events and deferred events have been merged into a single event pool. The APIs for processing queued events are obsolete.
 
-*Change:* The APIs `enqueue_event`, `process_queued_events`, and `process_single_queued_event` will be removed.
+*Change:* The APIs `process_queued_events`, and `process_single_queued_event` will be removed.
 
 Occurrences of the old APIs can be replaced as follows:
 
-- to process an event as soon as possible, use `process_event`
-- to process an event in the next RTC sequence, use `defer_event`
-- to process one or more events from the event pool, use `process_event_pool` +
-  (this API allows an optional limit for the max. no. of events to be processed and additionally returns the no. of actually processed events)
+- to process a single event in the event pool, use `process_event_pool(1)`
+- to process all events in the event pool, use `process_event_pool()`
+
+| Removal of automatic enqueuing in the `process_event` API
+| 1.91 / 1.92
+a| The API `process_event` automatically enqueues events when the state machine is already processing. This requires instantiating `enqueue_event` for every event type, even though most instances are never called. They are only needed when `process_event` is called in actions.
+
+*Change:* The API `process_event` will reject an event and return `HANDLED_FALSE` when called during event processing instead of automatically enqueueing it.
+
+Calls to `process_event` in actions have to be replaced with `enqueue_event`.
 
 |===
 
@@ -229,7 +235,7 @@ struct CustomStateMachineConfig : public state_machine_config
 The setting `context` sets up a context member in the state machine for dependency injection.
 
 If `using context = Context;` is defined in the config, a reference to it has to be passed to the state machine constructor as first argument.
-The following API becomes available to access it from within the state machine:
+The following API becomes available to access it in the state machine:
 
 ```cpp
 Context& state_machine::get_context();
@@ -241,7 +247,7 @@ const Context& state_machine::get_context() const;
 
 The setting `root_sm` defines the type of the root state machine of hierarchical state machines. The root sm depicts the uppermost state machine.
 
-If `using root_sm = RootSm;` is defined in the config, the following API becomes available to access it from within any sub-state machine:
+If `using root_sm = RootSm;` is defined in the config, the following API becomes available to access it from any sub-state machine:
 
 ```cpp
 RootSm& state_machine::get_root_sm();
@@ -393,6 +399,8 @@ The following adapter pseudo-code showcases the differences to the `back` API:
 ```cpp
 class state_machine_adapter
 {
+    using Flag_AND = backmp11::flag_and;
+
     // The new API returns a const std::array<...>&.
     const int* current_state() const
     {
@@ -416,12 +424,6 @@ class state_machine_adapter
         return this->get_event_pool().events.size();
     }
 
-    template <class Event>
-    void enqueue_event(Event const& event)
-    {
-        this->defer_event(event);
-    }
-
     void execute_queued_events()
     {
         this->process_event_pool();
@@ -439,13 +441,7 @@ class state_machine_adapter
 
     void clear_deferred_queue()
     {
-        this->get_event_pool().events.clear()
-    }
-
-    template <class Flag>
-    bool is_flag_active<Flag, Flag_AND>() const
-    {
-        return is_flag_active<Flag, flag_and>();
+        this->get_event_pool().events.clear();
     }
 
     // No adapter.

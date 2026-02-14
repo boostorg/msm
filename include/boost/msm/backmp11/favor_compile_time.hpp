@@ -164,8 +164,7 @@ struct compile_policy_impl<favor_compile_time>
     template <typename StateMachine>
     static bool is_event_deferred(const StateMachine& sm, const any_event& event)
     {
-        if constexpr (
-            !mp11::mp_empty<typename StateMachine::deferring_states>::value)
+        if constexpr (StateMachine::has_deferring_states::value)
         {
             using visitor_t = is_event_deferred_visitor<StateMachine>;
             visitor_t visitor{sm, event};

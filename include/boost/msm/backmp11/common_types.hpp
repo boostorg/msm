@@ -163,8 +163,7 @@ class deferred_event : public event_occurrence
     template <typename StateMachine>
     std::optional<process_result> try_process_impl(StateMachine& sm, uint16_t seq_cnt)
     {
-        if ((m_seq_cnt == seq_cnt) ||
-            StateMachine::compile_policy_impl::is_event_deferred(sm, m_event))
+        if ((m_seq_cnt == seq_cnt) || sm.is_event_deferred(m_event))
         {
             return std::nullopt;
         }
