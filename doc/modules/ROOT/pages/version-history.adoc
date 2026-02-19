@@ -12,6 +12,7 @@
 * feat(backmp11): Small Object Optimization for events in the event pool (https://github.com/boostorg/msm/issues/172[#172])
 * feat(backmp11): Improve support for the `deferred_events` property in hierarchical state machines (https://github.com/boostorg/msm/issues/173[#173])
 * feat(backmp11): Improve runtime performance with a `flat_fold` dispatch strategy (https://github.com/boostorg/msm/issues/180[#180])
+* feat(backmp11): Simplified functor signatures (https://github.com/boostorg/msm/issues/175[#175])
 
 == Boost 1.90
 

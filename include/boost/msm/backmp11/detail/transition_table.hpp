@@ -18,8 +18,110 @@
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
 #include "boost/msm/backmp11/state_machine_config.hpp"
 
+namespace boost::msm::front
+{
+    struct Defer;
+};
+
 namespace boost::msm::backmp11::detail
 {
+
+// Chain of priority tags for SFINAE handling:
+// priority_tag_0 
+//   ↓ (SFINAE fails?)
+// priority_tag_1 (base of priority_tag_0)
+//   ↓ (SFINAE fails?)
+// priority_tag_2 (base of priority_tag_1)
+struct priority_tag_2 {};
+struct priority_tag_1 : priority_tag_2 {};
+struct priority_tag_0 : priority_tag_1 {};
+
+template <typename Functor, typename Event, typename Fsm, typename Source,
+          typename Target>
+auto invoke_functor(priority_tag_0, Functor&&, const Event& event, Fsm& fsm,
+                    Source& source, Target& target)
+    -> decltype(Functor{}(event, fsm, source, target))
+{
+    return Functor{}(event, fsm, source, target);
+}
+template <typename Functor, typename Event, typename Fsm, typename Source,
+          typename Target>
+auto invoke_functor(priority_tag_1, Functor&&, const Event& event, Fsm& fsm, Source&,
+                    Target&) -> decltype(Functor{}(event, fsm))
+{
+    return Functor{}(event, fsm);
+}
+template <typename Functor, typename Event, typename Fsm, typename Source,
+          typename Target>
+auto invoke_functor(priority_tag_2, Functor&&, const Event&, Fsm& fsm, Source&,
+                    Target&) -> decltype(Functor{}(fsm))
+{
+    return Functor{}(fsm);
+}
+
+template <typename Row>
+using get_Guard = typename Row::Guard;
+template <typename Row>
+struct has_Guard : mp11::mp_valid<get_Guard, Row> {};
+
+template <typename Functor>
+struct invoke_guard_functor
+{
+    template <typename Event, typename Fsm, typename Source, typename Target>
+    static bool execute(const Event& event, Fsm& fsm, Source& source,
+                        Target& target)
+    {
+        return invoke_functor<Functor>(priority_tag_0{}, Functor{}, event, fsm,
+                                       source, target);
+    }
+};
+template <>
+struct invoke_guard_functor<front::none>
+{
+    template <typename Event, typename Fsm, typename Source, typename Target>
+    static bool execute(const Event&, Fsm&, Source&, Target&)
+    {
+        return true;
+    }
+};
+
+template <typename Row>
+using get_Action = typename Row::Action;
+template <typename Row>
+struct has_Action : mp11::mp_valid<get_Action, Row> {};
+
+template <typename Functor>
+struct invoke_action_functor
+{
+    template <typename Event, typename Fsm, typename Source, typename Target>
+    static process_result execute(const Event& event, Fsm& fsm, Source& source,
+                                  Target& target)
+    {
+        invoke_functor<Functor>(priority_tag_0{}, Functor{}, event, fsm, source,
+                                target);
+        return process_result::HANDLED_TRUE;
+    }
+};
+template <>
+struct invoke_action_functor<front::none>
+{
+    template <typename Event, typename Fsm, typename Source, typename Target>
+    static process_result execute(const Event&, Fsm&, Source&, Target&)
+    {
+        return process_result::HANDLED_TRUE;
+    }
+};
+template <>
+struct invoke_action_functor<front::Defer>
+{
+    template <typename Event, typename Fsm, typename Source, typename Target>
+    static process_result execute(const Event& event, Fsm& fsm, Source&,
+                                  Target&)
+    {
+        fsm.defer_event(event);
+        return process_result::HANDLED_DEFERRED;
+    }
+};
 
 template <typename StateMachine>
 struct transition_table_impl
@@ -39,7 +141,12 @@ struct transition_table_impl
     static bool call_guard_or_true(StateMachine& sm, const Event& event,
                                    Source& source, Target& target)
     {
-        if constexpr (HasGuard)
+        if constexpr (has_Guard<Row>::value)
+        {
+            return invoke_guard_functor<typename Row::Guard>::execute(
+                event, sm.get_fsm_argument(), source, target);
+        }
+        else if constexpr (HasGuard)
         {
             return Row::guard_call(
                 sm.get_fsm_argument(), event, source, target, sm.m_states);
@@ -49,13 +156,19 @@ struct transition_table_impl
             return true;
         }
     }
+
     template <typename Row, bool HasAction, typename Event, typename Source,
               typename Target>
     static process_result call_action_or_true(StateMachine& sm,
                                               const Event& event,
                                               Source& source, Target& target)
     {
-        if constexpr (HasAction)
+        if constexpr (has_Action<Row>::value)
+        {
+            return invoke_action_functor<typename Row::Action>::execute(
+                event, sm.get_fsm_argument(), source, target);
+        }
+        else if constexpr (HasAction)
         {
             return Row::action_call(
                 sm.get_fsm_argument(), event, source, target, sm.m_states);

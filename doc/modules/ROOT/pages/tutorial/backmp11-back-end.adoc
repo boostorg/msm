@@ -15,8 +15,8 @@ It offers a significant improvement in runtime and memory usage, as can be seen 
 | back                        | 14                 | 815              | 68               | 2.8
 | back_favor_compile_time     | 17                 | 775              | 226              | 3.5
 | back11                      | 37                 | 2682             | 84               | 2.8
-| backmp11                    | 3                  | 209              | 29               | 0.7
-| backmp11_favor_compile_time | 3                  | 193              | 43               | 6.0
+| backmp11                    | 3                  | 211              | 29               | 0.7
+| backmp11_favor_compile_time | 3                  | 195              | 43               | 6.0
 | sml                         | 5                  | 234              | 57               | 0.3
 |=======================================================================================================
 
@@ -28,8 +28,8 @@ It offers a significant improvement in runtime and memory usage, as can be seen 
 |                                      | Compile time / sec | Compile RAM / MB | Binary size / kB | Runtime / sec
 | back                                 | 49                 | 2165             | 230              | 13.2
 | back_favor_compile_time              | 55                 | 1704             | 911              | > 300
-| backmp11                             | 8                  | 351              | 85               | 3.3
-| backmp11_favor_compile_time          | 5                  | 256              | 100              | 20.4
+| backmp11                             | 8                  | 354              | 85               | 3.4
+| backmp11_favor_compile_time          | 5                  | 262              | 100              | 20.4
 | backmp11_favor_compile_time_multi_cu | 5                  | ~863             | 100              | 20.8
 | sml                                  | 18                 | 543              | 422              | 5.4
 |================================================================================================================
@@ -169,6 +169,10 @@ If the type of the state appears multiple times in a hierarchical state machine,
 // The behaviors are start and stop are:
 // - if `start()` is called for a running state machine, the call is ignored
 // - if `stop()` is called on a stopped (not running) state machine, the call is ignored
+
+=== Support for simplified functor signatures
+
+Further described in xref:./functor-front-end.adoc#simplified_functor_signatures[the functor front-end documentation].
 
 
 === Simplified state machine signature
