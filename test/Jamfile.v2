@@ -81,6 +81,7 @@ test-suite msm-unit-tests-cxxstd17
     [ run Backmp11Constructor.cpp ]
     [ run Backmp11Context.cpp ]
     [ run Backmp11Deferred.cpp ]
+    [ run Backmp11FunctorApi.cpp ]
     [ run Backmp11EntryExit.cpp ]
     [ run Backmp11ManyDeferTransitions.cpp ]
     [ run Backmp11RootSm.cpp ]

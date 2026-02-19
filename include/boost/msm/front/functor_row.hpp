@@ -361,5 +361,12 @@ namespace boost { namespace msm { namespace front
             fsm.defer_event(evt);
         }
     };
+
+#if __cplusplus >= 202002L
+    // Wrapper to make a functor from a lambda.
+    template <auto T>
+    struct Lambda : decltype(T) {};
+#endif
+
 }}}
 #endif //BOOST_MSM_FRONT_FUNCTOR_ROW_H
