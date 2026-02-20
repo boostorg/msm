@@ -14,6 +14,7 @@
 
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
 #include <boost/msm/backmp11/detail/dispatch_table.hpp>
+#include <boost/msm/backmp11/detail/state_visitor.hpp>
 #include <boost/msm/backmp11/detail/transition_table.hpp>
 #include <boost/msm/backmp11/event_traits.hpp>
 
@@ -42,51 +43,58 @@ struct compile_policy_impl<favor_runtime_speed>
         return sm.template is_flag_active<EndInterruptFlag<Event>>();
     }
 
-    template <typename StateMachine, typename Event>
-    struct is_event_deferred_visitor
+    template <typename Event>
+    class is_event_deferred_visitor : public is_event_deferred_visitor_base
     {
-        // Apply a pre-filter with the 'has_deferred_events' predicate
-        // to consider only deferring states
-        // (this subset needs to be instantiated only once for the SM).
-        template <typename State>
-        using predicate = has_deferred_events<State>;
+      public:
         template <typename State>
         using predicate2 = has_deferred_event<State, Event>;
 
-        is_event_deferred_visitor(const StateMachine& sm, const Event& event)
-            : sm(sm), event(event)
+        is_event_deferred_visitor(const Event& event) : m_event(event)
         {
         }
 
-        template <typename State>
-        void operator()(const State& state)
+        template <typename State, typename Fsm>
+        void operator()(const State& state, Fsm& fsm)
         {
-            result |= state.is_event_deferred(event, sm.get_fsm_argument());
+            m_result |= state.is_event_deferred(m_event, fsm);
         }
 
-        const StateMachine& sm;
-        const Event& event;
-        bool result{false};
+      private:
+        const Event& m_event;
     };
 
     template <typename StateMachine, typename Event>
     static bool is_event_deferred(const StateMachine& sm, const Event& event)
     {
-        if constexpr (has_deferred_event<
-                          typename StateMachine::deferring_states,
-                          Event>::value)
+        // Instantiate the templates for checking lazily,
+        // optimize for the no deferred events case.
+        using base_visit_set =
+            recursive_visit_set<const StateMachine,
+                                is_event_deferred_visitor_base::predicate>;
+        // First check:
+        // We have have deferring states.
+        if constexpr (base_visit_set::needs_traversal::value)
         {
-            using visitor_t = is_event_deferred_visitor<StateMachine, Event>;
-            visitor_t visitor{sm, event};
-            sm.template visit_if<visit_mode::active_non_recursive,
-                                 visitor_t::template predicate,
-                                 visitor_t::template predicate2>(visitor);
-            return visitor.result;
+            using visitor_t = is_event_deferred_visitor<Event>;
+            using minimal_visit_set =
+                recursive_visit_set<const StateMachine,
+                                    is_event_deferred_visitor_base::predicate,
+                                    visitor_t::template predicate2>;
+            // Second check:
+            // We have deferring states that defer this event.
+            if constexpr (minimal_visit_set::needs_traversal::value)
+            {
+                using state_visitor =
+                    event_deferral_visitor<const StateMachine, visitor_t,
+                                           visitor_t::template predicate,
+                                           visitor_t::template predicate2>;
+                visitor_t visitor{event};
+                state_visitor::visit(sm, visitor);
+                return visitor.result();
+            }
         }
-        else
-        {
-            return false;
-        }
+        return false;
     }
 
     template <typename StateMachine, typename Event>
@@ -200,7 +208,7 @@ struct compile_policy_impl<favor_runtime_speed>
         // All submachines that could process the event or need to
         // forward it to sub-submachines require a pseudo-transition
         // for forwarding.
-        // This function recursively walks through submachines and
+        // This metafunction recursively walks through submachines and
         // uses the same metafunctions for checking which are 
         // anyways needed for dispatch table creation.
         template <typename Submachine>

@@ -214,7 +214,7 @@ struct default_state_machine_config
     using root_sm = no_root_sm;
     // Type of the Fsm parameter passed in actions and guards.
     using fsm_parameter = local_transition_owner;
-    // Which event container to use for the event pool.
+    // Which container to use for the event pool.
     template <typename T>
     using event_container = std::deque<T>;
 };
@@ -321,11 +321,41 @@ A similar friend declaration is available in the `history_impl` classes.
 This design allows you to provide any serializer implementation, but due to the need to access private members there is no guarantee that your implementation breaks in a new version of the back-end.
 ====
 
+=== Unified event pool for queued and deferred events
 
-=== Support for conditional event deferral with the `deferred_events` property
+The containers for queued and deferred events have been merged into a single event pool.
+This unification results in improved processing performance if both types of events are used, because only one container needs to be traversed.
 
-In `back` & `back11`, the events mentioned in a state's `deferred_events` property are always deferred.
-In `backmp11``, they can be deferred conditionally by defining a method `is_event_deferred` for them:
+It is also no longer required to set up `activate_deferred_events` in a state machine's front-end to use `Defer` actions.
+
+
+=== Enhanced capabilities of the `deferred_events` property
+
+**Better performance:**
+
+Deferred events are inspected with a recursive visitor to decide whether 
+they remain deferred or are ready to be dispatched. This avoids the 
+overhead of dispatching and re-queuing them into the event pool for 
+re-evaluation.
+
+**Improved support in hierarchical state machines:**
+
+Prior to the recursive visitor mechanism, an event could have been 
+forwarded to a submachine for processing and then stored in 
+its event pool. Events stored in a submachine's event pool can only be 
+consumed by that submachine and its descendants; other submachines at 
+the same hierarchy level are unable to receive them.
+
+With the recursive visitor mechanism, deferred events are stored in the 
+event pool of the state machine that was requested to process the event. 
+This is usually the root state machine, in which case all submachines 
+can receive the event upon dispatch.
+
+**Conditional event deferral:**
+
+In `back` and `back11`, the events listed in a state's `deferred_events` 
+property are always deferred. In `backmp11`, deferral can be made 
+conditional by defining an `is_event_deferred` method in the state:
 
 ```cpp
 struct MyState : boost::msm::front::state<>
@@ -335,7 +365,7 @@ struct MyState : boost::msm::front::state<>
     template <typename Fsm>
     bool is_event_deferred(const MyEvent& event, Fsm& fsm) const
     {
-        // Return false or true to decide
+        // Return true or false to decide
         // whether the event shall be deferred.
         ...
     }
