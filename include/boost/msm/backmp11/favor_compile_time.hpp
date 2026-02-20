@@ -15,12 +15,12 @@
 #include <functional>
 #include <typeindex>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include <boost/msm/front/completion_event.hpp>
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
 #include <boost/msm/backmp11/detail/dispatch_table.hpp>
+#include <boost/msm/backmp11/detail/state_visitor.hpp>
 #include <boost/msm/backmp11/detail/transition_table.hpp>
 #include <boost/msm/backmp11/event_traits.hpp>
 
@@ -91,29 +91,28 @@ struct compile_policy_impl<favor_compile_time>
 
     // Dispatch table for event deferral checks.
     // Converts any_events and calls 'is_event_deferred' on states.
-    template <typename StateMachine>
     class is_event_deferred_dispatch_table
     {
       public:
-        template <typename State>
-        static bool dispatch(const StateMachine& sm, const State& state,
-                             const any_event& event)
+        template <typename State, typename Fsm>
+        static bool dispatch(const State& state, const any_event& event,
+                             const Fsm& fsm)
         {
-            static const is_event_deferred_dispatch_table table{state};
+            static const is_event_deferred_dispatch_table table{state, fsm};
             auto it = table.m_cells.find(event.type());
             if (it != table.m_cells.end())
             {
                 using real_cell =
-                    bool (*)(const StateMachine&, const State&, const any_event&);
+                    bool (*)(const State&, const any_event&, const Fsm&);
                 auto cell = reinterpret_cast<real_cell>(it->second);
-                return (*cell)(sm, state, event);
+                return (*cell)(state, event, fsm);
             }
             return false;
         }
 
       private:
-        template <typename State>
-        is_event_deferred_dispatch_table(const State&)
+        template <typename State, typename Fsm>
+        is_event_deferred_dispatch_table(const State&, const Fsm&)
         {
             using deferred_events = to_mp_list_t<typename State::deferred_events>;
             using deferred_event_identities =
@@ -123,59 +122,55 @@ struct compile_policy_impl<favor_compile_time>
                 {
                     using Event = typename decltype(event_identity)::type;
                     m_cells[to_type_index<Event>()] =
-                        reinterpret_cast<generic_cell>(&convert_and_execute<State, Event>);
+                        reinterpret_cast<generic_cell>(&convert_and_execute<State, Event, Fsm>);
                 });
         }
 
-        template<typename State, typename Event>
-        static bool convert_and_execute(const StateMachine& sm, const State& state,
-                                        const any_event& event)
+        template <typename State, typename Event, typename Fsm>
+        static bool convert_and_execute(const State& state,
+                                        const any_event& event, const Fsm& fsm)
         {
-            return state.is_event_deferred(*any_cast<Event>(&event),
-                                           sm.get_fsm_argument());
+            return state.is_event_deferred(*any_cast<Event>(&event), fsm);
         }
 
         std::unordered_map<std::type_index, generic_cell> m_cells;
     };
 
-    template <typename StateMachine>
-    struct is_event_deferred_visitor
+    class is_event_deferred_visitor : public is_event_deferred_visitor_base
     {
-        template <typename State>
-        using predicate = has_deferred_events<State>;
-
-        is_event_deferred_visitor(const StateMachine& sm, const any_event& event)
-            : sm(sm), event(event)
+      public:
+        is_event_deferred_visitor(const any_event& event)
+            : m_event(event)
         {
         }
 
-        template <typename State>
-        void operator()(const State& state)
+        template <typename State, typename Fsm>
+        void operator()(const State& state, const Fsm& fsm)
         {
-            using table = is_event_deferred_dispatch_table<StateMachine>;
-            result |= table::dispatch(sm, state, event);
+            using table = is_event_deferred_dispatch_table;
+            m_result |= table::dispatch(state, m_event, fsm);
         }
 
-        const StateMachine& sm;
-        const any_event& event;
-        bool result{false};
+      private:
+        const any_event& m_event;
     };
 
     template <typename StateMachine>
-    static bool is_event_deferred(const StateMachine& sm, const any_event& event)
+    static bool is_event_deferred(const StateMachine& sm,
+                                  const any_event& event)
     {
-        if constexpr (StateMachine::has_deferring_states::value)
+        using visitor_t = is_event_deferred_visitor;
+        using state_visitor =
+            event_deferral_visitor<const StateMachine, 
+                                    visitor_t,
+                                    visitor_t::template predicate>;
+        if constexpr (state_visitor::needs_traversal::value)
         {
-            using visitor_t = is_event_deferred_visitor<StateMachine>;
-            visitor_t visitor{sm, event};
-            sm.template visit_if<visit_mode::active_non_recursive,
-                                 visitor_t::template predicate>(visitor);
-            return visitor.result;
+            visitor_t visitor{event};
+            state_visitor::visit(sm, visitor);
+            return visitor.result();
         }
-        else
-        {
-            return false;
-        }
+        return false;
     }
 
     template <typename StateMachine>

@@ -14,6 +14,7 @@
 
 #include <boost/msm/backmp11/detail/dispatch_table.hpp>
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
+#include <boost/msm/backmp11/state_machine_config.hpp>
 
 namespace boost::msm::backmp11::detail
 {
@@ -23,10 +24,13 @@ constexpr bool has_flag(visit_mode value, visit_mode flag)
     return (static_cast<int>(value) & static_cast<int>(flag)) != 0;
 }
 
-// Helper to apply multiple predicates sequentially.
+// Helper to filter with multiple predicates consecutively.
+// Uses template unrolling to enable re-usage of template instances.
 template <typename List, template <typename> typename... Predicates>
 struct copy_if_impl;
-template <typename List, template <typename> typename Predicate, template <typename> typename... Predicates>
+template <typename List, 
+          template <typename> typename Predicate,
+          template <typename> typename... Predicates>
 struct copy_if_impl<List, Predicate, Predicates...>
 {
     using subset = mp11::mp_copy_if<List, Predicate>;
@@ -40,19 +44,135 @@ struct copy_if_impl<List>
 template <typename List, template <typename> typename... Predicates>
 using copy_if = typename copy_if_impl<List, Predicates...>::type;
 
-template <typename StateMachine, template <typename> typename... Predicates>
-using state_subset = copy_if<typename StateMachine::internal::state_set, Predicates...>;
 
-// State visitor implementation.
-// States to visit can be selected with Mode
-// and additionally compile-time filtered with Predicates.
+template <typename StateMachine,
+          bool Recursive,
+          template <typename> typename... Predicates>
+class state_visitor_base_impl;
+template <typename StateMachine, 
+          template <typename> typename... Predicates>
+class state_visitor_base_impl<
+    StateMachine,
+    /*Recursive=*/false,
+    Predicates...>
+{
+  public:
+    using states_to_visit =
+        copy_if<typename StateMachine::internal::state_set, Predicates...>;
+    using states_to_traverse = states_to_visit;
+
+    using needs_traversal = mp11::mp_not<mp11::mp_empty<states_to_visit>>;
+
+    template <visit_mode Mode, typename State, typename Visitor>
+    static void accept(StateMachine& sm, Visitor& visitor)
+    {
+        auto& state = sm.template get_state<State>();
+        visitor(state);
+    }
+};
+
+// Set with traversal info for recursive visits.
+// Uses template unrolling to enable re-usage of template instances.
+template <typename StateMachine,
+          template <typename> typename... Predicates>
+struct recursive_visit_set;
+template <typename StateMachine>
+struct recursive_visit_set<StateMachine>
+{
+    using states_to_visit = typename StateMachine::internal::state_set;
+    using submachines_to_traverse =
+        typename StateMachine::internal::submachines;
+    using states_to_traverse = states_to_visit;
+
+    using needs_traversal = mp11::mp_true;
+};
+template <typename StateMachine, 
+          template <typename> typename Predicate>
+struct recursive_visit_set<StateMachine, Predicate>
+{
+    using states_to_visit =
+        copy_if<typename StateMachine::internal::state_set, Predicate>;
+
+    template <typename Submachine>
+    using submachine_needs_traversal = typename recursive_visit_set<
+        Submachine, Predicate>::needs_traversal;
+    using submachines_to_traverse =
+        mp11::mp_copy_if<typename StateMachine::internal::submachines,
+                         submachine_needs_traversal>;
+
+    using states_to_traverse =
+        mp11::mp_set_union<states_to_visit, submachines_to_traverse>;
+
+    using needs_traversal = mp11::mp_not<mp11::mp_empty<states_to_traverse>>;
+};
+template <typename StateMachine, 
+          template <typename> typename FirstPredicate,
+          template <typename> typename Predicate>
+struct recursive_visit_set<StateMachine, FirstPredicate, Predicate>
+    : recursive_visit_set<StateMachine, FirstPredicate>
+{
+    using base = recursive_visit_set<StateMachine, FirstPredicate>;
+
+    using states_to_visit =
+        copy_if<typename base::states_to_visit, Predicate>;
+
+    template <typename Submachine>
+    using submachine_needs_traversal = typename recursive_visit_set<
+        Submachine, Predicate>::needs_traversal;
+    using submachines_to_traverse =
+        mp11::mp_copy_if<typename base::submachines_to_traverse,
+                         submachine_needs_traversal>;
+
+    using states_to_traverse = mp11::mp_set_union<states_to_visit, submachines_to_traverse>;
+
+    using needs_traversal = mp11::mp_not<mp11::mp_empty<states_to_traverse>>;
+};
+
+template <typename StateMachine,
+          template <typename> typename... Predicates>
+class state_visitor_base_impl<
+    StateMachine,
+    /*Recursive=*/true,
+    Predicates...>
+{
+    using visit_set = recursive_visit_set<StateMachine, Predicates...>;
+  public:
+    using needs_traversal = typename visit_set::needs_traversal;
+    using states_to_traverse = typename visit_set::states_to_traverse;
+
+    template <visit_mode Mode, typename State, typename Visitor>
+    static void accept(StateMachine& sm, Visitor& visitor)
+    {
+        auto& state = sm.template get_state<State>();
+
+        if constexpr (mp11::mp_contains<typename visit_set::states_to_visit,
+                                        State>::value)
+        {
+            visitor(state);
+        }
+
+        if constexpr (mp11::mp_contains<
+                          typename visit_set::submachines_to_traverse,
+                          State>::value)
+        {
+            state.template visit_if<Mode, Predicates...>(visitor);
+        }
+    }
+};
+template <typename StateMachine,
+          visit_mode Mode,
+          template <typename> typename... Predicates>
+using state_visitor_base =
+    state_visitor_base_impl<StateMachine,
+                            has_flag(Mode, visit_mode::recursive),
+                            Predicates...>;
+
 template <
     typename StateMachine,
     typename Visitor,
     visit_mode Mode,
-    typename Enable = void,
-    template <typename> typename... Predicates
-    >
+    bool AllStates,
+    template <typename> typename... Predicates>
 class state_visitor_impl;
 
 template <
@@ -64,41 +184,38 @@ class state_visitor_impl<
     StateMachine,
     Visitor,
     Mode,
-    std::enable_if_t<
-        has_flag(Mode, visit_mode::active_states) &&
-        mp11::mp_not<mp11::mp_empty<state_subset<StateMachine, Predicates...>>>::value>,
+    /*AllStates=*/false,
     Predicates...>
+    : public state_visitor_base<StateMachine, Mode, Predicates...>
 {
+    using base = state_visitor_base<StateMachine, Mode, Predicates...>;
+
   public:
-    static void visit(StateMachine& sm, Visitor visitor)
+    static void visit(StateMachine& sm, Visitor& visitor)
     {
-        if (sm.m_running)
+        if constexpr (base::needs_traversal::value)
         {
-            const state_visitor_impl& self = instance();
-            for (const int state_id : sm.m_active_state_ids)
+            if (sm.m_running)
             {
-                self.dispatch(sm, state_id, std::forward<Visitor>(visitor));
+                const state_visitor_impl& self = instance();
+                for (const int state_id : sm.m_active_state_ids)
+                {
+                    self.dispatch(sm, state_id, visitor);
+                }
             }
         }
     }
 
     // Bug: Clang 17 complains about private member if this method is private.
     template <typename State>
-    static void accept(StateMachine& sm, Visitor visitor)
+    static void accept(StateMachine& sm, Visitor& visitor)
     {
-        auto& state = sm.template get_state<State>();
-        visitor(state);
-
-        if constexpr (has_state_machine_tag<State>::value &&
-                      has_flag(Mode, visit_mode::recursive))
-        {
-            state.template visit_if<Mode, Predicates...>(std::forward<Visitor>(visitor));
-        }
+        base::template accept<Mode, State>(sm, visitor);
     }
 
   private:
     using state_set = typename StateMachine::internal::state_set;
-    using cell_t = void (*)(StateMachine&, Visitor);
+    using cell_t = void (*)(StateMachine&, Visitor&);
     template <size_t index, cell_t cell>
     using init_cell_constant = init_cell_constant<index, cell_t, cell>;
 
@@ -111,19 +228,20 @@ class state_visitor_impl<
     {
         using init_cell_constants = mp11::mp_transform<
             get_init_cell_constant,
-            state_subset<StateMachine, Predicates...>>;
+            typename base::states_to_traverse>;
         dispatch_table_initializer::execute(
             reinterpret_cast<generic_cell*>(m_cells),
-            reinterpret_cast<const generic_init_cell_value*>(value_array<init_cell_constants>),
+            reinterpret_cast<const generic_init_cell_value*>(
+                value_array<init_cell_constants>),
             mp11::mp_size<init_cell_constants>::value);
     }
 
-    void dispatch(StateMachine& sm, int state_id, Visitor visitor) const
+    void dispatch(StateMachine& sm, int state_id, Visitor& visitor) const
     {
         const cell_t& cell = m_cells[state_id];
         if (cell)
         {
-            (*cell)(sm, std::forward<Visitor>(visitor));
+            (*cell)(sm, visitor);
         }
     }
 
@@ -145,53 +263,34 @@ class state_visitor_impl<
     StateMachine,
     Visitor,
     Mode,
-    std::enable_if_t<
-        has_flag(Mode, visit_mode::all_states) &&
-        mp11::mp_not<mp11::mp_empty<state_subset<StateMachine, Predicates...>>>::value>,
+    /*AllStates=*/true,
     Predicates...>
+    : public state_visitor_base<StateMachine, Mode, Predicates...>
 {
-  public:
-    static void visit(StateMachine& sm, Visitor visitor)
-    {
-        using state_identities =
-            mp11::mp_transform<mp11::mp_identity,
-                               state_subset<StateMachine, Predicates...>>;
-        mp11::mp_for_each<state_identities>(
-            [&sm, &visitor](auto state_identity)
-            {
-                using State = typename decltype(state_identity)::type;
-                auto& state = sm.template get_state<State>();
-                visitor(state);
+    using base = state_visitor_base<StateMachine, Mode, Predicates...>;
 
-                if constexpr (has_state_machine_tag<State>::value &&
-                              has_flag(Mode, visit_mode::recursive))
+  public:
+    static void visit(StateMachine& sm, Visitor& visitor)
+    {
+        if constexpr (base::needs_traversal::value)
+        {
+            using state_identities = mp11::mp_transform<
+                mp11::mp_identity,
+                typename base::states_to_traverse>;
+            mp11::mp_for_each<state_identities>(
+                [&sm, &visitor](auto state_identity)
                 {
-                    state.template visit_if<Mode, Predicates...>(std::forward<Visitor>(visitor));
+                    using State = typename decltype(state_identity)::type;
+                    base::template accept<Mode, State>(sm, visitor);
                 }
-            }
-        );
+            );
+        }
     }
 };
 
-template <
-    typename StateMachine,
-    typename Visitor,
-    visit_mode Mode,
-    template <typename> typename... Predicates>
-class state_visitor_impl<
-    StateMachine,
-    Visitor,
-    Mode,
-    std::enable_if_t<
-        mp11::mp_empty<state_subset<StateMachine, Predicates...>>::value>,
-    Predicates...>
-{
-  public:
-    static constexpr void visit(StateMachine&, Visitor)
-    {
-    }
-};
-
+// State visitor.
+// States to visit can be selected with Mode
+// and additionally compile-time filtered with Predicates.
 template <
     typename StateMachine,
     typename Visitor,
@@ -201,8 +300,234 @@ using state_visitor = state_visitor_impl<
     StateMachine,
     Visitor,
     Mode,
-    /*Enable=*/void,
+    has_flag(Mode, visit_mode::all_states),
     Predicates...>;
+
+// Custom visitor tailored to event deferral.
+// We need an active_recursive implementation with the ability 
+// to additionally pass the Fsm parameter.
+template <
+    typename StateMachine,
+    typename Visitor,
+    template <typename> typename... Predicates>
+class event_deferral_visitor
+{
+    using visit_set = recursive_visit_set<StateMachine, Predicates...>;
+
+  public:
+    using needs_traversal = typename visit_set::needs_traversal;
+
+    static void visit(StateMachine& sm, Visitor& visitor)
+    {
+        // Ensure the necessity to instantiate this function
+        // is evaluated before it's called.
+        static_assert(visit_set::needs_traversal::value,
+                      "The visitor must have at least one state to visit");
+        if (sm.m_running)
+        {
+            const event_deferral_visitor& self = instance();
+            for (const int state_id : sm.m_active_state_ids)
+            {
+                self.dispatch(sm, state_id, visitor);
+            }
+        }
+    }
+
+    // Bug: Clang 17 complains about private member if this method is private.
+    template <typename State>
+    static void accept(StateMachine& sm, Visitor& visitor)
+    {
+        auto& state = sm.template get_state<State>();
+
+        if constexpr (mp11::mp_contains<typename visit_set::states_to_visit,
+                                        State>::value)
+        {
+            visitor(state, sm.get_fsm_argument());
+        }
+
+        if constexpr (mp11::mp_contains<typename visit_set::submachines_to_traverse,
+                                        State>::value)
+        {
+            using submachine_visitor =
+                event_deferral_visitor<const State, Visitor, Predicates...>;
+            submachine_visitor::visit(state, visitor);
+        }
+    }
+
+  private:
+    using state_set = typename StateMachine::internal::state_set;
+    using cell_t = void (*)(StateMachine&, Visitor&);
+    template <size_t index, cell_t cell>
+    using init_cell_constant = init_cell_constant<index, cell_t, cell>;
+
+    template <typename State>
+    using get_init_cell_constant = init_cell_constant<
+        StateMachine::template get_state_id<State>(),
+        &accept<State>>;
+
+    event_deferral_visitor()
+    {
+        using init_cell_constants = mp11::mp_transform<
+            get_init_cell_constant,
+            typename visit_set::states_to_traverse>;
+        dispatch_table_initializer::execute(
+            reinterpret_cast<generic_cell*>(m_cells),
+            reinterpret_cast<const generic_init_cell_value*>(
+                value_array<init_cell_constants>),
+            mp11::mp_size<init_cell_constants>::value);
+    }
+
+    void dispatch(StateMachine& sm, int state_id, Visitor& visitor) const
+    {
+        const cell_t& cell = m_cells[state_id];
+        if (cell)
+        {
+            (*cell)(sm, visitor);
+        }
+    }
+
+    static const event_deferral_visitor& instance()
+    {
+        static const event_deferral_visitor instance;
+        return instance;
+    }
+
+    cell_t m_cells[mp11::mp_size<state_set>::value]{};
+};
+
+// Predefined visitor functors used in backmp11.
+
+class is_event_deferred_visitor_base
+{
+  public:
+    // Apply (at least) a pre-filter with the 'has_deferred_events' predicate
+    // to consider only deferring states, this subset is cheap to instantiate.
+    // Compile policies can decide to apply additional filters.
+    template <typename State>
+    using predicate = has_deferred_events<State>;
+
+    bool result() const
+    {
+        return m_result;
+    }
+
+  protected:
+    bool m_result{false};
+};
+
+template <typename State>
+class is_state_active_visitor
+{
+  public:
+    template <typename StateToCheck>
+    using predicate = std::is_same<State, StateToCheck>;
+
+    void operator()(const State&)
+    {
+        m_result = true;
+    }
+
+    bool result() const
+    {
+        return m_result;
+    }
+
+  private:
+    bool m_result{false};
+};
+
+template <typename Flag, typename BinaryOp>
+class is_flag_active_visitor;
+template <typename Flag>
+class is_flag_active_visitor<Flag, flag_or>
+{
+  public:
+    template <typename State>
+    using predicate = mp11::mp_contains<get_flag_list<State>, Flag>;
+
+    template <typename State>
+    void operator()(const State&)
+    {
+        m_result = true;
+    }
+
+    bool result() const
+    {
+        return m_result;
+    }
+
+  private:
+    bool m_result{false};
+};
+template <typename Flag>
+class is_flag_active_visitor<Flag, flag_and>
+{
+  public:
+    template <typename State>
+    using predicate =
+        mp11::mp_not<mp11::mp_contains<get_flag_list<State>, Flag>>;
+
+    template <typename State>
+    void operator()(const State&)
+    {
+        m_result = false;
+    }
+
+    bool result() const
+    {
+        return m_result;
+    }
+
+  private:
+    bool m_result{true};
+};
+
+template <typename RootSm>
+class init_state_visitor
+{
+  public:
+    template <typename State>
+    using predicate = mp11::mp_or<has_exit_pseudostate_be_tag<State>,
+                                  has_state_machine_tag<State>>;
+
+    init_state_visitor(RootSm& root_sm) : m_root_sm(root_sm)
+    {
+    }
+
+    template <typename State>
+    void operator()(State& state)
+    {
+        if constexpr (has_exit_pseudostate_be_tag<State>::value)
+        {
+            state.set_forward_fct(
+                [&root_sm = m_root_sm](typename State::event const& event)
+                {
+                    return root_sm.enqueue_event(event);
+                }
+            );
+        }
+
+        if constexpr (has_state_machine_tag<State>::value)
+        {
+            static_assert(
+                std::is_same_v<typename State::root_sm_t, no_root_sm> ||
+                std::is_same_v<RootSm, typename State::root_sm_t>,
+                "The configured root_sm must match the used one");
+            static_assert(
+                std::is_same_v<typename State::context_t, no_context> ||
+                std::is_same_v<typename State::context_t, typename RootSm::context_t>,
+                "The configured context must match the root sm's one");
+            static_assert(std::is_same_v<typename RootSm::compile_policy,
+                                         typename State::compile_policy>,
+                          "All compile policies must be identical");
+
+            state.m_root_sm = &m_root_sm;
+        }
+    }
+
+  private:
+    RootSm& m_root_sm;
+};
 
 } // boost::msm::backmp11::detail
 

@@ -10,6 +10,7 @@
 * feat(backmp11): Support conditional deferral with the `deferred_events` property (https://github.com/boostorg/msm/issues/155[#155])
 * fix(backmp11): Completion events fire too often (https://github.com/boostorg/msm/issues/166[#166])
 * feat(backmp11): Small Object Optimization for events in the event pool (https://github.com/boostorg/msm/issues/172[#172])
+* feat(backmp11): Improve support for the `deferred_events` property in hierarchical state machines (https://github.com/boostorg/msm/issues/173[#173])
 
 == Boost 1.90
 

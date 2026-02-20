@@ -68,7 +68,7 @@ struct default_state_machine_config
     using root_sm = no_root_sm;
     // Type of the Fsm parameter passed in actions and guards.
     using fsm_parameter = local_transition_owner;
-    // Which event container to use for the event pool.
+    // Which container to use for the event pool.
     template <typename T>
     using event_container = std::deque<T>;
 

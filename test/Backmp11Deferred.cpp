@@ -9,18 +9,17 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-// back-end
-#include "BackCommon.hpp"
-// front-end
-#include <boost/msm/front/state_machine_def.hpp>
-#include <boost/msm/front/functor_row.hpp>
-
-#include "Utils.hpp"
-
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
 #define BOOST_TEST_MODULE backmp11_deferred
 #endif
 #include <boost/test/unit_test.hpp>
+
+// back-end
+#include "BackCommon.hpp"
+// front-end
+#include "FrontCommon.hpp"
+
+#include "Utils.hpp"
 
 using namespace boost::msm::front;
 using namespace boost::msm::backmp11;
@@ -45,6 +44,7 @@ struct FromHandleAllToHandleNone {};
 struct FromHandleNoneToHandleAll {};
 struct FromDeferAllToDeferEvent1 {};
 struct FromDeferEvent1ToHandleNone {};
+struct FromDeferEvent1ToHandleAll {};
 
 // Actions
 struct Action
@@ -76,7 +76,7 @@ struct StateHandleNone : state<> {};
 struct StateHandleAll : state<> {};
 
 template<typename T>
-struct StateMachineBase_ : state_machine_def<T> 
+struct StateMachineBase_ : test::StateMachineBase_<T>
 {
     size_t event1_action_calls{};
     std::vector<size_t> event1_processed_ids;
@@ -87,7 +87,7 @@ struct StateMachineBase_ : state_machine_def<T>
 };
 
 // Test event deferral with the deferred_events property.
-namespace property_deferred_test
+namespace property_deferred
 {
 
 struct StateDeferEvent1 : state<>
@@ -134,7 +134,7 @@ using Fsms = mp11::mp_list<
     >;
 
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(property_deferred_test, Fsm, Fsms)
+BOOST_AUTO_TEST_CASE_TEMPLATE(property_deferred, Fsm, Fsms)
 {     
     Fsm fsm;
 
@@ -195,14 +195,174 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(property_deferred_test, Fsm, Fsms)
     fsm.stop();
 }
 
-} // namespace property_deferred_test
+struct FromLowerMachineToHandleAll {};
+
+template <typename Config = default_state_machine_config>
+struct hierarchical_state_machine
+{
+    struct LowerMachine_;
+    struct UpperMachine_;
+
+    struct StateDeferEvent1 : state<>
+    {
+        using deferred_events = mp11::mp_list<Event1>;
+
+        template <typename Fsm>
+        bool is_event_deferred(const Event1&, Fsm&) const
+        {
+            static_assert(std::is_base_of_v<LowerMachine_, Fsm>);
+            return true;
+        }
+    };
+
+    struct LowerMachine_ : StateMachineBase_<LowerMachine_> 
+    {
+        using initial_state = mp11::mp_list<StateDeferEvent1>;
+    };
+    using LowerMachine = StateMachine<LowerMachine_, Config>;
+
+    struct UpperMachine_ : StateMachineBase_<UpperMachine_> 
+    {
+        using initial_state = mp11::mp_list<LowerMachine>;
+
+        using transition_table = mp11::mp_list<
+            Row<LowerMachine   , FromLowerMachineToHandleAll , StateHandleAll          >,
+            Row<StateHandleAll , Event1                      , none           , Action >
+        >;
+    };
+    using UpperMachine = StateMachine<UpperMachine_, Config>;
+};
+
+// Pick a back-end
+using Fsms_2 = mp11::mp_list<
+#ifndef BOOST_MSM_TEST_SKIP_BACKMP11
+    hierarchical_state_machine<>,
+    hierarchical_state_machine<favor_compile_time_config>
+#endif // BOOST_MSM_TEST_SKIP_BACKMP11
+    >;
+
+// Ensure an event gets deferred if there
+// is no immediate substate that defers the event,
+// but a subsubstate in the hierarchy defers it.
+BOOST_AUTO_TEST_CASE_TEMPLATE(hierarchical_deferral_subsubstate, Fsm, Fsms_2)
+{     
+    using UpperMachine = typename Fsm::UpperMachine;
+    
+    UpperMachine fsm;
+
+    fsm.start();
+    
+    fsm.process_event(Event1{0});
+    ASSERT_AND_RESET(fsm.event1_action_calls, 0);
+    BOOST_REQUIRE(fsm.get_pending_events().size() == 1);
+    
+    fsm.process_event(FromLowerMachineToHandleAll{});
+    ASSERT_AND_RESET(fsm.event1_action_calls, 1);
+    BOOST_REQUIRE(fsm.get_pending_events().size() == 0);
+
+    fsm.stop();
+}
+
+
+struct FromLowerMachineToDeferEvent1 {};
+
+template <typename Config = default_state_machine_config>
+struct hierarchical_state_machine_2
+{
+    struct LowerMachine_;
+    struct UpperMachine_;
+
+    struct StateDeferEvent1 : state<>
+    {
+        using deferred_events = mp11::mp_list<Event1>;
+
+        template <typename Fsm>
+        bool is_event_deferred(const Event1&, Fsm&) const
+        {
+            if (id == 0)
+            {
+                BOOST_REQUIRE((std::is_base_of_v<LowerMachine_, Fsm>));
+            }
+            else
+            {
+                BOOST_REQUIRE((std::is_base_of_v<UpperMachine_, Fsm>));
+            }
+            return true;
+        }
+
+        size_t id{};
+    };
+
+    struct LowerMachine_ : StateMachineBase_<LowerMachine_> 
+    {
+        using initial_state = mp11::mp_list<StateDeferEvent1>;
+
+        using transition_table = mp11::mp_list<
+            Row<StateDeferEvent1 , FromDeferEvent1ToHandleAll , StateHandleAll            >
+        >;
+    };
+    using LowerMachine = StateMachine<LowerMachine_, Config>;
+
+    struct UpperMachine_ : StateMachineBase_<UpperMachine_> 
+    {
+        using initial_state = mp11::mp_list<LowerMachine>;
+
+        using transition_table = mp11::mp_list<
+            Row<LowerMachine     , FromLowerMachineToDeferEvent1 , StateDeferEvent1        >,
+            Row<StateDeferEvent1 , FromDeferEvent1ToHandleAll    , StateHandleAll          >,
+            Row<StateHandleAll   , Event1                        , none           , Action >
+        >;
+    };
+    using UpperMachine = StateMachine<UpperMachine_, Config>;
+};
+
+// Pick a back-end
+using Fsms_3 = mp11::mp_list<
+#ifndef BOOST_MSM_TEST_SKIP_BACKMP11
+    hierarchical_state_machine_2<>,
+    hierarchical_state_machine_2<favor_compile_time_config>
+#endif // BOOST_MSM_TEST_SKIP_BACKMP11
+    >;
+
+// Ensure that the Fsm parameter passed to is_event_deferred is correct.
+BOOST_AUTO_TEST_CASE_TEMPLATE(hierarchical_deferral_fsm_parameter, Fsm, Fsms_3)
+{     
+    using UpperMachine = typename Fsm::UpperMachine;
+    
+    UpperMachine fsm;
+    fsm.template get_state<typename Fsm::StateDeferEvent1>().id = 1;
+
+    fsm.start();
+    
+    fsm.process_event(Event1{0});
+    ASSERT_AND_RESET(fsm.event1_action_calls, 0);
+    BOOST_REQUIRE(fsm.get_pending_events().size() == 1);
+    
+    fsm.process_event(FromLowerMachineToDeferEvent1{});
+    ASSERT_AND_RESET(fsm.event1_action_calls, 0);
+    BOOST_REQUIRE(fsm.get_pending_events().size() == 1);
+
+    fsm.process_event(Event1{1});
+    ASSERT_AND_RESET(fsm.event1_action_calls, 0);
+    BOOST_REQUIRE(fsm.get_pending_events().size() == 2);
+
+    fsm.process_event(FromDeferEvent1ToHandleAll{});
+    ASSERT_AND_RESET(fsm.event1_action_calls, 2);
+    BOOST_REQUIRE(fsm.get_pending_events().size() == 0);
+    BOOST_REQUIRE(fsm.event1_processed_ids.at(0) == 0);
+    BOOST_REQUIRE(fsm.event1_processed_ids.at(1) == 1);
+
+    fsm.stop();
+}
+
+} // namespace property_deferred
 
 // Test case for manual deferral by using transitions with Defer actions.
 // Not specified in UML and thus no clear semantics how it should behave.
 // Currently a Defer action consumes the event (it gets removed from the queue)
 // and then defers it (it gets pushed back to the queue), the Defer action
 // returns HANDLED_DEFERRED as processing result).
-namespace action_deferred_test
+namespace action_deferred
 {
 
 struct StateDeferEvent1 : state<>
@@ -239,7 +399,7 @@ using Fsms = mp11::mp_list<
     >;
 
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(action_deferred_test, Fsm, Fsms)
+BOOST_AUTO_TEST_CASE_TEMPLATE(action_deferred, Fsm, Fsms)
 {     
     Fsm fsm;
 
@@ -277,4 +437,4 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(action_deferred_test, Fsm, Fsms)
     fsm.stop();
 }
 
-} // namespace action_deferred_test
+} // namespace action_deferred

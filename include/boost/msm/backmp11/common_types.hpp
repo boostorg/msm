@@ -63,6 +63,10 @@ using process_result = back::HandledEnum;
 
 using any_event = std::any;
 
+// flag handling
+struct flag_or {};
+struct flag_and {};
+
 // Selector for the visit mode.
 // Can be active_states or all_states in recursive or non-recursive mode.
 enum class visit_mode

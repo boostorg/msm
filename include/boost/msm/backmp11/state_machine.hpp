@@ -38,67 +38,8 @@ namespace boost { namespace msm { namespace backmp11
 // Check whether a state is a composite state.
 using detail::is_composite;
 
-// flag handling
-using flag_or = std::logical_or<bool>;
-using flag_and = std::logical_and<bool>;
-
 namespace detail
 {
-
-template <typename Flag, typename BinaryOp>
-struct is_flag_active_visitor;
-template <typename Flag>
-struct is_flag_active_visitor<Flag, flag_or>
-{
-    template <typename State>
-    using predicate = mp11::mp_or<
-        mp11::mp_contains<get_flag_list<State>, Flag>,
-        has_state_machine_tag<State>>;
-
-    template <typename State>
-    void operator()(const State&)
-    {
-        result |= mp11::mp_contains<get_flag_list<State>, Flag>::value;
-    }
-
-    bool result{false};
-};
-template <typename Flag>
-struct is_flag_active_visitor<Flag, flag_and>
-{
-    template <typename State>
-    using predicate = mp11::mp_or<
-        mp11::mp_not<mp11::mp_contains<get_flag_list<State>, Flag>>,
-        has_state_machine_tag<State>>;
-
-    template <typename State>
-    void operator()(const State&)
-    {
-        result &= mp11::mp_contains<get_flag_list<State>, Flag>::value;
-    }
-
-    bool result{true};
-};
-
-template <typename State>
-struct is_state_active_visitor
-{
-    template <typename StateToCheck>
-    using predicate = mp11::mp_or<std::is_same<State, StateToCheck>,
-                                  has_state_machine_tag<StateToCheck>>;
-
-    template <typename StateToCheck>
-    void operator()(const StateToCheck&)
-    {
-    }
-
-    void operator()(const State&)
-    {
-        result = true;
-    }
-
-    bool result{false};
-};
 
 template <
     class FrontEnd,
@@ -269,8 +210,15 @@ class state_machine_base : public FrontEnd
     template <typename Policy>
     friend struct detail::compile_policy_impl;
 
-    template <typename, typename, visit_mode, typename, template <typename> typename...>
+    template <typename, typename, visit_mode, bool,
+              template <typename> typename...>
     friend class state_visitor_impl;
+    template <typename, bool, template <typename> typename...>
+    friend class state_visitor_base_impl;
+    template <typename, typename, template <typename> typename...>
+    friend class event_deferral_visitor;
+    template <typename>
+    friend class init_state_visitor;
 
     template <typename Event>
     friend class deferred_event;
@@ -295,9 +243,6 @@ class state_machine_base : public FrontEnd
     using state_map = generate_state_map<state_set>;
     using history_impl = detail::history_impl<typename front_end_t::history, nr_regions>;
 
-    using deferring_states = mp11::mp_copy_if<state_set, has_deferred_events>;
-    using has_deferring_states = mp11::mp_not<mp11::mp_empty<deferring_states>>;
-
     using context_member =
         optional_instance<context_t*,
                           !std::is_same_v<context_t, no_context> &&
@@ -310,14 +255,16 @@ class state_machine_base : public FrontEnd
     template <visit_mode Mode, template <typename> typename... Predicates, typename Visitor>
     void visit_if(Visitor&& visitor)
     {
-        using state_visitor = state_visitor<state_machine_base, Visitor, Mode, Predicates...>;
-        state_visitor::visit(*this, std::forward<Visitor>(visitor));
+        using state_visitor =
+            state_visitor<derived_t, Visitor, Mode, Predicates...>;
+        state_visitor::visit(self(), visitor);
     }
     template <visit_mode Mode, template <typename> typename... Predicates, typename Visitor>
     void visit_if(Visitor&& visitor) const
     {
-        using state_visitor = state_visitor<const state_machine_base, Visitor, Mode, Predicates...>;
-        state_visitor::visit(*this, std::forward<Visitor>(visitor));
+        using state_visitor =
+            state_visitor<const derived_t, Visitor, Mode, Predicates...>;
+        state_visitor::visit(self(), visitor);
     }
     
   public:
@@ -338,8 +285,11 @@ class state_machine_base : public FrontEnd
         if constexpr (std::is_same_v<root_sm_t, no_root_sm> ||
                       std::is_same_v<root_sm_t, derived_t>)
         {
-            // create states
-            init(self());
+            m_root_sm = this;
+            using visitor_t = init_state_visitor<derived_t>;
+            visitor_t visitor{self()};
+            visit_if<visit_mode::all_recursive, 
+                     visitor_t::template predicate>(visitor);
         }
         reset_active_state_ids();
     }
@@ -369,8 +319,11 @@ class state_machine_base : public FrontEnd
         if constexpr (std::is_same_v<root_sm_t, no_root_sm> ||
                       std::is_same_v<root_sm_t, derived_t>)
         {
-            // create states
-            init(self());
+            m_root_sm = this;
+            using visitor_t = init_state_visitor<derived_t>;
+            visitor_t visitor{self()};
+            visit_if<visit_mode::all_recursive, 
+                     visitor_t::template predicate>(visitor);
         }
         // Copy all members except the root sm pointer.
         m_active_state_ids = rhs.m_active_state_ids;
@@ -620,7 +573,7 @@ class state_machine_base : public FrontEnd
         visitor_t visitor;
         visit_if<visit_mode::active_recursive,
                  visitor_t::template predicate>(visitor);
-        return visitor.result;
+        return visitor.result();
     }
 
     // Check if a flag is active, using the BinaryOp as folding function.
@@ -631,7 +584,7 @@ class state_machine_base : public FrontEnd
         visitor_t visitor;
         visit_if<visit_mode::active_recursive,
                  visitor_t::template predicate>(visitor);
-        return visitor.result;
+        return visitor.result();
     }
 
     // Puts the event into the event pool for later processing.
@@ -683,6 +636,15 @@ class state_machine_base : public FrontEnd
         return compile_policy_impl::is_event_deferred(self(), event);
     }
 
+    // Repetition of the front-end's method definition
+    // required due to above signature.
+    template <typename Event, typename Fsm>
+    bool is_event_deferred(const Event& event, Fsm& fsm) const
+    {
+        return static_cast<const front_end_t*>(this)->is_event_deferred(event,
+                                                                        fsm);
+    }
+
     // Checks if an event is an end interrupt event.
     template <typename Event>
     bool is_end_interrupt_event(const Event& event) const
@@ -705,11 +667,10 @@ class state_machine_base : public FrontEnd
 
     // Main function used internally to process events.
     // Explicitly not inline, because code size can significantly increase if
-    // this method's content is inlined in all existing process_info contexts.
+    // this method is inlined in all existing process_info variants.
     template <class Event>
-    BOOST_NOINLINE process_result process_event_internal(
-        Event const& event,
-        process_info info)
+    BOOST_NOINLINE process_result process_event_internal(Event const& event,
+                                                         process_info info)
     {
         // If the state machine has terminate or interrupt flags, check them.
         if constexpr (mp11::mp_any_of<state_set, is_state_blocking>::value)
@@ -719,9 +680,11 @@ class state_machine_base : public FrontEnd
             {
                 return process_result::HANDLED_TRUE;
             }
+
             // If the state machine is interrupted, do not handle any event
             // unless the event is the end interrupt event.
-            if (is_flag_active<InterruptedFlag>() && !is_end_interrupt_event(event))
+            if (is_flag_active<InterruptedFlag>() &&
+                !is_end_interrupt_event(event))
             {
                 return process_result::HANDLED_TRUE;
             }
@@ -733,8 +696,11 @@ class state_machine_base : public FrontEnd
             {
                 // If we are already processing or the event is deferred in the
                 // active state configuration, process it later.
+                // Skip the deferral check in submachine calls, since the
+                // parent has already checked and dispatched the event.
                 if (m_event_processing ||
-                    compile_policy_impl::is_event_deferred(self(), event))
+                    (info != process_info::submachine_call &&
+                     compile_policy_impl::is_event_deferred(self(), event)))
                 {
                     compile_policy_impl::defer_event(self(), event, false);
                     return process_result::HANDLED_DEFERRED;
@@ -1151,54 +1117,6 @@ class state_machine_base : public FrontEnd
                 get_event_pool().events.clear();
             }
         }
-    }
-
-    template <typename State>
-    using state_requires_init =
-        mp11::mp_or<has_exit_pseudostate_be_tag<State>, has_state_machine_tag<State>>;
-
-    // initializes the SM
-    template <class TRootSm>
-    void init(TRootSm& root_sm)
-    {
-        if constexpr (!std::is_same_v<root_sm_t, no_root_sm>)
-        {
-            static_assert(
-                std::is_same_v<TRootSm, root_sm_t>,
-                "The configured root_sm must match the used one"
-            );
-            static_assert(
-                std::is_same_v<context_t, no_context> ||
-                std::is_same_v<context_t, typename TRootSm::context_t>,
-                "The configured context must match the root sm's one");
-        }
-        m_root_sm = static_cast<void*>(&root_sm);
-
-        visit_if<visit_mode::all_non_recursive, state_requires_init>(
-            [&root_sm](auto& state)
-            {
-                using State = std::decay_t<decltype(state)>;
-
-                if constexpr (has_exit_pseudostate_be_tag<State>::value)
-                {
-                    state.set_forward_fct(
-                        [&root_sm](typename State::event const& event)
-                        {
-                            return root_sm.enqueue_event(event);
-                        }
-                    );
-                }
-
-                if constexpr (has_state_machine_tag<State>::value)
-                {
-                    static_assert(
-                        std::is_same_v<compile_policy,
-                                       typename State::compile_policy>,
-                        "All compile policies must be identical");
-                    state.init(root_sm);
-                }
-            }
-        );
     }
 
     derived_t& self()
