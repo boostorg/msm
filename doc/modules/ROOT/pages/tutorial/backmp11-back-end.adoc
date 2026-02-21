@@ -5,44 +5,37 @@ It is currently in **experimental** stage, thus some details about the compatibi
 It is named after the metaprogramming library Boost Mp11, the main contributor to the optimizations.
 Usages of MPL are replaced with Mp11 to get rid of the costly C{plus}{plus}03 emulation of variadic templates.
 
-The new back-end has the following goals:
-
-- reduce compilation time and RAM usage
-- reduce state machine runtime
-- provide new features and customization options
-
-It offers a significant reduction in compilation time and RAM usage, as can be seen in these benchmarks:
+It offers a significant improvement in runtime and memory usage, as can be seen in these benchmarks:
 
 *Large state machine*
 
-[width=80%, cols="3,1,1,1", options="header"]
-|=======================================================================
-|                             | Compile / sec | RAM / MB | Runtime / sec
-| back                        | 17            | 961      | 2.8
-| back_favor_compile_time     | 22            | 1006     | 3.5
-| back11                      | 40            | 2802     | 2.7
-| backmp11                    | 3             | 218      | 1.1
-| backmp11_favor_compile_time | 3             | 206      | 6.0
-| sml                         | 6             | 273      | 0.5
-|=======================================================================
+[%autowidth, options="header"]
+|=======================================================================================================
+|                             | Compile time / sec | Compile RAM / MB | Binary size / kB | Runtime / sec
+| back                        | 14                 | 815              | 68               | 2.8
+| back_favor_compile_time     | 17                 | 775              | 226              | 3.5
+| back11                      | 37                 | 2682             | 84               | 2.8
+| backmp11                    | 3                  | 209              | 29               | 0.7
+| backmp11_favor_compile_time | 3                  | 193              | 43               | 6.0
+| sml                         | 5                  | 234              | 57               | 0.3
+|=======================================================================================================
 
 
 *Large hierarchical state machine*
 
-[width=80%, cols="3,1,1,1", options="header"]
-|================================================================================
-|                                      | Compile / sec | RAM / MB | Runtime / sec
-| back                                 | 64            | 2902     | 13.2
-| back_favor_compile_time              | 75            | 2612     | > 300
-| backmp11                             | 9             | 370      | 5.2
-| backmp11_favor_compile_time          | 6             | 282      | 20.3
-| backmp11_favor_compile_time_multi_cu | 4             | ~917     | 20.7
-| sml                                  | 24            | 706      | 5.7
-|================================================================================
+[%autowidth, options="header"]
+|================================================================================================================
+|                                      | Compile time / sec | Compile RAM / MB | Binary size / kB | Runtime / sec
+| back                                 | 49                 | 2165             | 230              | 13.2
+| back_favor_compile_time              | 55                 | 1704             | 911              | > 300
+| backmp11                             | 8                  | 351              | 85               | 3.3
+| backmp11_favor_compile_time          | 5                  | 256              | 100              | 20.4
+| backmp11_favor_compile_time_multi_cu | 5                  | ~863             | 100              | 20.8
+| sml                                  | 18                 | 543              | 422              | 5.4
+|================================================================================================================
 
 
-The full code with the benchmarks and more information about them is available https://github.com/chandryan/fsm-benchmarks[in this repository].
-There are still a couple more optimizations to come, the tables in the repository frequently get updated with the latest results.
+The full code with the benchmarks and more information about them is available https://github.com/chandryan/fsm-benchmarks[in this repository]. The tables in the repository are frequently updated with results from the latest development branches of the benchmarked libraries.
 
 
 == Deprecation information
@@ -546,57 +539,65 @@ The implementation of these two features depends on mpl_graph, which induces hig
 Not needed with the functor front-end and was already deprecated, thus removed in `backmp11`.
 
 
-== How to use it
+== Compile policies
 
-The back-end with both its compile policies `favor_runtime_speed` and `favor_compile_time` should be mostly compatible with existing code.
+Like `back`, this back-end supports 2 compile policies. In case of hierarchical state machines all state machines must be configured with the same compile policy.
 
-Required replacements to try it out:
+=== `favor_runtime_speed`
 
-- for the state machine use `boost::msm::backmp11::state_machine` in place of `boost::msm::back::state_machine` and
-- for configuring the compile policy and more use `boost::msm::backmp11::state_machine_config`
-- if you encounter API-incompatibilities please check the <<_other_changes_with_respect_to_back,details above>> for reference
+This policy favors runtime speed over compile time, it evaluates all transitions and generates the dispatch table at compile time.
+The dispatch strategy can be tuned by inheriting from `favor_runtime_speed` and adapting the using directive:
+
+```cpp
+struct favor_runtime_speed
+{
+    // Dispatch strategy for processing events.
+    // Supported strategies:
+    // - flat_fold (default)
+    // - function_pointer_array
+    using dispatch_strategy = dispatch_strategy::flat_fold;
+};
+```
+
+It currently supports two dispatch strategies:
+
+[%autowidth, options="header"]
+|===
+| Strategy | Description
+
+| `flat_fold` (default)
+| Generates a flat fold of inline comparison branches. +
+All transition logic is visible to the optimizer. +
+Usually results in optimal runtime performance and executable size.
+
+| `function_pointer_array`
+| Generates an array of function pointers. +
+Guarantees O(1) dispatch, but the function pointers cannot be inlined. +
+Usually results in worse runtime performance and larger executable size, but slightly better compile time.
+|===
 
 
-Since the back-end should compile very fast for most machines, the manual generation of state machines with the `favor_compile_time` policy has become an opt-in feature.
-If you want to build your state machine across multiple compilation units, you need to do the following:
+=== `favor_compile_time`
 
-- set up a preprocessor define `BOOST_MSM_BACKMP11_MANUAL_GENERATION` before including `msm/backmp11/favor_compile_time.hpp`
-- then generate your state machine(s) in the compilation units with the macro `BOOST_MSM_BACKMP11_GENERATE_STATE_MACHINE(<smname>)`
+This policy favors compile time over runtime speed. It evaluates transitions lazily and generates the dispatch table at runtime. Like its counterpart in `back`, it does not support Kleene events.
+
+Events are wrapped into a `std::any` when they enter event processing to reduce the number of necessary templates instances required to generate the state machine.
+The policy utilizes a hash map for dispatch, with the type index of each event as the key and an array of function pointers to the matching transitions as the value.
+
+This policy allows compiling a state machine across multiple translation units (TUs) with the help of a preprocessor macro.
+Since the back-end should compile very fast for most state machines, this is an opt-in feature.
+If you want to build your state machine across multiple TUs, you need to do the following:
+
+- define `BOOST_MSM_BACKMP11_MANUAL_GENERATION` before including `msm/backmp11/favor_compile_time.hpp`
+- then generate your state machine back-end(s) with the macro `BOOST_MSM_BACKMP11_GENERATE_STATE_MACHINE(<sm_type>)`
 
 You can find an example for this in the https://github.com/boostorg/msm/blob/develop/test/Backmp11Visitor.cpp[visitor test].
 
 
-== Applied optimizations
+== How to use it
 
-Below you can find some insights how the compile-time and runtime optimizations were achieved.
+The back-end should be mostly compatible with existing code. Required replacements to try it out:
 
-- Replacement of CPU-intensive calls (due to C{plus}{plus}03 recursion from MPL) with Mp11
-- Replaced O(N) algorithms with O(1) alternatives (using additional dispatch tables)
-- Added more type filters prior to template instantiations
-- Applied type punning where useful (to reduce template instantiations, e.g. `std::deque` & other things around the dispatch table)
-
-
-=== `favor_runtime_speed` policy
-
-Summary:
-
-- Unconditionally default-initialized everything first and afterwards only the row-related transition cells
-- Optimized cell initialization with initializer arrays (to reduce template instantiations)
-
-
-=== `favor_compile_time` policy
-
-Once an event is given to the FSM for processing, it is immediately wrapped with `std::any` and processing continues with this `any` event.
-The structure of the dispatch table has been reworked, one dispatch table is created per state as a hash map.
-The state dispatch tables are designed to directly work with the `any` event, they use the event's type index via its `type()` function as hash value.
-
-This mechanism enables SMs to forward events to sub-SMs without requiring additional template instantiations just for forwarding as was needed with the `process_any_event` mechanism.
-The new mechanism enables **forwarding of events to sub-SMs in O(1) order instead of O(N)**.
-
-Summary:
-
-- Use one dispatch table per state to reduce compiler processing time
-  - The algorithms for processing the STT and states are optimized to go through rows and states only once
-  - These dispatch tables are hash tables with type_id as key
-- Apply type erasure with `std::any` as early as possible and do further processing only with any events
-  - each dispatch table only has to cover the events it's handling, no template instantiations required for forwarding events to sub-SMs
+- for the state machine use `boost::msm::backmp11::state_machine` in place of `boost::msm::back::state_machine` and
+- for configuring the compile policy and more use `boost::msm::backmp11::state_machine_config`
+- if you encounter API-incompatibilities please check the <<_other_changes_with_respect_to_back,details above>> for reference

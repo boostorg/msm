@@ -21,15 +21,22 @@
 namespace boost { namespace msm { namespace backmp11
 {
 
-struct favor_runtime_speed {};
+struct favor_runtime_speed
+{
+    // Dispatch strategy for processing events.
+    // Supported strategies:
+    // - flat_fold (default)
+    // - function_pointer_array
+    using dispatch_strategy = dispatch_strategy::flat_fold;
+};
 
 namespace detail
 {
 
 template <typename Policy>
-struct compile_policy_impl;
-template <>
-struct compile_policy_impl<favor_runtime_speed>
+struct compile_policy_impl<
+    Policy,
+    std::enable_if_t<std::is_base_of_v<favor_runtime_speed, Policy>>>
 {
     template <typename Event>
     constexpr static const Event& normalize_event(const Event& event)
@@ -147,8 +154,8 @@ struct compile_policy_impl<favor_runtime_speed>
             if constexpr (has_transitions::value ||
                           has_forward_transitions::value)
             {
-                const dispatch_table_impl& self = dispatch_table_impl::instance();
-                return self.dispatch(sm, region_id, event);
+                using table = dispatch_impl<typename Policy::dispatch_strategy>;
+                return table::dispatch(sm, region_id, event);
             }
             return process_result::HANDLED_FALSE;
         }
@@ -235,61 +242,8 @@ struct compile_policy_impl<favor_runtime_speed>
         using has_forward_transitions =
             mp11::mp_not<mp11::mp_empty<submachines_with_forward_transitions>>;
 
-        class dispatch_table_impl
+        class dispatch_base
         {
-          public:
-            static const dispatch_table_impl& instance() {
-                static dispatch_table_impl table;
-                return table;
-            }
-
-            process_result dispatch(
-                StateMachine& sm, int region_id, const Event& event) const
-            {
-                const int state_id = sm.m_active_state_ids[region_id];
-                const cell_t& cell = m_cells[state_id];
-                if (cell)
-                {
-                    return cell(sm, region_id, event);
-                }
-                return process_result::HANDLED_FALSE;
-            }
-
-          private:
-            dispatch_table_impl()
-            {
-                using initial_map_items = mp11::mp_transform<
-                    initial_map_item,
-                    submachines_with_forward_transitions>;
-                using filtered_transitions_by_state_map = mp11::mp_fold<
-                    filtered_transition_table,
-                    initial_map_items,
-                    map_updater>;
-                using merged_transitions = mp11::mp_transform<
-                    merge_transitions,
-                    filtered_transitions_by_state_map>;
-                using init_cell_constants = mp11::mp_transform<
-                    get_init_cell_constant,
-                    merged_transitions>;
-                dispatch_table_initializer::execute(
-                    reinterpret_cast<generic_cell*>(m_cells),
-                    reinterpret_cast<const generic_init_cell_value*>(
-                        value_array<init_cell_constants>),
-                    mp11::mp_size<init_cell_constants>::value);
-            }
-
-            template <typename Transition>
-            static process_result convert_event_and_execute(StateMachine& sm,
-                                                            int region_id,
-                                                            Event const& evt)
-            {
-                typename Transition::transition_event kleene_event{evt};
-                return Transition::execute(sm, region_id, kleene_event);
-            }
-
-            template <size_t index, cell_t cell>
-            using init_cell_constant = init_cell_constant<index, cell_t, cell>;
-
             // Build a map with key=state/value=[matching_transitions]
             // from the filtered transition table.
             template <typename M, typename Key, typename Value>
@@ -326,7 +280,6 @@ struct compile_policy_impl<favor_runtime_speed>
             template <typename Map, typename Transition>
             using map_updater = typename map_updater_impl<Map, Transition>::type;
 
-          private:
             // Pseudo-transition used to forward event processing to a submachine.
             template <typename Submachine>
             struct forward_transition
@@ -375,34 +328,174 @@ struct compile_policy_impl<favor_runtime_speed>
                 mp11::mp_first<StateAndTransitions>,
                 mp11::mp_second<StateAndTransitions>>::type;
 
-            // Convert the merged transitions into
-            // initializer cell constants for the dispatch table.
+            using initial_map_items =
+                mp11::mp_transform<initial_map_item,
+                                   submachines_with_forward_transitions>;
+            using filtered_transitions_by_state_map =
+                mp11::mp_fold<filtered_transition_table,
+                              initial_map_items,
+                              map_updater>;
+
+          public:
+            using merged_transitions =
+                mp11::mp_transform<merge_transitions,
+                                   filtered_transitions_by_state_map>;
+
+            template <typename Transition>
+            static process_result convert_event_and_execute(StateMachine& sm,
+                                                            int region_id,
+                                                            Event const& evt)
+            {
+                typename Transition::transition_event kleene_event{evt};
+                return Transition::execute(sm, region_id, kleene_event);
+            }
+        };
+
+        template <typename Strategy, typename NotExplicit = void>
+        class dispatch_impl;
+
+        template <typename NotExplicit>
+        class dispatch_impl<dispatch_strategy::flat_fold, NotExplicit>
+            : public dispatch_base
+        {
+           using base = dispatch_base;
+          public:
+            template <typename... Ts>
+            struct mp_indexed_dispatch_impl
+            {
+                using list = mp11::mp_list<Ts...>;
+                static constexpr std::size_t size = sizeof...(Ts);
+
+                template <typename F>
+                static constexpr process_result invoke(int state_id, F&& func)
+                {
+                    return dispatch(state_id, func,
+                                    std::make_index_sequence<size>{});
+                }
+
+            private:
+                // For position I in the list, get the corresponding state_id
+                // at compile time.
+                template <std::size_t I>
+                static constexpr int state_id_at =
+                    StateMachine::template get_state_id<
+                        typename mp11::mp_at_c<list, I>::current_state_type>();
+
+                // Single case handler: invoke func with the I-th transition
+                template <std::size_t I, typename F>
+                static constexpr process_result handle_case(F& func)
+                {
+                    return func(mp11::mp_at_c<list, I>{});
+                }
+
+                // Generate branches comparing state_id against compile-time
+                // state_id_at<I> for each position I in the list.
+                template <typename F, std::size_t... Is>
+                static constexpr process_result dispatch(int state_id, F& func,
+                                                        std::index_sequence<Is...>)
+                {
+                    process_result result = process_result::HANDLED_FALSE;
+                    // Each branch compares the runtime state_id against the
+                    // compile-time state_id of the I-th transition.
+                    // State IDs may be non-contiguous (e.g., 0, 2, 5).
+                    (void)((state_id == state_id_at<Is> &&
+                    (result = handle_case<Is>(func), true)) || ...);
+                    return result;
+                }
+            };
+
+            template <typename L, typename F>
+            static constexpr process_result mp_indexed_dispatch(int state_id, F&& func)
+            {
+                return mp11::mp_apply<mp_indexed_dispatch_impl, L>::invoke(
+                    state_id, std::forward<F>(func));
+            }
+
+            static inline process_result dispatch(StateMachine& sm, int region_id,
+                                           const Event& event)
+            {
+                const int state_id = sm.m_active_state_ids[region_id];
+                return mp_indexed_dispatch<typename base::merged_transitions>(state_id,
+                    [&sm, region_id, &event](auto transition) -> process_result
+                    {
+                        using Transition = decltype(transition);
+                        using TransitionEvent =
+                            typename Transition::transition_event;
+                        if constexpr (!is_kleene_event<TransitionEvent>::value)
+                        {
+                            return Transition::execute(sm, region_id, event);
+                        }
+                        else
+                        {
+                            return base::template
+                                convert_event_and_execute<Transition>(
+                                    sm, region_id, event);
+                        }
+                    });
+            }
+        };
+
+        template <typename NotExplicit>
+        class dispatch_impl<dispatch_strategy::function_pointer_array, NotExplicit>
+            : public dispatch_base
+        {
+            using base = dispatch_base;
+          public:
+            static process_result dispatch(
+                StateMachine& sm, int region_id, const Event& event)
+            {
+                const int state_id = sm.m_active_state_ids[region_id];
+                constexpr auto& cells = m_cells;
+                const cell_t cell = cells[state_id];
+                if (cell)
+                {
+                    return cell(sm, region_id, event);
+                }
+                return process_result::HANDLED_FALSE;
+            }
+
+          private:
+            // Convert a transition to its function pointer.
             template <typename Transition,
                       bool IsKleeneEvent = is_kleene_event<
                           typename Transition::transition_event>::value>
-            struct get_init_cell_constant_impl;
+            struct get_cell;
             template <typename Transition>
-            struct get_init_cell_constant_impl<Transition, /*IsKleeneEvent=*/false>
+            struct get_cell<Transition, /*IsKleeneEvent=*/false>
             {
-                using type = init_cell_constant<
-                    // Offset into the entries array
-                    StateMachine::template get_state_id<typename Transition::current_state_type>(),
-                    // Address of the execute function
-                    &Transition::execute>;
+                static constexpr cell_t value = &Transition::execute;
             };
             template <typename Transition>
-            struct get_init_cell_constant_impl<Transition, /*IsKleeneEvent=*/true>
+            struct get_cell<Transition, /*IsKleeneEvent=*/true>
             {
-                using type = init_cell_constant<
-                    // Offset into the entries array
-                    StateMachine::template get_state_id<typename Transition::current_state_type>(),
-                    // Address of the execute function
-                    &convert_event_and_execute<Transition>>;
+                static constexpr cell_t value =
+                    &base::template convert_event_and_execute<Transition>;
             };
             template <typename Transition>
-            using get_init_cell_constant = typename get_init_cell_constant_impl<Transition>::type;
+            static constexpr cell_t cell_v = get_cell<Transition>::value;
 
-            cell_t m_cells[max_state]{};
+            struct cell_table
+            {
+                cell_t data[max_state]{};
+                constexpr cell_t operator[](int i) const { return data[i]; }
+            };
+
+            // Build the cell table by traversing merged_transitions exactly once.
+            // Each transition knows its own state_id, so we just assign directly.
+            template <typename... Transitions>
+            static constexpr cell_table make_cells_from(mp11::mp_list<Transitions...>)
+            {
+                cell_table table{};
+                // Fold expression: one assignment per transition, no searching.
+                ((table.data[
+                    StateMachine::template get_state_id<
+                        typename Transitions::current_state_type>()] =
+                    get_cell<Transitions>::value), ...);
+                return table;
+            }
+
+            static constexpr cell_table m_cells =
+                make_cells_from(typename base::merged_transitions{});
         };
 
         // "Dispatch" for a specific event (sm-internal).
