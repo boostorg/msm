@@ -51,8 +51,6 @@ struct favor_compile_time
 namespace detail
 {
 
-template <typename Policy>
-struct compile_policy_impl;
 template <>
 struct compile_policy_impl<favor_compile_time>
 {

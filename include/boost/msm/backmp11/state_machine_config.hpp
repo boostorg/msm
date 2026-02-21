@@ -25,7 +25,7 @@ struct config_tag {};
 template <class T>
 using is_config = std::is_same<typename T::internal::tag, config_tag>;
 
-}
+} // namespace detail
 
 // Config for the default compile policy
 // (runtime over compile time).
@@ -80,6 +80,26 @@ struct default_state_machine_config
 
 using state_machine_config = default_state_machine_config;
 
-} // boost::msm::backmp11
+// Configuration parameters to select how events are dispatched.
+namespace dispatch_strategy
+{
+
+// Generates a flat fold of inline comparison branches.
+// The code can be optimized to a jump table.
+// + Best executable size and runtime speed for most compilers.
+// + No indirection — fully inlinable.
+// - O(n) comparisons in the worst case.
+struct flat_fold {};
+
+// Generates an array of function pointers.
+// + O(1) dispatch.
+// + Slightly better compile times.
+// - Indirect call through function pointer — not inlinable.
+// - Larger executable size (one pointer per state per event type).
+struct function_pointer_array {};
+
+} // namespace dispatch_strategy
+
+} // namespace boost::msm::backmp11
 
 #endif // BOOST_MSM_BACKMP11_STATE_MACHINE_CONFIG_H

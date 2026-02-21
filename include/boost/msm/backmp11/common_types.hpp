@@ -182,6 +182,9 @@ class deferred_event : public event_occurrence
     Event m_event;
 };
 
+template <typename Policy, typename = void>
+struct compile_policy_impl;
+
 } // namespace detail
 } // namespace boost::msm::backmp11
 

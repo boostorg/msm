@@ -207,7 +207,7 @@ class state_machine_base : public FrontEnd
     template <typename StateMachine>
     friend struct transition_table_impl;
 
-    template <typename Policy>
+    template <typename Policy, typename>
     friend struct detail::compile_policy_impl;
 
     template <typename, typename, visit_mode, bool,
@@ -916,7 +916,7 @@ class state_machine_base : public FrontEnd
             }
 
             // Consider anything except "only deferred" to be a processed event.
-            if (result != process_result::HANDLED_DEFERRED)
+            if (*result != process_result::HANDLED_DEFERRED)
             {
                 processed_events++;
                 if (processed_events == max_events)
