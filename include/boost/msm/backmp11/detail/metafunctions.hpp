@@ -9,8 +9,8 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef BOOST_MSM_BACKMP11_METAFUNCTIONS_H
-#define BOOST_MSM_BACKMP11_METAFUNCTIONS_H
+#ifndef BOOST_MSM_BACKMP11_DETAIL_METAFUNCTIONS_HPP
+#define BOOST_MSM_BACKMP11_DETAIL_METAFUNCTIONS_HPP
 
 #include <boost/mp11.hpp>
 #include <boost/mp11/mpl_list.hpp>
@@ -36,10 +36,7 @@ namespace boost::mpl
     struct is_sequence;
 }
 
-namespace boost { namespace msm { namespace backmp11
-{
-
-namespace detail
+namespace boost::msm::backmp11::detail
 {
 
 // Call a functor on all elements of List, until the functor returns true.
@@ -336,8 +333,6 @@ struct is_state_blocking_impl
 template<typename T>
 using is_state_blocking = typename is_state_blocking_impl<T>::type;
 
-} // detail
+} // boost::msm::backmp11::detail
 
-}}} // boost::msm::backmp11
-
-#endif // BOOST_MSM_BACKMP11_METAFUNCTIONS_H
+#endif // BOOST_MSM_BACKMP11_DETAIL_METAFUNCTIONS_HPP

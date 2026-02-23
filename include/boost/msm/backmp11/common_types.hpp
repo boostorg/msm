@@ -9,8 +9,8 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef BOOST_MSM_BACKMP11_COMMON_TYPES_H
-#define BOOST_MSM_BACKMP11_COMMON_TYPES_H
+#ifndef BOOST_MSM_BACKMP11_COMMON_TYPES_HPP
+#define BOOST_MSM_BACKMP11_COMMON_TYPES_HPP
 
 #include <any>
 #include <cstdint>
@@ -111,11 +111,11 @@ static constexpr process_result handled_true_or_deferred =
 // Event occurrences are placed in an event pool for later processing.
 class event_occurrence
 {
-    using process_fnc_t = std::optional<process_result> (*)(
+    using process_fn_t = std::optional<process_result> (*)(
         event_occurrence&, void* /*sm*/, uint16_t /*seq_cnt*/);
 
   public:
-    event_occurrence(process_fnc_t process_fnc) : m_process_fnc(process_fnc)
+    event_occurrence(process_fn_t process_fn) : m_process_fn(process_fn)
     {
     }
 
@@ -125,7 +125,7 @@ class event_occurrence
     template <typename StateMachine>
     std::optional<process_result> try_process(StateMachine& sm, uint16_t seq_cnt)
     {
-        return m_process_fnc(*this, static_cast<void*>(&sm), seq_cnt);
+        return m_process_fn(*this, static_cast<void*>(&sm), seq_cnt);
     }
 
     void mark_for_deletion()
@@ -139,7 +139,7 @@ class event_occurrence
     }
 
   private:
-    process_fnc_t m_process_fnc{};
+    process_fn_t m_process_fn{};
     // Flag set when this event has been processed and can be erased.
     // Deletion is deferred to allow the use of std::deque,
     // which provides better cache locality and lower per-element overhead.
@@ -188,4 +188,4 @@ struct compile_policy_impl;
 } // namespace detail
 } // namespace boost::msm::backmp11
 
-#endif // BOOST_MSM_BACKMP11_COMMON_TYPES_H
+#endif // BOOST_MSM_BACKMP11_COMMON_TYPES_HPP

@@ -213,7 +213,7 @@ struct transition_table_impl
             if constexpr (has_exit_pseudostate_be_tag<Target>::value)
             {
                 // Execute the second part of the compound transition.
-                target.forward_event(event);
+                target.forward_event(sm.m_root_sm, event);
             }
         }
     }

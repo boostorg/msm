@@ -9,17 +9,15 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef BOOST_MSM_BACKMP11_FAVOR_COMPILE_TIME_H
-#define BOOST_MSM_BACKMP11_FAVOR_COMPILE_TIME_H
+#ifndef BOOST_MSM_BACKMP11_FAVOR_COMPILE_TIME_HPP
+#define BOOST_MSM_BACKMP11_FAVOR_COMPILE_TIME_HPP
 
-#include <functional>
 #include <typeindex>
 #include <unordered_map>
 #include <vector>
 
 #include <boost/msm/front/completion_event.hpp>
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
-#include <boost/msm/backmp11/detail/dispatch_table.hpp>
 #include <boost/msm/backmp11/detail/state_visitor.hpp>
 #include <boost/msm/backmp11/detail/transition_table.hpp>
 #include <boost/msm/backmp11/event_traits.hpp>
@@ -39,7 +37,7 @@
     }                                                                          \
     } // boost::msm::backmp11::detail
 
-namespace boost { namespace msm { namespace backmp11
+namespace boost:: msm::backmp11
 {
 
 struct favor_compile_time
@@ -54,6 +52,9 @@ namespace detail
 template <>
 struct compile_policy_impl<favor_compile_time>
 {
+    // Type-punned init cell value to suppress redundant template instantiations.
+    using generic_cell = void(*)();
+
 // GCC cannot recognize the parameter pack in the array's initializer.
 #if !defined(__GNUC__) || defined(__clang__)
     // Convert a list with integral constants of the same value_type to a value array
@@ -80,11 +81,23 @@ struct compile_policy_impl<favor_compile_time>
         return event;
     }
 
-    template<typename Statemachine>
-    static bool is_end_interrupt_event(Statemachine& sm, const any_event& event)
+    template<typename StateMachine>
+    static bool is_end_interrupt_event(const StateMachine& sm, const any_event& event)
     {
-        static end_interrupt_event_helper helper{sm};
-        return helper.is_end_interrupt_event(event);
+        using event_set = generate_event_set<
+            typename StateMachine::front_end_t::transition_table>;
+        bool result{false};
+        mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, event_set>>(
+            [&sm, &event, &result](auto event_identity)
+            {
+                using Event = typename decltype(event_identity)::type;
+                using Flag = EndInterruptFlag<Event>;
+                if (event.type() == typeid(Event))
+                {
+                    result = sm.template is_flag_active<Flag>();
+                }
+            });
+        return result;
     }
 
     // Dispatch table for event deferral checks.
@@ -185,39 +198,6 @@ struct compile_policy_impl<favor_compile_time>
         return std::type_index{typeid(Event)};
     }
 
-    // Helper class to manage end interrupt events.
-    class end_interrupt_event_helper
-    {
-      public:
-        template<class StateMachine>
-        end_interrupt_event_helper(const StateMachine& sm)
-        {
-            using event_set = generate_event_set<
-                typename StateMachine::front_end_t::transition_table>;
-            mp11::mp_for_each<mp11::mp_transform<mp11::mp_identity, event_set>>(
-                [this, &sm](auto event_identity)
-                {
-                    using Event = typename decltype(event_identity)::type;
-                    using Flag = EndInterruptFlag<Event>;
-                    m_is_flag_active_functions[to_type_index<Event>()] =
-                        [&sm](){return sm.template is_flag_active<Flag>();};
-                });
-        }
-
-        bool is_end_interrupt_event(const any_event& event) const
-        {
-            auto it = m_is_flag_active_functions.find(event.type());
-            if (it != m_is_flag_active_functions.end())
-            {
-                return (it->second)();
-            }
-            return false;
-        }
-
-      private:
-        using map = std::unordered_map<std::type_index, std::function<bool()>>;
-        map m_is_flag_active_functions;
-    };
 
     // Class used to build a chain of transitions for a given event and state.
     // Allows transition conflicts.
@@ -553,6 +533,6 @@ compile_policy_impl<favor_compile_time>::dispatch_table<StateMachine, any_event>
 #endif
 
 } // detail
-}}} // boost::msm::backmp11
+} // boost::msm::backmp11
 
-#endif //BOOST_MSM_BACKMP11_FAVOR_COMPILE_TIME_H
+#endif //BOOST_MSM_BACKMP11_FAVOR_COMPILE_TIME_HPP
