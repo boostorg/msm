@@ -9,18 +9,14 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef BOOST_MSM_BACKMP11_HISTORY_IMPL_H
-#define BOOST_MSM_BACKMP11_HISTORY_IMPL_H
+#ifndef BOOST_MSM_BACKMP11_DETAIL_HISTORY_IMPL_HPP
+#define BOOST_MSM_BACKMP11_DETAIL_HISTORY_IMPL_HPP
 
 #include <boost/msm/front/history_policies.hpp>
 #include <boost/mp11.hpp>
 
-namespace boost::msm::backmp11
+namespace boost::msm::backmp11::detail
 {
-namespace detail
-{
-
-// Implementations for history policies.
 
 template<typename History, int NumberOfRegions>
 class history_impl;
@@ -138,8 +134,6 @@ public:
     std::array<int, NumberOfRegions> m_last_active_state_ids;
 };
 
-} // detail
-
 } // boost::msm::backmp11
 
-#endif // BOOST_MSM_BACKMP11_HISTORY_IMPL_H
+#endif // BOOST_MSM_BACKMP11_DETAIL_HISTORY_IMPL_HPP

@@ -9,16 +9,15 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef BOOST_MSM_BACKMP11_DETAIL_FAVOR_RUNTIME_SPEED_H
-#define BOOST_MSM_BACKMP11_DETAIL_FAVOR_RUNTIME_SPEED_H
+#ifndef BOOST_MSM_BACKMP11_DETAIL_FAVOR_RUNTIME_SPEED_HPP
+#define BOOST_MSM_BACKMP11_DETAIL_FAVOR_RUNTIME_SPEED_HPP
 
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
-#include <boost/msm/backmp11/detail/dispatch_table.hpp>
 #include <boost/msm/backmp11/detail/state_visitor.hpp>
 #include <boost/msm/backmp11/detail/transition_table.hpp>
 #include <boost/msm/backmp11/event_traits.hpp>
 
-namespace boost { namespace msm { namespace backmp11
+namespace boost::msm::backmp11
 {
 
 struct favor_runtime_speed
@@ -172,8 +171,6 @@ struct compile_policy_impl<
         }
 
       private:
-        using cell_t = process_result (*)(StateMachine&, int /*region_id*/, Event const&);
-
         // All dispatch tables are friend with each other to check recursively
         // whether forward transitions are required.
         template <class, typename>
@@ -360,78 +357,39 @@ struct compile_policy_impl<
         {
            using base = dispatch_base;
           public:
-            template <typename... Ts>
-            struct mp_indexed_dispatch_impl
-            {
-                using list = mp11::mp_list<Ts...>;
-                static constexpr std::size_t size = sizeof...(Ts);
-
-                template <typename F>
-                static constexpr process_result invoke(int state_id, F&& func)
-                {
-                    return dispatch(state_id, func,
-                                    std::make_index_sequence<size>{});
-                }
-
-            private:
-                // For position I in the list, get the corresponding state_id
-                // at compile time.
-                template <std::size_t I>
-                static constexpr int state_id_at =
-                    StateMachine::template get_state_id<
-                        typename mp11::mp_at_c<list, I>::current_state_type>();
-
-                // Single case handler: invoke func with the I-th transition
-                template <std::size_t I, typename F>
-                static constexpr process_result handle_case(F& func)
-                {
-                    return func(mp11::mp_at_c<list, I>{});
-                }
-
-                // Generate branches comparing state_id against compile-time
-                // state_id_at<I> for each position I in the list.
-                template <typename F, std::size_t... Is>
-                static constexpr process_result dispatch(int state_id, F& func,
-                                                        std::index_sequence<Is...>)
-                {
-                    process_result result = process_result::HANDLED_FALSE;
-                    // Each branch compares the runtime state_id against the
-                    // compile-time state_id of the I-th transition.
-                    // State IDs may be non-contiguous (e.g., 0, 2, 5).
-                    (void)((state_id == state_id_at<Is> &&
-                    (result = handle_case<Is>(func), true)) || ...);
-                    return result;
-                }
-            };
-
-            template <typename L, typename F>
-            static constexpr process_result mp_indexed_dispatch(int state_id, F&& func)
-            {
-                return mp11::mp_apply<mp_indexed_dispatch_impl, L>::invoke(
-                    state_id, std::forward<F>(func));
-            }
-
             static inline process_result dispatch(StateMachine& sm, int region_id,
                                            const Event& event)
             {
                 const int state_id = sm.m_active_state_ids[region_id];
-                return mp_indexed_dispatch<typename base::merged_transitions>(state_id,
-                    [&sm, region_id, &event](auto transition) -> process_result
+                process_result result = process_result::HANDLED_FALSE;
+                mp11::mp_for_each<typename base::merged_transitions>(
+                    [&sm, region_id, &event, state_id, &result](auto transition)
                     {
                         using Transition = decltype(transition);
                         using TransitionEvent =
                             typename Transition::transition_event;
-                        if constexpr (!is_kleene_event<TransitionEvent>::value)
+                        using SourceState =
+                            typename Transition::current_state_type;
+                        constexpr int source_state_id =
+                            StateMachine::template get_state_id<SourceState>();
+                        if (state_id == source_state_id)
                         {
-                            return Transition::execute(sm, region_id, event);
+                            if constexpr (!is_kleene_event<
+                                              TransitionEvent>::value)
+                            {
+                                result =
+                                    Transition::execute(sm, region_id, event);
+                            }
+                            else
+                            {
+                                result =
+                                    base::template convert_event_and_execute<
+                                        Transition>(sm, region_id, event);
+                            }
                         }
-                        else
-                        {
-                            return base::template
-                                convert_event_and_execute<Transition>(
-                                    sm, region_id, event);
-                        }
-                    });
+                    }
+                );
+                return result;
             }
         };
 
@@ -440,6 +398,9 @@ struct compile_policy_impl<
             : public dispatch_base
         {
             using base = dispatch_base;
+            using cell_t = process_result (*)(StateMachine&, int /*region_id*/,
+                                              Event const&);
+
           public:
             static process_result dispatch(
                 StateMachine& sm, int region_id, const Event& event)
@@ -557,7 +518,7 @@ struct compile_policy_impl<
 };
 
 } // detail
-}}} // boost::msm::backmp11
+} // boost::msm::backmp11
 
 
-#endif // BOOST_MSM_BACKMP11_DETAIL_FAVOR_RUNTIME_SPEED_H
+#endif // BOOST_MSM_BACKMP11_DETAIL_FAVOR_RUNTIME_SPEED_HPP

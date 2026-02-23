@@ -12,7 +12,6 @@
 #ifndef BOOST_MSM_BACKMP11_DETAIL_STATE_VISITOR_HPP
 #define BOOST_MSM_BACKMP11_DETAIL_STATE_VISITOR_HPP
 
-#include <boost/msm/backmp11/detail/dispatch_table.hpp>
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
 #include <boost/msm/backmp11/state_machine_config.hpp>
 
@@ -197,61 +196,27 @@ class state_visitor_impl<
         {
             if (sm.m_running)
             {
-                const state_visitor_impl& self = instance();
-                for (const int state_id : sm.m_active_state_ids)
+                using state_identities = mp11::mp_transform<
+                            mp11::mp_identity,
+                            typename base::states_to_traverse>;
+                for (const int active_state_id : sm.m_active_state_ids)
                 {
-                    self.dispatch(sm, state_id, visitor);
+                    mp11::mp_for_each<state_identities>(
+                        [&sm, &visitor, active_state_id](auto state_identity)
+                        {
+                            using State =
+                                typename decltype(state_identity)::type;
+                            constexpr int state_id =
+                                StateMachine::template get_state_id<State>();
+                            if (active_state_id == state_id)
+                            {
+                                base::template accept<Mode, State>(sm, visitor);
+                            }
+                        });
                 }
             }
         }
     }
-
-    // Bug: Clang 17 complains about private member if this method is private.
-    template <typename State>
-    static void accept(StateMachine& sm, Visitor& visitor)
-    {
-        base::template accept<Mode, State>(sm, visitor);
-    }
-
-  private:
-    using state_set = typename StateMachine::internal::state_set;
-    using cell_t = void (*)(StateMachine&, Visitor&);
-    template <size_t index, cell_t cell>
-    using init_cell_constant = init_cell_constant<index, cell_t, cell>;
-
-    template <typename State>
-    using get_init_cell_constant = init_cell_constant<
-        StateMachine::template get_state_id<State>(),
-        &accept<State>>;
-
-    state_visitor_impl()
-    {
-        using init_cell_constants = mp11::mp_transform<
-            get_init_cell_constant,
-            typename base::states_to_traverse>;
-        dispatch_table_initializer::execute(
-            reinterpret_cast<generic_cell*>(m_cells),
-            reinterpret_cast<const generic_init_cell_value*>(
-                value_array<init_cell_constants>),
-            mp11::mp_size<init_cell_constants>::value);
-    }
-
-    void dispatch(StateMachine& sm, int state_id, Visitor& visitor) const
-    {
-        const cell_t& cell = m_cells[state_id];
-        if (cell)
-        {
-            (*cell)(sm, visitor);
-        }
-    }
-
-    static const state_visitor_impl& instance()
-    {
-        static const state_visitor_impl instance;
-        return instance;
-    }
-
-    cell_t m_cells[mp11::mp_size<state_set>::value]{};
 };
 
 template <
@@ -325,15 +290,27 @@ class event_deferral_visitor
                       "The visitor must have at least one state to visit");
         if (sm.m_running)
         {
-            const event_deferral_visitor& self = instance();
-            for (const int state_id : sm.m_active_state_ids)
+            using state_identities = mp11::mp_transform<
+                        mp11::mp_identity,
+                        typename visit_set::states_to_traverse>;
+            for (const int active_state_id : sm.m_active_state_ids)
             {
-                self.dispatch(sm, state_id, visitor);
+                mp11::mp_for_each<state_identities>(
+                    [&sm, &visitor, active_state_id](auto state_identity)
+                    {
+                        using State = typename decltype(state_identity)::type;
+                        constexpr int state_id =
+                            StateMachine::template get_state_id<State>();
+                        if (active_state_id == state_id)
+                        {
+                            accept<State>(sm, visitor);
+                        }
+                    });
             }
         }
     }
 
-    // Bug: Clang 17 complains about private member if this method is private.
+  private:
     template <typename State>
     static void accept(StateMachine& sm, Visitor& visitor)
     {
@@ -353,46 +330,6 @@ class event_deferral_visitor
             submachine_visitor::visit(state, visitor);
         }
     }
-
-  private:
-    using state_set = typename StateMachine::internal::state_set;
-    using cell_t = void (*)(StateMachine&, Visitor&);
-    template <size_t index, cell_t cell>
-    using init_cell_constant = init_cell_constant<index, cell_t, cell>;
-
-    template <typename State>
-    using get_init_cell_constant = init_cell_constant<
-        StateMachine::template get_state_id<State>(),
-        &accept<State>>;
-
-    event_deferral_visitor()
-    {
-        using init_cell_constants = mp11::mp_transform<
-            get_init_cell_constant,
-            typename visit_set::states_to_traverse>;
-        dispatch_table_initializer::execute(
-            reinterpret_cast<generic_cell*>(m_cells),
-            reinterpret_cast<const generic_init_cell_value*>(
-                value_array<init_cell_constants>),
-            mp11::mp_size<init_cell_constants>::value);
-    }
-
-    void dispatch(StateMachine& sm, int state_id, Visitor& visitor) const
-    {
-        const cell_t& cell = m_cells[state_id];
-        if (cell)
-        {
-            (*cell)(sm, visitor);
-        }
-    }
-
-    static const event_deferral_visitor& instance()
-    {
-        static const event_deferral_visitor instance;
-        return instance;
-    }
-
-    cell_t m_cells[mp11::mp_size<state_set>::value]{};
 };
 
 // Predefined visitor functors used in backmp11.
@@ -499,12 +436,7 @@ class init_state_visitor
     {
         if constexpr (has_exit_pseudostate_be_tag<State>::value)
         {
-            state.set_forward_fct(
-                [&root_sm = m_root_sm](typename State::event const& event)
-                {
-                    return root_sm.enqueue_event(event);
-                }
-            );
+            state.template init<RootSm>();
         }
 
         if constexpr (has_state_machine_tag<State>::value)
