@@ -49,6 +49,8 @@ struct favor_compile_time
 namespace detail
 {
 
+using any_event = std::any;
+
 template <>
 struct compile_policy_impl<favor_compile_time>
 {

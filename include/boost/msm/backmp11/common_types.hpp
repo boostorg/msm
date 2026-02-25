@@ -12,7 +12,6 @@
 #ifndef BOOST_MSM_BACKMP11_COMMON_TYPES_HPP
 #define BOOST_MSM_BACKMP11_COMMON_TYPES_HPP
 
-#include <any>
 #include <cstdint>
 #include <optional>
 
@@ -60,8 +59,6 @@ namespace boost::msm::backmp11
 {
 
 using process_result = back::HandledEnum;
-
-using any_event = std::any;
 
 // flag handling
 struct flag_or {};

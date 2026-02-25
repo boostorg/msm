@@ -23,7 +23,7 @@
 
 #include <boost/msm/active_state_switching_policies.hpp>
 #include <boost/msm/row_tags.hpp>
-#include <boost/msm/backmp11/detail/basic_polymorphic_value.hpp>
+#include <boost/msm/backmp11/detail/basic_polymorphic.hpp>
 #include <boost/msm/backmp11/detail/favor_runtime_speed.hpp>
 #include <boost/msm/backmp11/detail/history_impl.hpp>
 #include <boost/msm/backmp11/detail/state_visitor.hpp>
@@ -148,7 +148,7 @@ class state_machine_base : public FrontEnd
     using states_t = mp11::mp_rename<typename internal::state_set, std::tuple>;
 
   protected:
-    using processable_event = basic_polymorphic_value<event_occurrence>;
+    using processable_event = basic_polymorphic<event_occurrence>;
     template <typename T>
     using event_container = typename config_t::template event_container<T>;
     using event_container_t = event_container<processable_event>;
@@ -399,7 +399,7 @@ class state_machine_base : public FrontEnd
               typename = std::enable_if_t<C>>
     inline size_t process_event_pool(size_t max_events = SIZE_MAX)
     {
-        if (get_event_pool().events.empty())
+        if (get_event_pool().events.empty() || m_event_processing)
         {
             return 0;
         }
@@ -869,7 +869,7 @@ class state_machine_base : public FrontEnd
             }
         }
 #else
-        result = Transition::execute(self(), state_id, event);
+        result = Transition::execute(self(), region_id, event);
 #endif
         m_event_processing = false;
         return result;
