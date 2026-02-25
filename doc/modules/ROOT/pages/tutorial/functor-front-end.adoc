@@ -53,7 +53,6 @@ Row  < Paused  , stop       ,  Stopped  , stop_playback             , none      
 Row  < Paused  , open_close ,  Open     , stop_and_open             , none                       >
 //   +---------+------------+-----------+---------------------------+----------------------------+ 
 > {};
-                        
 ----
 
 Transitions are now of type "Row" with exactly 5 template arguments:
@@ -66,12 +65,12 @@ detected event, the state machine, source and target state:
 ----
 struct store_cd_info 
 { 
-    template <class Fsm,class Evt,class SourceState,class TargetState> 
-    void operator()(Evt const&, Fsm& fsm, SourceState&,TargetState& ) 
+    template <class Event, class Fsm, class SourceState, class TargetState> 
+    void operator()(Event const&, Fsm& fsm, SourceState&, TargetState&)
     {
         cout << "player::store_cd_info" << endl;
         fsm.process_event(play());
-    } 
+    }
 }; 
 ----
 
@@ -118,6 +117,88 @@ And_<good_disk_format,Or_< some_condition , some_other_condition> >
 It even starts looking like functional programming. MSM ships with
 functors for operators, state machine usage, STL algorithms or container
 methods.
+
+
+== Using lambdas as functors ({cpp}20)
+
+If {cpp}20 is available you can shorten the functor syntax by using lambdas as functors.
+The `store_cd_info` functor can be rewritten with a lambda as follows:
+
+[source,cpp]
+----
+using store_cd_info = msm::front::Lambda<
+    [](auto const& /*event*/, auto& fsm, auto& /*source*/, auto& /*target*/)
+    {
+        cout << "player::store_cd_info" << endl;
+        fsm.process_event(play());
+    }>;
+----
+
+[[simplified_functor_signatures]]
+== Simplified functor signatures (`backmp11` only)
+
+The `backmp11` back-end allows you to use shorter functor signatures, reducing the boilerplate of action and guard functor definitions. It automatically detects how many parameters your functors have and invokes them with the appropriate arguments.
+
+The following three signatures are supported:
+
+**Full signature**
+
+[source,cpp]
+----
+struct store_cd_info 
+{ 
+    template <class Event, class Fsm, class SourceState, class TargetState> 
+    void operator()(Event const&, Fsm& fsm, SourceState&, TargetState&)
+    {
+        cout << "player::store_cd_info" << endl;
+        fsm.process_event(play());
+    } 
+}; 
+----
+
+**Event and FSM only**
+
+[source,cpp]
+----
+struct store_cd_info 
+{ 
+    template <class Event, class Fsm> 
+    void operator()(Event const&, Fsm& fsm)
+    {
+        cout << "player::store_cd_info" << endl;
+        fsm.process_event(play());
+    } 
+}; 
+----
+
+**FSM only**
+
+[source,cpp]
+----
+struct store_cd_info 
+{ 
+    template <class Fsm> 
+    void operator()(Fsm& fsm)
+    {
+        cout << "player::store_cd_info" << endl;
+        fsm.process_event(play());
+    } 
+}; 
+----
+
+Simplified signatures are also supported with lambdas, providing a way to define
+functors with minimal boilerplate:
+
+[source,cpp]
+----
+using store_cd_info = msm::front::Lambda<
+    [](auto& fsm)
+    {
+        cout << "player::store_cd_info" << endl;
+        fsm.process_event(play());
+    }>;
+----
+
 
 [[defining-states-with-entryexit-actions]]
 

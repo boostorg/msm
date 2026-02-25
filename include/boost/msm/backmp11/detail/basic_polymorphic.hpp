@@ -21,8 +21,8 @@
 namespace boost::msm::backmp11::detail
 {
 
-// Basic polymorphic value with small buffer optimization.
-// Similar to standard proposal P0201 (polymorphic_value).
+// Basic polymorphic value with small object optimization.
+// Similar to std::polymorphic (C++26).
 
 struct control_block
 {
@@ -84,7 +84,9 @@ struct create_control_block<T, /*IsInline=*/false>
 };
 
 template <typename T, bool IsTriviallyCopyable>
-struct inline_control_bock
+struct inline_control_bock;
+template <typename T>
+struct inline_control_bock<T, /*IsTriviallyCopyable=*/false>
 {
     inline static const control_block instance = []() constexpr {
         control_block self{};
@@ -126,8 +128,9 @@ const control_block& control_block_v =
 
 struct inline_tag {};
 
-template <size_t BufferSize, size_t BufferAlignment>
-class basic_polymorphic_value_base
+template <size_t BufferSize = 64 - sizeof(control_block*),
+          size_t BufferAlignment = alignof(void*)>
+class basic_polymorphic_base
 {
     static_assert(BufferSize <= 255,
                   "BufferSize must not be bigger than 255 Bytes");
@@ -136,50 +139,6 @@ class basic_polymorphic_value_base
     bool is_inline() const
     {
         return m_control_block->is_inline;
-    }
-
-  protected:
-    explicit basic_polymorphic_value_base(const control_block& class_data)
-        : m_control_block(&class_data)
-    {
-    }
-
-    basic_polymorphic_value_base(const void* src, const control_block& class_data,
-                        inline_tag)
-        : m_control_block(&class_data)
-    {
-        std::memcpy(&this->m_buffer, src, m_control_block->size);
-    }
-
-    basic_polymorphic_value_base(void* ptr, control_block& class_data)
-        : m_control_block(&class_data)
-    {
-        m_ptr = ptr;
-    }
-
-    ~basic_polymorphic_value_base()
-    {
-        m_control_block->destroy(get());
-    }
-
-    basic_polymorphic_value_base(const basic_polymorphic_value_base&) = delete;
-    basic_polymorphic_value_base& operator=(const basic_polymorphic_value_base&) = delete;
-
-    basic_polymorphic_value_base(basic_polymorphic_value_base&& other) noexcept
-        : m_control_block(other.m_control_block)
-    {
-        m_control_block->move(m_ptr, other.m_ptr);
-    }
-
-    basic_polymorphic_value_base& operator=(basic_polymorphic_value_base&& other) noexcept
-    {
-        if (this != &other)
-        {
-            m_control_block->destroy(get());
-            m_control_block = other.m_control_block;
-            m_control_block->move(m_ptr, other.m_ptr);
-        }
-        return *this;
     }
 
     void* get() const noexcept
@@ -194,6 +153,91 @@ class basic_polymorphic_value_base
         }
     }
 
+  protected:
+    template <typename U>
+    using IsInline = std::bool_constant<
+        sizeof(U) <= BufferSize &&
+        alignof(U) <= BufferAlignment>;
+    
+    template <typename U>
+    static constexpr bool is_nothrow_constructible_v =
+        std::is_trivially_copyable_v<U> && IsInline<U>::value;
+
+    template <typename U>
+    explicit basic_polymorphic_base(const U& obj) noexcept(
+        is_nothrow_constructible_v<U>)
+        : m_control_block(&control_block_v<U, IsInline<U>::value>)
+    {
+        if constexpr (IsInline<U>::value)
+        {
+            if constexpr (std::is_trivially_copyable_v<U>)
+            {
+                std::memcpy(&m_buffer, &obj, sizeof(U));
+            }
+            else
+            {
+                new (&m_buffer) U(obj);
+            }
+        }
+        else
+        {
+            m_ptr = new U(obj);
+        }
+    }
+
+    template <typename U, typename... Args>
+    explicit basic_polymorphic_base(
+        std::in_place_type_t<U>,
+        Args&&... args) noexcept(is_nothrow_constructible_v<U>)
+        : m_control_block(&control_block_v<U, IsInline<U>::value>)
+    {
+        if constexpr (IsInline<U>::value)
+        {
+            new (&m_buffer) U(std::forward<Args>(args)...);
+        }
+        else
+        {
+            m_ptr = new U(std::forward<Args>(args)...);
+        }
+    }
+
+    // Moveable is enough for our needs.
+    // Removing the copy operators ensures we do not accidentally copy the value.
+    basic_polymorphic_base(const basic_polymorphic_base& rhs) = delete;
+    basic_polymorphic_base& operator=(const basic_polymorphic_base& rhs) = delete;
+
+    basic_polymorphic_base(basic_polymorphic_base&& other) noexcept
+        : m_control_block(other.m_control_block)
+    {
+        m_control_block->move(m_ptr, other.m_ptr);
+    }
+
+    basic_polymorphic_base& operator=(basic_polymorphic_base&& other) noexcept
+    {
+        if (this != &other)
+        {
+            destroy();
+            m_control_block = other.m_control_block;
+            m_control_block->move(m_ptr, other.m_ptr);
+        }
+        return *this;
+    }
+
+    ~basic_polymorphic_base()
+    {
+        destroy();
+    }
+
+  private:
+    void destroy()
+    {
+        m_control_block->destroy(get());;
+        if (!m_control_block->is_inline)
+        {
+            m_ptr = nullptr;
+        }
+    }
+
     const control_block* m_control_block{&control_block_v<void, true>};
     union {
         void* m_ptr;
@@ -204,76 +248,41 @@ class basic_polymorphic_value_base
 template <typename T,
           size_t BufferSize = 64 - sizeof(control_block*),
           size_t BufferAlignment = alignof(void*)>
-class basic_polymorphic_value
-    : public basic_polymorphic_value_base<BufferSize, BufferAlignment>
+class basic_polymorphic
+    : public basic_polymorphic_base<BufferSize, BufferAlignment>
 {
-  private:
-    using destroy_fn_t = void(*)(T* ptr) noexcept;
-    using base = basic_polymorphic_value_base<BufferSize, BufferAlignment>;
-
-    template <typename U>
-    using IsInline = std::bool_constant<
-        sizeof(U) <= BufferSize &&
-        alignof(U) <= BufferAlignment>;
+    using base = basic_polymorphic_base<BufferSize, BufferAlignment>;
 
   public:
-    basic_polymorphic_value(basic_polymorphic_value&& other) noexcept = default;
-    basic_polymorphic_value& operator=(basic_polymorphic_value&& other) noexcept = default;
+    basic_polymorphic(basic_polymorphic&& other) noexcept = default;
+    basic_polymorphic& operator=(basic_polymorphic&& other) noexcept = default;
 
-    template <typename U, bool IsInline = IsInline<U>::value>
-    struct make_impl;
-    template <typename U>
-    struct make_impl<U, /*IsInline=*/true>
+    template <typename U,
+              typename = std::enable_if_t<std::is_base_of_v<T, U>>>
+    explicit basic_polymorphic(const U& obj) noexcept(base::template is_nothrow_constructible_v<U>)
+        : base(obj)
     {
-        static_assert(std::is_base_of_v<T, U>, "U must be derived from T");
+    }
 
-        static basic_polymorphic_value make(const U& obj)
-        {
-            if constexpr (std::is_trivially_copyable_v<U>)
-            {
-                return basic_polymorphic_value{&obj, control_block_v<U, true>,
-                                      inline_tag{}};
-            }
-            else
-            {
-                basic_polymorphic_value self{control_block_v<U, true>};
-                new (&self.m_buffer) U(obj);
-                return self;
-            }
-        }
-
-        template <typename... Args>
-        static basic_polymorphic_value make(Args&&... args)
-        {
-            basic_polymorphic_value self{control_block_v<U, true>};
-            new (&self.m_buffer) U(std::forward<Args>(args)...);
-            return self;
-        }
-    };
-    template <typename U>
-    struct make_impl<U, /*IsInline=*/false>
+    template <typename U, typename... Args,
+              typename = std::enable_if_t<std::is_base_of_v<T, U>>>
+    explicit basic_polymorphic(std::in_place_type_t<U> in_place,
+                               Args&&... args) noexcept(base::template is_nothrow_constructible_v<U>)
+        : base(in_place, std::forward<Args>(args)...)
     {
-        static_assert(std::is_base_of_v<T, U>, "U must be derived from T");
-
-        template <typename... Args>
-        static basic_polymorphic_value make(Args&&... args)
-        {
-            basic_polymorphic_value self{control_block_v<U, false>};
-            self.m_ptr = new U(std::forward<Args>(args)...);
-            return self;
-        }
-    };
+    }
 
     template <typename U, typename... Args>
-    static basic_polymorphic_value make(Args&&... args)
+    static basic_polymorphic make(Args&&... args)
     {
-        return make_impl<U>::make(std::forward<Args>(args)...);
+        return basic_polymorphic{std::in_place_type<U>,
+                                 std::forward<Args>(args)...};
     };
 
     template <typename U>
-    static constexpr basic_polymorphic_value make(const U& obj)
+    static basic_polymorphic make(const U& obj)
     {
-        return make_impl<U>::make(obj);
+        return basic_polymorphic{obj};
     };
 
     T* get() const noexcept
@@ -290,9 +299,6 @@ class basic_polymorphic_value
     {
         return get();
     }
-
-  protected:
-    using base::base;
 };
 
 } // namespace boost::msm::backmp11::detail

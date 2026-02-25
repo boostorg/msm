@@ -9,8 +9,8 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef BOOST_MSM_BACKMP11_STATE_MACHINE_CONFIG_H
-#define BOOST_MSM_BACKMP11_STATE_MACHINE_CONFIG_H
+#ifndef BOOST_MSM_BACKMP11_STATE_MACHINE_CONFIG_HPP
+#define BOOST_MSM_BACKMP11_STATE_MACHINE_CONFIG_HPP
 
 #include <deque>
 
@@ -102,4 +102,4 @@ struct function_pointer_array {};
 
 } // namespace boost::msm::backmp11
 
-#endif // BOOST_MSM_BACKMP11_STATE_MACHINE_CONFIG_H
+#endif // BOOST_MSM_BACKMP11_STATE_MACHINE_CONFIG_HPP
