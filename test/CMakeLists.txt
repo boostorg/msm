@@ -14,6 +14,10 @@ endif()
 if(BOOST_MSM_TEST_STRICT)
     add_compile_options(-Wall -Wextra -Werror -Wno-language-extension-token)
 endif()
+if(BOOST_MSM_TEST_ENABLE_SANITIZERS)
+    add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=address -fno-omit-frame-pointer)
+endif()
 
 
 add_executable(boost_msm_tests
@@ -72,7 +76,7 @@ add_dependencies(tests boost_msm_euml_tests)
 
 add_executable(boost_msm_cxx17_tests
     EXCLUDE_FROM_ALL
-    Backmp11BasicPolymorphicValue.cpp
+    Backmp11BasicPolymorphic.cpp
     Backmp11Completion.cpp
     Backmp11Constructor.cpp
     Backmp11Context.cpp

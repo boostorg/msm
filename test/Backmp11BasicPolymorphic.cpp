@@ -10,14 +10,14 @@
 // http://www.boost.org/LICENSE_1_0.txt)
 
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
-#define BOOST_TEST_MODULE backmp11_basic_polymorphic_value
+#define BOOST_TEST_MODULE backmp11_basic_polymorphic
 #endif
 #include <boost/test/unit_test.hpp>
 
-#include <boost/msm/backmp11/detail/basic_polymorphic_value.hpp>
+#include <boost/msm/backmp11/detail/basic_polymorphic.hpp>
 #include "Utils.hpp"
 
-using boost::msm::backmp11::detail::basic_polymorphic_value;
+using boost::msm::backmp11::detail::basic_polymorphic;
 
 namespace
 {
@@ -29,7 +29,7 @@ struct trivial_class
 
 BOOST_AUTO_TEST_CASE(trivial_class_test)
 {
-    using ptr_t = basic_polymorphic_value<trivial_class>;
+    using ptr_t = basic_polymorphic<trivial_class>;
     static_assert(sizeof(ptr_t) == 64);
 
     ptr_t ptr = ptr_t::make(trivial_class{42});
@@ -52,7 +52,7 @@ struct class_with_destructor
 size_t class_with_destructor::destructor_calls{};
 BOOST_AUTO_TEST_CASE(class_with_destructor_test)
 {
-    using ptr_t = basic_polymorphic_value<class_with_destructor>;
+    using ptr_t = basic_polymorphic<class_with_destructor>;
 
     [[maybe_unused]] size_t& destructor_calls = class_with_destructor::destructor_calls;
 
@@ -104,7 +104,7 @@ struct big_class_with_destructor
 size_t big_class_with_destructor::destructor_calls{};
 BOOST_AUTO_TEST_CASE(big_class_with_destructor_test)
 {
-    using ptr_t = basic_polymorphic_value<big_class_with_destructor>;
+    using ptr_t = basic_polymorphic<big_class_with_destructor>;
     {
         ptr_t ptr = ptr_t::make<big_class_with_destructor>(42);
         BOOST_REQUIRE(!ptr.is_inline());
@@ -133,7 +133,7 @@ struct sub_class__with_destructor : class_with_destructor
 size_t sub_class__with_destructor::destructor_calls{};
 BOOST_AUTO_TEST_CASE(two_destructors_test)
 {
-    using ptr_t = basic_polymorphic_value<class_with_destructor>;
+    using ptr_t = basic_polymorphic<class_with_destructor>;
 
     [[maybe_unused]] size_t& destructor_calls_0 = class_with_destructor::destructor_calls;
     [[maybe_unused]] size_t& destructor_calls_1 = sub_class__with_destructor::destructor_calls;
@@ -191,7 +191,7 @@ struct other_virtual_class : virtual_class
 size_t other_virtual_class::method_calls{};
 BOOST_AUTO_TEST_CASE(virtual_class_test)
 {
-    using ptr_t = basic_polymorphic_value<virtual_class>;
+    using ptr_t = basic_polymorphic<virtual_class>;
 
     ptr_t ptr = ptr_t::make<virtual_class>();
     BOOST_REQUIRE(ptr.is_inline());
