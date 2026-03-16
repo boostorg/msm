@@ -277,13 +277,13 @@ class basic_polymorphic
     {
         return basic_polymorphic{std::in_place_type<U>,
                                  std::forward<Args>(args)...};
-    };
+    }
 
     template <typename U>
     static basic_polymorphic make(const U& obj)
     {
         return basic_polymorphic{obj};
-    };
+    }
 
     T* get() const noexcept
     {
