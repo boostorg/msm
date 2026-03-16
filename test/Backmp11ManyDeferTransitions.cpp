@@ -22,6 +22,9 @@ using namespace boost::msm::front;
 using namespace boost::msm::backmp11;
 namespace mp11 = boost::mp11;
 
+namespace
+{
+
 // Events
 struct Event1 {};
 struct Event2 {};
@@ -235,3 +238,5 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(action_defer_transitions, TestMachine, TestMachine
 }
 
 } // namespace action_defer_transitions
+
+} // namespace

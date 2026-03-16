@@ -26,6 +26,9 @@ using namespace boost::msm::backmp11;
 
 namespace mp11 = boost::mp11;
 
+namespace
+{
+
 // Events
 struct Event1
 {
@@ -438,3 +441,5 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(action_deferred, Fsm, Fsms)
 }
 
 } // namespace action_deferred
+
+} // namespace
