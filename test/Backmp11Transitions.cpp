@@ -82,13 +82,13 @@ struct StateMachine_ : public state_machine_def<StateMachine_>
     void on_entry(const Event& /*event*/, Fsm& fsm)
     {
         fsm.entry_calls++;
-    };
+    }
 
     template <typename Event, typename Fsm>
     void on_exit(const Event& /*event*/, Fsm& fsm)
     {
         fsm.exit_calls++;
-    };
+    }
 
     using initial_state = MyState;
     using transition_table = mp11::mp_list<
