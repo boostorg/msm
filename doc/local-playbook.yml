@@ -53,6 +53,7 @@ antora:
       cpp-tagfiles:
         using-namespaces:
           - 'boost::'
+    - require: '@cppalliance/antora-downloads-extension'
     # - require: '@cppalliance/antora-cpp-reference-extension'
     #   dependencies:
     #     - name: 'boost'
@@ -74,7 +75,7 @@ content:
   sources:
     - url: .
       start_path: .
-      # edit_url: 'https://github.com/boostorg/msm/edit/{refname}/{path}'
+      edit_url: 'https://github.com/boostorg/msm/edit/develop/{path}'
 
 ui:
   bundle:
