@@ -15,6 +15,7 @@
 * Bug fixes (`backmp11`):
 ** Incorrect `FSM` type in calls to `on_entry(...)` and `on_exit(...)` (https://github.com/boostorg/msm/issues/167[#167])
 ** Completion events fire too often (https://github.com/boostorg/msm/issues/166[#166])
+** Transitions in hierarchical state machines are not selected correctly (favor_compile_time) (https://github.com/boostorg/msm/issues/200[#200])
 * **Breaking change (`backmp11`)**: Direct access to the event pool is changed from `public` to `protected`,
 because manipulating it outside of the library code can lead to undefined behavior.
 

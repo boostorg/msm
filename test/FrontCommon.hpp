@@ -36,6 +36,7 @@ struct StateBase : state<>
 
     size_t entry_counter{};
     size_t exit_counter{};
+    size_t action_counter{};
 };
 
 // Base for a state machine used in the tests.
@@ -62,6 +63,7 @@ struct StateMachineBase_ : state_machine_def<T>
 
     size_t entry_counter{};
     size_t exit_counter{};
+    size_t action_counter{};
 };
 
 
