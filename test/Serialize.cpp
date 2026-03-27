@@ -69,8 +69,8 @@ namespace
         // to achieve this, ask for it
         typedef int do_serialize;
         // and provide a serialize
-        template<class Archive>
-        void serialize(Archive & ar, const unsigned int )
+        template <class Archive>
+        void serialize(Archive& ar, const unsigned int = 0)
         {
             ar & front_end_data;
         }
@@ -87,12 +87,11 @@ namespace
             int some_dummy_data;
             // we want Empty to be serialized
             typedef int do_serialize;
-            template<class Archive>
-            void serialize(Archive & ar, const unsigned int )
+            template <class Archive>
+            void serialize(Archive& ar, const unsigned int = 0)
             {
                 ar & some_dummy_data;
             }
-
         };
         struct Open : public msm::front::state<> 
         { 

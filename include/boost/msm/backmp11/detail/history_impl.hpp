@@ -48,11 +48,13 @@ class history_impl<front::no_history, NumberOfRegions>
         return true;
     }
 
-  private:
-    // Allow access to private members for serialization.
-    template<typename T, int N>
-    friend void serialize(T&, history_impl<front::no_history, N>&);
+    template<typename T>
+    void serialize(T& archive)
+    {
+        archive & m_initial_state_ids;
+    }
 
+  private:
     std::array<int, NumberOfRegions> m_initial_state_ids;
 };
 
@@ -83,11 +85,13 @@ public:
         return false;
     }
 
-private:
-    // Allow access to private members for serialization.
-    template<typename T, int N>
-    friend void serialize(T&, history_impl<front::always_shallow_history, N>&);
+    template<typename T>
+    void serialize(T& archive)
+    {
+        archive & m_last_active_state_ids;
+    }
 
+private:
     std::array<int, NumberOfRegions> m_last_active_state_ids;
 };
 
@@ -125,11 +129,14 @@ public:
         return !mp11::mp_contains<events_mp11,Event>::value;
     }
 
-  private:
-    // Allow access to private members for serialization.
-    template<typename T, typename... Es, int N>
-    friend void serialize(T&, history_impl<front::shallow_history<Es...>, N>&);
+    template<typename T>
+    void serialize(T& archive)
+    {
+        archive & m_initial_state_ids;
+        archive & m_last_active_state_ids;
+    }
 
+  private:
     std::array<int, NumberOfRegions> m_initial_state_ids;
     std::array<int, NumberOfRegions> m_last_active_state_ids;
 };

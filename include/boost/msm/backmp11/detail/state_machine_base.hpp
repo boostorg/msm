@@ -214,9 +214,6 @@ class state_machine_base : public FrontEnd
     friend class deferred_event;
 
     // Allow access to private members for serialization.
-    // WARNING:
-    // No guarantee is given on the private member layout.
-    // Future changes may break existing serializer implementations.
     template<typename T, typename A0, typename A1, typename A2>
     friend void serialize(T&, state_machine_base<A0, A1, A2>&);
 
@@ -1143,6 +1140,37 @@ class state_machine_base : public FrontEnd
     states_t             m_states{};
     bool                 m_running{false};
 };
+
+template <typename T, typename Event, typename = void>
+struct has_serialize : std::false_type {};
+
+template <typename T, typename State>
+struct has_serialize<T, State,
+    std::void_t<decltype(std::declval<State&>().serialize(std::declval<T&>()))>>
+    : std::true_type {};
+
+template<typename T, typename A0, typename A1, typename A2>
+void serialize(T& archive, state_machine_base<A0, A1, A2>& sm)
+{
+    using FrontEnd = typename state_machine_base<A0, A1, A2>::front_end_t;
+    if constexpr (has_serialize<T, FrontEnd>::value)
+    {
+        static_cast<FrontEnd&>(sm).serialize(archive);
+    }
+    archive & sm.m_active_state_ids;
+    sm.m_history.serialize(archive);
+    archive & sm.m_event_processing;
+    mp11::tuple_for_each(sm.m_states,
+    [&archive](auto& state)
+    {
+        using State = std::decay_t<decltype(state)>;
+        if constexpr (has_serialize<T, State>::value ||
+                      has_state_machine_tag<State>::value)
+        {
+            archive & state;
+        }
+    });
+}
 
 } // boost::msm::backmp11::detail
 
