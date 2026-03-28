@@ -126,7 +126,7 @@ class state_machine_adapter
     void serialize(Archive& ar,
                    const unsigned int /*version*/)
     {
-        msm::backmp11::serialize(ar, *this);
+        backmp11::serialize(ar, *this);
     }
 
     // No adapter.

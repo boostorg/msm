@@ -1142,32 +1142,74 @@ class state_machine_base : public FrontEnd
 };
 
 template <typename T, typename Event, typename = void>
-struct has_serialize : std::false_type {};
-
+struct has_serialize_member : std::false_type {};
 template <typename T, typename State>
-struct has_serialize<T, State,
+struct has_serialize_member<T, State,
     std::void_t<decltype(std::declval<State&>().serialize(std::declval<T&>()))>>
     : std::true_type {};
 
-template<typename T, typename A0, typename A1, typename A2>
+template <typename T, typename Event, typename = void>
+struct has_serialize_free : std::false_type {};
+template <typename T, typename State>
+struct has_serialize_free<T, State,
+    std::void_t<decltype(serialize(std::declval<T&>(), std::declval<State&>()))>>
+    : std::true_type {};
+
+// TODOs:
+// - Rewrite serialize methods with call operator
+// - Try out adapter for Boost.Serialization
+// - Try out nlohmann serialization
+
+// Serialize API for state machine members.
+// Can be overloaded to support key-value serialization.
+template <typename T, typename U>
+void serialize(T& archive, const char* /*key*/, U& member)
+{
+    archive & member;
+}
+
+// Serialize POD data types.
+// Supports serialization without instrumentation for simple states.
+// Requires `#define BOOST_MSM_FRONT_ATTRIBUTES_CONTAINER void`
+// to make msm::front::state<> trivially copyable.
+template <typename T, typename U,
+          typename = std::enable_if_t<std::is_trivially_copyable_v<U>>>
+void serialize(T& archive, U& value)
+{
+    // STL type std::array as data carrier should be widely supported by
+    // serialization libraries.
+    auto& bytes = reinterpret_cast<std::array<std::byte, sizeof(U)>&>(value);
+    archive & bytes;
+}
+
+template <typename T, typename A0, typename A1, typename A2>
 void serialize(T& archive, state_machine_base<A0, A1, A2>& sm)
 {
     using FrontEnd = typename state_machine_base<A0, A1, A2>::front_end_t;
-    if constexpr (has_serialize<T, FrontEnd>::value)
+    if constexpr (has_serialize_member<T, FrontEnd>::value)
     {
         static_cast<FrontEnd&>(sm).serialize(archive);
     }
+    else if constexpr (has_serialize_free<T, FrontEnd>::value)
+    {
+        serialize(archive, static_cast<FrontEnd&>(sm));
+    }
     archive & sm.m_active_state_ids;
     sm.m_history.serialize(archive);
-    archive & sm.m_event_processing;
+    serialize(archive, "event_processing", sm.m_event_processing);
+    // archive & sm.m_event_processing;
     mp11::tuple_for_each(sm.m_states,
     [&archive](auto& state)
     {
         using State = std::decay_t<decltype(state)>;
-        if constexpr (has_serialize<T, State>::value ||
+        if constexpr (has_serialize_member<T, State>::value ||
                       has_state_machine_tag<State>::value)
         {
             archive & state;
+        }
+        else if constexpr (has_serialize_free<T, State>::value)
+        {
+            serialize(archive, state);
         }
     });
 }
