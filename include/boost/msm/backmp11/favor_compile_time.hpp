@@ -207,10 +207,9 @@ struct compile_policy_impl<favor_compile_time>
     {
       public:
         template<typename StateMachine>
-        process_result execute(StateMachine& sm, int region_id, any_event const& event) const
+        process_result execute(StateMachine& sm, int region_id, any_event const& event, process_result result) const
         {
             using cell_t = process_result (*)(StateMachine&, int, any_event const&);
-            process_result result = process_result::HANDLED_FALSE;
             for (const generic_cell cell : m_transition_cells)
             {
                 result |= reinterpret_cast<cell_t>(cell)(sm, region_id, event);
@@ -370,7 +369,7 @@ struct compile_policy_impl<favor_compile_time>
                 if (m_call_process_event)
                 {
                     result = m_call_process_event(sm, event);
-                    if (result)
+                    if (result & handled_true_or_deferred)
                     {
                         return result;
                     }
@@ -378,7 +377,7 @@ struct compile_policy_impl<favor_compile_time>
                 auto it = m_transition_chains.find(event.type());
                 if (it != m_transition_chains.end())
                 {
-                    result = (it->second.execute)(sm, region_id, event);
+                    result = (it->second.execute)(sm, region_id, event, result);
                 }
                 return result;
             }
