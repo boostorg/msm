@@ -56,6 +56,12 @@ class state_machine<FrontEnd>
     using Base::Base;
 };
 
+template<typename T, typename A0, typename A1, typename A2>
+void serialize(T& archive, detail::state_machine_base<A0, A1, A2>& sm)
+{
+    detail::serialize(archive, sm);
+}
+
 } // boost::msm::backmp11
 
 #endif // BOOST_MSM_BACKMP11_STATE_MACHINE_HPP

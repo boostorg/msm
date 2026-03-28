@@ -8,6 +8,10 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
+// Deactivate the attributes container to test
+// automatic serialization of POD states with backmp11.
+#define BOOST_MSM_FRONT_ATTRIBUTES_CONTAINER void
+
 // back-end
 #include "BackCommon.hpp"
 //front-end
@@ -69,14 +73,14 @@ namespace
         // to achieve this, ask for it
         typedef int do_serialize;
         // and provide a serialize
-        template<class Archive>
-        void serialize(Archive & ar, const unsigned int )
+        template <class Archive>
+        void serialize(Archive& ar, const unsigned int = 0)
         {
             ar & front_end_data;
         }
 
         // The list of FSM states
-        struct Empty : public msm::front::state<> 
+        struct Empty : public msm::front::state<>
         {
             template <class Event,class FSM>
             void on_entry(Event const&,FSM& ) {++entry_counter;}
@@ -87,12 +91,18 @@ namespace
             int some_dummy_data;
             // we want Empty to be serialized
             typedef int do_serialize;
-            template<class Archive>
-            void serialize(Archive & ar, const unsigned int )
+            template <class Archive>
+            
+            // TODO:
+            // Trait for has_serialize_free doesn't seem to work right.
+            // Remove default assignment of second arg to test.
+            void serialize(Archive& ar, const unsigned int = 0)
             {
-                ar & some_dummy_data;
+                // ar & some_dummy_data;
+                // Current workaround:
+                // Manual invokation of the free function
+                boost::msm::backmp11::detail::serialize(ar, *this);
             }
-
         };
         struct Open : public msm::front::state<> 
         { 

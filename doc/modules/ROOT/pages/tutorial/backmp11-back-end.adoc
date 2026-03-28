@@ -303,20 +303,14 @@ If the `fsm_parameter` is set to `root_sm`, then also the `root_sm` must be set.
 
 === Generic support for serializers
 
-The `state_machine` allows access to its private members for serialization purposes with a friend:
+The `backmp11` namespace contains a `serialize` function for serialization purposes:
 
 ```cpp
-// Class boost::msm::backmp11::state_machine
 template<typename T, typename A0, typename A1, typename A2>
-friend void serialize(T&, state_machine<A0, A1, A2>&);
+void serialize(T&, state_machine<A0, A1, A2>&);
 ```
 
-A similar friend declaration is available in the `history_impl` classes.
-
-[IMPORTANT]
-====
-This design allows you to provide any serializer implementation, but due to the need to access private members there is no guarantee that your implementation breaks in a new version of the back-end.
-====
+Serializers passed to this function need to provide `operator&` overloads for serialization and deserialization. Boost.Serialization supports such overloads out-of-the-box, an example integration of it is shown in the state machine adapter.
 
 === Unified event pool for queued and deferred events
 
@@ -469,6 +463,13 @@ class state_machine_adapter
     void clear_deferred_queue()
     {
         this->get_event_pool().events.clear();
+    }
+
+    template <class Archive>
+    void serialize(Archive& ar,
+                   const unsigned int /*version*/)
+    {
+        backmp11::serialize(ar, *this);
     }
 
     // No adapter.
