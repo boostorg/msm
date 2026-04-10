@@ -34,6 +34,44 @@
 namespace boost::msm::backmp11::detail
 {
 
+// Wrapper for not modifying T during copy and move operations.
+template <typename T>
+class non_propagating
+{
+  public:
+    non_propagating() = default;
+
+    explicit non_propagating(const T& value) : m_value(value)
+    {
+    }
+
+    non_propagating& operator=(const non_propagating&)
+    {
+        return *this;
+    }
+
+    non_propagating(non_propagating&&)
+    {
+    }
+
+    non_propagating& operator=(non_propagating&&)
+    {
+        return *this;
+    }
+
+    T& operator*()
+    {
+        return m_value;
+    }
+    const T& operator*() const
+    {
+        return m_value;
+    }
+
+  private:
+    T m_value;
+};
+
 template <class FrontEnd, class Config, class Derived>
 class state_machine_base : public FrontEnd
 {
@@ -275,7 +313,7 @@ class state_machine_base : public FrontEnd
         if constexpr (std::is_same_v<root_sm_t, no_root_sm> ||
                       std::is_same_v<root_sm_t, derived_t>)
         {
-            m_root_sm = this;
+            *m_root_sm = this;
             using visitor_t = init_state_visitor<derived_t>;
             visitor_t visitor{self()};
             visit_if<visit_mode::all_recursive, 
@@ -284,62 +322,42 @@ class state_machine_base : public FrontEnd
         reset_active_state_ids();
     }
 
-    // Construct with a context and forward further constructor arguments to the front-end.
+    // Construct with a context and
+    // forward further constructor arguments to the front-end.
     template <bool C = context_member::value,
               typename = std::enable_if_t<C>,
               typename... Args>
     state_machine_base(context_t& context, Args&&... args)
         : state_machine_base(std::forward<Args>(args)...)
-        {
-            m_optional_members.template get<context_member>() = &context;
-            if constexpr (std::is_same_v<root_sm_t, no_root_sm>)
-            {
-                visit_if<visit_mode::all_recursive, has_state_machine_tag>(
-                    [&context](auto &state_machine)
-                    {
-                        state_machine.m_optional_members.template get<context_member>() = &context;
-                    });
-            }
-        }
-    
-    // Copy constructor.
-    state_machine_base(state_machine_base const& rhs)
-        : front_end_t(rhs)
     {
-        if constexpr (std::is_same_v<root_sm_t, no_root_sm> ||
-                      std::is_same_v<root_sm_t, derived_t>)
+        m_optional_members.template get<context_member>() = &context;
+        if constexpr (std::is_same_v<root_sm_t, no_root_sm>)
         {
-            m_root_sm = this;
-            using visitor_t = init_state_visitor<derived_t>;
-            visitor_t visitor{self()};
-            visit_if<visit_mode::all_recursive, 
-                     visitor_t::template predicate>(visitor);
+            visit_if<visit_mode::all_recursive, has_state_machine_tag>(
+                [&context](auto& state_machine) {
+                    state_machine.m_optional_members
+                        .template get<context_member>() = &context;
+                });
         }
-        // Copy all members except the root sm pointer.
-        m_active_state_ids = rhs.m_active_state_ids;
-        m_optional_members = rhs.m_optional_members;
-        m_history = rhs.m_history;
-        m_event_processing = rhs.m_event_processing;
-        m_states = rhs.m_states;
-        m_running = rhs.m_running;
+    }
+
+    // Copy constructor.
+    state_machine_base(state_machine_base const& rhs) : state_machine_base()
+    {
+        *this = rhs;
     }
 
     // Copy assignment operator.
-    state_machine_base& operator= (state_machine_base const& rhs)
+    state_machine_base& operator=(state_machine_base const& rhs) = default;
+
+    // Move constructor.
+    state_machine_base(state_machine_base&& rhs) : state_machine_base()
     {
-        if (this != &rhs)
-        {
-            front_end_t::operator=(rhs);
-            // Copy all members except the root sm pointer.
-            m_active_state_ids = rhs.m_active_state_ids;
-            m_optional_members = rhs.m_optional_members;
-            m_history = rhs.m_history;
-            m_event_processing = rhs.m_event_processing;
-            m_states = rhs.m_states;
-            m_running = rhs.m_running;
-        }
-       return *this;
+        *this = std::move(rhs);
     }
+
+    // Move assignment operator.
+    state_machine_base& operator=(state_machine_base&& rhs) = default;
 
     // Start the state machine (calls entry of the initial state(s)).
     void start()
@@ -477,14 +495,14 @@ class state_machine_base : public FrontEnd
               typename = std::enable_if_t<!std::is_same_v<T, no_root_sm>>>
     root_sm_t& get_root_sm()
     {
-        return *static_cast<root_sm_t*>(m_root_sm);
+        return *static_cast<root_sm_t*>(*m_root_sm);
     }
     // Get the root sm.
     template <typename T = root_sm_t, 
               typename = std::enable_if_t<!std::is_same_v<T, no_root_sm>>>
     const root_sm_t& get_root_sm() const
     {
-        return *static_cast<const root_sm_t*>(m_root_sm);
+        return *static_cast<const root_sm_t*>(*m_root_sm);
     }
 
     // Return the id of a state in the sm.
@@ -509,7 +527,7 @@ class state_machine_base : public FrontEnd
     // True if the sm is used in another sm.
     bool is_contained() const
     {
-        return (static_cast<const void*>(this) != m_root_sm);
+        return (static_cast<const void*>(this) != *m_root_sm);
     }
 
     // Get a state.
@@ -1135,13 +1153,13 @@ class state_machine_base : public FrontEnd
         }
     };
 
-    active_state_ids_t   m_active_state_ids;
-    optional_members     m_optional_members;
-    history_impl         m_history{};
-    bool                 m_event_processing{false};
-    void*                m_root_sm{nullptr};
-    states_t             m_states{};
-    bool                 m_running{false};
+    active_state_ids_t     m_active_state_ids;
+    optional_members       m_optional_members;
+    history_impl           m_history{};
+    bool                   m_event_processing{false};
+    non_propagating<void*> m_root_sm{nullptr};
+    states_t               m_states{};
+    bool                   m_running{false};
 };
 
 } // boost::msm::backmp11::detail
