@@ -2,6 +2,11 @@
 
 = Version history
 
+== Boost 1.92
+
+* Bug fixes (`backmp11`):
+** `state_machine` cannot be copied or moved (https://github.com/boostorg/msm/issues/205[#205])
+
 == Boost 1.91
 
 * New features (`backmp11`):

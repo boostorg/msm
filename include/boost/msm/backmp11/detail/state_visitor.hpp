@@ -453,7 +453,7 @@ class init_state_visitor
                                          typename State::compile_policy>,
                           "All compile policies must be identical");
 
-            state.m_root_sm = &m_root_sm;
+            *state.m_root_sm = &m_root_sm;
         }
     }
 

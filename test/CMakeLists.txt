@@ -80,6 +80,7 @@ add_executable(boost_msm_cxx17_tests
     Backmp11Completion.cpp
     Backmp11Constructor.cpp
     Backmp11Context.cpp
+    Backmp11CopyMove.cpp
     Backmp11Deferred.cpp
     Backmp11EntryExit.cpp
     Backmp11FunctorApi.cpp
