@@ -56,6 +56,17 @@ class state_machine<FrontEnd>
     using Base::Base;
 };
 
+// Reflect on a state_machine's members.
+// The functor F has to implement 3 overloads:
+// - (State&, ReflectFunction&&) for submachines and states with reflection
+// - (State&) for states without reflection
+// - (const char* /*key*/, Member&) for all other members
+template<typename StateMachine, typename F>
+void reflect(StateMachine& sm, F&& f)
+{
+    detail::reflect(sm, std::forward<F>(f));
+}
+
 } // boost::msm::backmp11
 
 #endif // BOOST_MSM_BACKMP11_STATE_MACHINE_HPP

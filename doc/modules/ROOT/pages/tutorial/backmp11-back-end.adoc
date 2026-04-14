@@ -301,21 +301,32 @@ If the `fsm_parameter` is set to `root_sm`, then also the `root_sm` must be set.
 ====
 
 
-=== Generic support for serializers
+=== Reflection API (serializers)
 
-The `state_machine` allows access to its private members for serialization purposes with a friend:
+The `state_machine` allows access to its private members for reflection use cases with a free function:
 
 ```cpp
-// Class boost::msm::backmp11::state_machine
-template<typename T, typename A0, typename A1, typename A2>
-friend void serialize(T&, state_machine<A0, A1, A2>&);
+// namespace boost::msm::backmp11
+
+// Reflect on a state_machine's members.
+// The functor F has to implement 3 overloads:
+// - (T&, State&, ReflectFunction&&) for submachines and states with reflection
+// - (T&, State&) for states without reflection
+// - (T&, const char* /*key*/, Member&) for all other members
+template<typename FrontEnd, typename Config, typename Derived, typename T, typename F>
+void reflect(detail::state_machine_base<FrontEnd, Config, Derived>& sm, T& obj, F&& f)
+{
+    detail::reflect(sm, obj, std::forward<F>(f));
+}
 ```
 
-A similar friend declaration is available in the `history_impl` classes.
+The reflection API can be used to serialize a state machine. You can find example integration code for the most widely used serialization libraries link:TODO[here].
 
 [IMPORTANT]
 ====
-This design allows you to provide any serializer implementation, but due to the need to access private members there is no guarantee that your implementation breaks in a new version of the back-end.
+The called overloads of the functor F are stable, but do not rely on any assumptions about the call orders or argument details.
+The reflection API access private members of the state machine, these are subject to changes and there is no guarantee on
+the memory layout of the `state_machine` class.
 ====
 
 === Unified event pool for queued and deferred events
@@ -469,6 +480,13 @@ class state_machine_adapter
     void clear_deferred_queue()
     {
         this->get_event_pool().events.clear();
+    }
+
+    template <class Archive>
+    void serialize(Archive& ar,
+                   const unsigned int /*version*/)
+    {
+        backmp11::serialize(ar, *this);
     }
 
     // No adapter.

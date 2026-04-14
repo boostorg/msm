@@ -269,7 +269,8 @@ using generate_state_set = typename generate_state_set_impl<StateMachine>::type;
 template <class StateSet>
 struct generate_state_map_impl
 {
-    using indices = mp11::mp_iota<mp11::mp_size<StateSet>>;
+    using indices = mp11::mp_iota<mp11::mp_size<StateSet>,
+                                  std::integral_constant<int, 0>>;
     using type = mp11::mp_transform_q<
         mp11::mp_bind<mp11::mp_list, mp11::_1, mp11::_2>,
         StateSet,

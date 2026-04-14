@@ -72,6 +72,15 @@ class non_propagating
     T m_value;
 };
 
+struct invoke_reflect
+{
+    template <typename State, typename F>
+    void operator()(State& state, F&& f)
+    {
+        reflect(state, std::forward<F>(f));
+    }
+};
+
 template <class FrontEnd, class Config, class Derived>
 class state_machine_base : public FrontEnd
 {
@@ -251,12 +260,8 @@ class state_machine_base : public FrontEnd
     template <typename Event>
     friend class deferred_event;
 
-    // Allow access to private members for serialization.
-    // WARNING:
-    // No guarantee is given on the private member layout.
-    // Future changes may break existing serializer implementations.
-    template<typename T, typename A0, typename A1, typename A2>
-    friend void serialize(T&, state_machine_base<A0, A1, A2>&);
+    template<typename StateMachine, typename F>
+    friend void reflect(StateMachine&, F&&);
 
     template <typename T>
     using get_initial_event = typename T::initial_event;
@@ -1137,6 +1142,90 @@ class state_machine_base : public FrontEnd
         return *static_cast<const derived_t*>(this);
     }
 
+    template <typename State, typename F, typename = void>
+    struct has_reflect_member : std::false_type {};
+    template <typename State, typename F>
+    struct has_reflect_member<State, F,
+        std::void_t<decltype(std::declval<State&>().reflect(std::declval<F&&>()))>>
+        : std::true_type {};
+
+    template <typename State, typename F, typename = void>
+    struct has_reflect_free : std::false_type {};
+    template <typename State, typename F>
+    struct has_reflect_free<State, F,
+        std::void_t<decltype(reflect(std::declval<State&>(), std::declval<F&&>()))>>
+        : std::true_type {};
+
+    template <typename Self, typename F>
+    static void reflect_impl(Self& self, F&& f)
+    {
+        using composite_state_tag = front::detail::composite_state_tag;
+        using FrontEndRef = mp11::mp_if_c<
+            std::is_const_v<Self>,
+            const FrontEnd&,
+            FrontEnd&>;
+        auto& front_end = static_cast<FrontEndRef>(self);
+
+        if constexpr (has_reflect_member<FrontEnd, F>::value)
+        {
+            // front_end.reflect(std::forward<F>(f));
+            f(composite_state_tag{}, front_end, [&front_end, &f]() {
+                front_end.reflect(std::forward<F>(f));
+            });
+        }
+        else if constexpr (has_reflect_free<FrontEnd, F>::value)
+        {
+            // reflect_impl(front_end, std::forward<F>(f));
+            f(composite_state_tag{}, front_end, [&front_end, &f]() {
+                reflect_impl(front_end, std::forward<F>(f));
+            });
+        }
+        else
+        {
+            f(composite_state_tag{}, front_end);
+        }
+        f("active_state_ids", self.m_active_state_ids);
+        // event pool and context cannot be serialized.
+        self.m_history.reflect(std::forward<F>(f));
+        f("event_processing", self.m_event_processing);
+        mp11::tuple_for_each(self.m_states,
+        [&f](auto& state)
+        {
+            using State = std::decay_t<decltype(state)>;
+
+            if constexpr (has_reflect_member<State, F>::value ||
+                          has_state_machine_tag<State>::value)
+            {
+                f(get_state_id<State>(), state, [&state, &f]() {
+                    state.reflect(std::forward<F>(f));
+                });
+            }
+            else if constexpr (has_reflect_free<State, F>::value)
+            {
+                f(get_state_id<State>(), state, [&state, &f]() {
+                    invoke_reflect{}(state, std::forward<F>(f));
+                });
+            }
+            else
+            {
+                f(get_state_id<State>(), state);
+            }
+        });
+        f("running", self.m_running);
+    }
+
+    template <typename F>
+    void reflect(F&& f)
+    {
+        reflect_impl(*this, std::forward<F>(f));
+    }
+
+    template <typename F>
+    void reflect(F&& f) const
+    {
+        reflect_impl(*this, std::forward<F>(f));
+    }
+
     struct optional_members :
         event_pool_member,
         context_member
@@ -1161,6 +1250,12 @@ class state_machine_base : public FrontEnd
     states_t               m_states{};
     bool                   m_running{false};
 };
+
+template<typename StateMachine, typename F>
+void reflect(StateMachine& sm, F&& f)
+{
+    sm.reflect(std::forward<F>(f));
+}
 
 } // boost::msm::backmp11::detail
 

@@ -13,15 +13,57 @@
 #include "boost/msm/backmp11/state_machine_config.hpp"
 #include "boost/msm/backmp11/favor_compile_time.hpp"
 #include "boost/msm/backmp11/state_machine.hpp"
-#include <boost/msm/back/queue_container_deque.hpp>
+#include "boost/msm/back/queue_container_deque.hpp"
 #define BOOST_PARAMETER_CAN_USE_MP11
 #include <boost/parameter.hpp>
-#include <boost/serialization/base_object.hpp>
 #include <boost/serialization/array.hpp>
 #include "Backmp11.hpp"
 
 namespace boost::msm::backmp11
 {
+
+template <typename Archive>
+class serializer
+{
+  public:
+    serializer(Archive& archive) : m_archive(archive) {}
+
+    // Serialize a member.
+    template <typename Member>
+    void operator()(const char* /*key*/, Member& member)
+    {
+        m_archive & member;
+    }
+
+    // Serialize a substate.
+    template <typename State>
+    void operator()(int /*state_id*/, State& state)
+    {
+        if constexpr(has_serialize_member<State>::value)
+        {
+            m_archive & state;
+        }
+    }
+
+    // Serialize a submachine.
+    template <typename State, typename F>
+    void operator()(int /*state_id*/, State& /*state*/, F&& f)
+    {
+        f();
+    }
+
+  private:
+    template <typename State, typename = void>
+    struct has_serialize_member : std::false_type {};
+    template <typename State>
+    struct has_serialize_member<
+        State,
+        std::void_t<decltype(std::declval<State&>().serialize(
+            std::declval<Archive&>(), 0u))>>
+        : std::true_type {};
+
+    Archive& m_archive;
+};
 
 using back::queue_container_deque;
 
@@ -123,6 +165,13 @@ class state_machine_adapter
         this->get_event_pool().events.clear();
     }
 
+    template <class Archive>
+    void serialize(Archive& ar,
+                   const unsigned int /*version*/)
+    {
+        backmp11::reflect(*this, serializer<Archive>{ar});
+    }
+
     // No adapter.
     // Superseded by the visitor API.
     // void visit_current_states(...) {...}
@@ -136,94 +185,4 @@ class state_machine_adapter
     // auto get_state_by_id(int id) {...}
 };
 
-template <class Archive>
-struct serialize_state
-{
-    serialize_state(Archive& ar):ar_(ar){}
-
-    template<typename T>
-    typename ::boost::enable_if<
-        typename ::boost::mpl::or_<
-            typename has_do_serialize<T>::type,
-            typename detail::has_state_machine_tag<typename T::internal>::type
-        >::type
-        ,void
-    >::type
-    operator()(T& t) const
-    {
-        ar_ & t;
-    }
-    template<typename T>
-    typename ::boost::disable_if<
-        typename ::boost::mpl::or_<
-            typename has_do_serialize<T>::type,
-            typename detail::has_state_machine_tag<typename T::internal>::type
-        >::type
-        ,void
-    >::type
-    operator()(T&) const
-    {
-        // no state to serialize
-    }
-    Archive& ar_;
-};
-
-namespace detail
-{
-
-template <class Archive, class FrontEnd, class Config, class Derived>
-void serialize(Archive& ar,
-               state_machine_base<FrontEnd, Config, Derived>& sm)
-{
-    (serialize_state<Archive>(ar))(boost::serialization::base_object<FrontEnd>(sm));
-    ar & sm.m_active_state_ids;
-    ar & sm.m_history;
-    ar & sm.m_event_processing;
-    mp11::tuple_for_each(sm.m_states, serialize_state<Archive>(ar));
-}
-
-template<typename T, int N>
-void serialize(T& ar, detail::history_impl<front::no_history, N>& history)
-{
-    ar & history.m_initial_state_ids;
-}
-
-template<typename T, typename... Es, int N>
-void serialize(T& ar, detail::history_impl<front::shallow_history<Es...>, N>& history)
-{
-    ar & history.m_initial_state_ids;
-    ar & history.m_last_active_state_ids;
-}
-
-}
-
 } // boost::msm::backmp11
-
-namespace boost::serialization
-{
-
-template <class Archive, class A0, class A1, class A2, class A3, class A4>
-void serialize(Archive& ar,
-               msm::backmp11::state_machine_adapter<A0, A1, A2, A3, A4>& sm,
-               const unsigned int /*version*/)
-{
-    msm::backmp11::detail::serialize(ar, sm);
-}
-
-template<typename T, int N>
-void serialize(T& ar,
-               msm::backmp11::detail::history_impl<msm::front::no_history, N>& history,
-               const unsigned int /*version*/)
-{
-    msm::backmp11::detail::serialize(ar, history);
-}
-
-template<typename T, typename... Es, int N>
-void serialize(T& ar,
-               msm::backmp11::detail::history_impl<msm::front::shallow_history<Es...>, N>& history,
-               const unsigned int /*version*/)
-{
-    msm::backmp11::detail::serialize(ar, history);
-}
-
-} // boost::serialization
