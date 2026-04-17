@@ -72,7 +72,9 @@ class non_propagating
     T m_value;
 };
 
-struct invoke_reflect
+// Wrapper to invoke a reflect free function
+// (required for ADL).
+struct invoke_reflect_free
 {
     template <typename State, typename F>
     void operator()(State& state, F&& f)
@@ -1156,6 +1158,9 @@ class state_machine_base : public FrontEnd
         std::void_t<decltype(reflect(std::declval<State&>(), std::declval<F&&>()))>>
         : std::true_type {};
 
+    // TODO:
+    // Consider a more explicit call interface for F.
+    // Otherwise it's difficult to understand compilation errors.
     template <typename Self, typename F>
     static void reflect_impl(Self& self, F&& f)
     {
@@ -1168,14 +1173,12 @@ class state_machine_base : public FrontEnd
 
         if constexpr (has_reflect_member<FrontEnd, F>::value)
         {
-            // front_end.reflect(std::forward<F>(f));
             f(composite_state_tag{}, front_end, [&front_end, &f]() {
                 front_end.reflect(std::forward<F>(f));
             });
         }
         else if constexpr (has_reflect_free<FrontEnd, F>::value)
         {
-            // reflect_impl(front_end, std::forward<F>(f));
             f(composite_state_tag{}, front_end, [&front_end, &f]() {
                 reflect_impl(front_end, std::forward<F>(f));
             });
@@ -1203,7 +1206,7 @@ class state_machine_base : public FrontEnd
             else if constexpr (has_reflect_free<State, F>::value)
             {
                 f(get_state_id<State>(), state, [&state, &f]() {
-                    invoke_reflect{}(state, std::forward<F>(f));
+                    invoke_reflect_free{}(state, std::forward<F>(f));
                 });
             }
             else

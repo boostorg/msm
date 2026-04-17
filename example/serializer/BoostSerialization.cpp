@@ -7,6 +7,8 @@
 
 // Deactivate the attributes container to showcase
 // automatic serialization of trivially copyable states with backmp11.
+// Without this setting all states need to be instrumented for serialization,
+// either with backmp11's reflection or a library-specific serialization method.
 #define BOOST_MSM_FRONT_ATTRIBUTES_CONTAINER void
 
 // Include headers that implement an archive in simple text format.
@@ -48,7 +50,7 @@ class boost_serializer
 
     // Serialize a submachine.
     template <typename State, typename F>
-    void operator()(int /*state_id*/, State& /*state*/, F&& f)
+    void operator()(size_t /*state_id*/, State& /*state*/, F&& f)
     {
         f();
     }

@@ -46,7 +46,7 @@ struct DimSwitch_ : front::state_machine_def<DimSwitch_>
         front::Internal<Dim, SetDimValue>
         >;
 
-// For key-value serialization (nlohmann) we need reflection.
+// Key-value serialization (nlohmann) requires reflection.
 #ifdef DIM_SWITCH_HAS_REFLECTION
     template <typename F>
     void reflect(F&& f)

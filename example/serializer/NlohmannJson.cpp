@@ -7,7 +7,7 @@
 #include <stack>
 
 // Deactivate the attributes container to showcase
-// automatic serialization of trivially copyable states with backmp11.
+// automatic detection of empty states with backmp11.
 #define BOOST_MSM_FRONT_ATTRIBUTES_CONTAINER void
 
 // Include headers for nlohmann json.
@@ -31,7 +31,7 @@ class nlohmann_json_serializer
         top()[key] = member;
     }
 
-    // Serialize a substate without data.
+    // Serialize a substate without reflection.
     template <typename State>
     void operator()(int state_id, State& state)
     {
@@ -102,14 +102,14 @@ class nlohmann_json_deserializer
 
     // Deserialize a substate without data.
     template <typename State>
-    void operator()(int state_id, State& state)
+    void operator()(size_t state_id, State& state)
     {
         static_assert(std::is_empty_v<State>, "State must have reflection");
     }
 
     // Deserialize a state with reflection.
     template <typename State, typename F>
-    void operator()(int state_id, State& /*state*/, F&& f)
+    void operator()(size_t state_id, State& /*state*/, F&& f)
     {
         auto& json_state = top()["states"][state_id];
         m_json.push(&json_state);
