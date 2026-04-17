@@ -26,6 +26,8 @@
 namespace boost { namespace msm { namespace front
 {
 
+using detail::composite_state_tag;
+
 template<class Derived,class BaseState = default_base_state>
 struct state_machine_def :  public boost::msm::front::detail::state_base<BaseState>
 {
