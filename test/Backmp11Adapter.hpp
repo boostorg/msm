@@ -182,16 +182,14 @@ void serialize(Archive& ar,
     mp11::tuple_for_each(sm.m_states, serialize_state<Archive>(ar));
 }
 
-template<typename T, int N>
-void serialize(T& ar, detail::history_impl<front::no_history, N>& history)
+template<typename T, typename InitialStateIds>
+void serialize(T&, detail::history_impl<front::no_history, InitialStateIds>&)
 {
-    ar & history.m_initial_state_ids;
 }
 
-template<typename T, typename... Es, int N>
-void serialize(T& ar, detail::history_impl<front::shallow_history<Es...>, N>& history)
+template<typename T, typename... Es, typename InitialStateIds>
+void serialize(T& ar, detail::history_impl<front::shallow_history<Es...>, InitialStateIds>& history)
 {
-    ar & history.m_initial_state_ids;
     ar & history.m_last_active_state_ids;
 }
 
@@ -210,17 +208,17 @@ void serialize(Archive& ar,
     msm::backmp11::detail::serialize(ar, sm);
 }
 
-template<typename T, int N>
+template<typename T, typename InitialStateIds>
 void serialize(T& ar,
-               msm::backmp11::detail::history_impl<msm::front::no_history, N>& history,
+               msm::backmp11::detail::history_impl<msm::front::no_history, InitialStateIds>& history,
                const unsigned int /*version*/)
 {
     msm::backmp11::detail::serialize(ar, history);
 }
 
-template<typename T, typename... Es, int N>
+template<typename T, typename... Es, typename InitialStateIds>
 void serialize(T& ar,
-               msm::backmp11::detail::history_impl<msm::front::shallow_history<Es...>, N>& history,
+               msm::backmp11::detail::history_impl<msm::front::shallow_history<Es...>, InitialStateIds>& history,
                const unsigned int /*version*/)
 {
     msm::backmp11::detail::serialize(ar, history);

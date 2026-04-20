@@ -180,6 +180,11 @@ class state_machine_base : public FrontEnd
         static constexpr int nr_regions = mp11::mp_size<initial_states>::value;
 
         using state_set = generate_state_set<state_machine_base>;
+        using state_map = generate_state_map<state_set>;
+        template <typename State>
+        using get_state_id =
+            detail::get_state_id<state_map, State>;
+
         using submachines = mp11::mp_copy_if<state_set, is_composite>;
     };
 
@@ -217,9 +222,12 @@ class state_machine_base : public FrontEnd
 
   private:
     using state_set = typename internal::state_set;
+    using state_map = typename internal::state_map;
     static constexpr int nr_regions = internal::nr_regions;
     using active_state_ids_t = std::array<int, nr_regions>;
-    using initial_state_identities = mp11::mp_transform<mp11::mp_identity, typename internal::initial_states>;
+    using initial_state_ids =
+        mp11::mp_transform<internal::template get_state_id,
+                           typename internal::initial_states>;
     using compile_policy = typename config_t::compile_policy;
     using compile_policy_impl = detail::compile_policy_impl<compile_policy>;
 
@@ -231,6 +239,9 @@ class state_machine_base : public FrontEnd
 
     template <class, class, class>
     friend class state_machine_base;
+
+    template <typename, typename>
+    friend class history_impl;
 
     template <typename StateMachine>
     friend struct transition_table_impl;
@@ -268,8 +279,8 @@ class state_machine_base : public FrontEnd
     using fsm_final_event =
         mp11::mp_eval_or<stopping, get_final_event, front_end_t>;
     
-    using state_map = generate_state_map<state_set>;
-    using history_impl = detail::history_impl<typename front_end_t::history, nr_regions>;
+    using history_impl = detail::history_impl<typename front_end_t::history,
+                                              initial_state_ids>;
 
     using context_member =
         optional_instance<context_t*,
@@ -319,7 +330,7 @@ class state_machine_base : public FrontEnd
             visit_if<visit_mode::all_recursive, 
                      visitor_t::template predicate>(visitor);
         }
-        reset_active_state_ids();
+        m_active_state_ids = value_array<initial_state_ids>;
     }
 
     // Construct with a context and
@@ -660,19 +671,6 @@ class state_machine_base : public FrontEnd
         return compile_policy_impl::is_end_interrupt_event(*this, event);
     }
 
-    // Helpers used to reset the state machine.
-    void reset_active_state_ids()
-    {
-       size_t index = 0;
-       mp11::mp_for_each<initial_state_identities>(
-       [this, &index](auto state_identity)
-       {
-           using State = typename decltype(state_identity)::type;
-           m_active_state_ids[index++] = get_state_id<State>();
-       });
-       m_history.reset_active_state_ids(m_active_state_ids);
-    }
-
     // Main function used internally to process events.
     // Explicitly not inline, because code size can significantly increase if
     // this method is inlined in all existing process_info variants.
@@ -1008,25 +1006,8 @@ class state_machine_base : public FrontEnd
     {
         preprocess_entry(event, fsm);
 
-        // First set all active state ids...
-        m_active_state_ids = m_history.on_entry(event);
-        // ... then execute each state entry.
         state_entry_visitor<Event> visitor{self(), event};
-        if constexpr (std::is_same_v<typename front_end_t::history,
-                                     front::no_history>)
-        {
-            mp11::mp_for_each<initial_state_identities>(
-                [this, &visitor](auto state_identity)
-                {
-                    using State = typename decltype(state_identity)::type;
-                    auto& state = this->get_state<State>();
-                    visitor(state);
-                });
-        }
-        else
-        {
-            visit<visit_mode::active_non_recursive>(visitor);
-        }
+        m_history.on_entry(self(), event, visitor);
 
         postprocess_entry();
     }
@@ -1044,7 +1025,7 @@ class state_machine_base : public FrontEnd
         // First set all active state ids...
         if constexpr (!all_regions_defined)
         {
-            m_active_state_ids = m_history.on_entry(event);
+            m_history.on_entry(self(), event);
         }
         mp11::mp_for_each<state_identities>(            
             [this](auto state_identity)
@@ -1116,15 +1097,7 @@ class state_machine_base : public FrontEnd
         // Then call our own exit.
         (static_cast<front_end_t*>(this))->on_exit(event, fsm);
         // Give the history a chance to handle this (or not).
-        m_history.on_exit(this->m_active_state_ids);
-        // History decides what happens with the event pool.
-        if (m_history.clear_event_pool(event))
-        {
-            if constexpr (event_pool_member::value)
-            {
-                get_event_pool().events.clear();
-            }
-        }
+        m_history.on_exit(self());
     }
 
     derived_t& self()
