@@ -206,8 +206,10 @@ struct compile_policy_impl<favor_compile_time>
     class transition_chain
     {
       public:
-        template<typename StateMachine>
-        process_result execute(StateMachine& sm, int region_id, any_event const& event, process_result result) const
+        template <typename StateMachine>
+        process_result execute(StateMachine& sm, uint8_t region_id,
+                               any_event const& event,
+                               process_result result) const
         {
             using cell_t = process_result (*)(StateMachine&, int, any_event const&);
             for (const generic_cell cell : m_transition_cells)
@@ -225,7 +227,7 @@ struct compile_policy_impl<favor_compile_time>
 
         template <typename StateMachine>
         void add_transition_cell(process_result (*cell)(StateMachine&,
-                                                        int /*region_id*/,
+                                                        uint8_t /*region_id*/,
                                                         any_event const&))
         {
             m_transition_cells.emplace_back(
@@ -281,10 +283,10 @@ struct compile_policy_impl<favor_compile_time>
     {
       public:
         // Dispatch an event.
-        static process_result dispatch(StateMachine& sm, int region_id,
+        static process_result dispatch(StateMachine& sm, uint8_t region_id,
                                        const any_event& event)
         {
-            const int state_id = sm.m_active_state_ids[region_id];
+            const auto state_id = sm.m_active_state_ids[region_id];
             const dispatch_table& self = instance();
             return self.m_state_dispatch_tables[state_id].dispatch(sm, region_id, event);
         }
@@ -305,7 +307,7 @@ struct compile_policy_impl<favor_compile_time>
         using submachines = mp11::mp_copy_if<state_set, has_state_machine_tag>;
         
         // Value used to initialize a cell of the dispatch table.
-        using cell_t = process_result (*)(StateMachine&, int /*region_id*/,
+        using cell_t = process_result (*)(StateMachine&, uint8_t /*region_id*/,
                                           any_event const&);
         struct init_cell_value
         {
@@ -322,7 +324,7 @@ struct compile_policy_impl<favor_compile_time>
 
         template<typename Event, typename Transition>
         static process_result convert_event_and_execute(
-            StateMachine& sm, int region_id, const any_event& event)
+            StateMachine& sm, uint8_t region_id, const any_event& event)
         {
             return Transition::execute(sm, region_id, *any_cast<Event>(&event));
         }
@@ -363,7 +365,7 @@ struct compile_policy_impl<favor_compile_time>
             }
 
             // Dispatch an event.
-            process_result dispatch(StateMachine& sm, int region_id, const any_event& event) const
+            process_result dispatch(StateMachine& sm, uint8_t region_id, const any_event& event) const
             {
                 process_result result = process_result::HANDLED_FALSE;
                 if (m_call_process_event)
@@ -465,7 +467,7 @@ struct compile_policy_impl<favor_compile_time>
                 [this](auto state_identity)
                 {
                     using Submachine = typename decltype(state_identity)::type;
-                    static constexpr int state_id =
+                    static constexpr auto state_id =
                         StateMachine::template get_state_id<Submachine>();
                     m_state_dispatch_tables[state_id].template init_composite_state<Submachine>();
                 });

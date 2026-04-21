@@ -147,7 +147,7 @@ struct compile_policy_impl<
     {
       public:
         // Dispatch an event.
-        static process_result dispatch(StateMachine& sm, int region_id,
+        static process_result dispatch(StateMachine& sm, uint8_t region_id,
                                        const Event& event)
         {
             if constexpr (has_transitions::value ||
@@ -179,7 +179,7 @@ struct compile_policy_impl<
         // Compute the maximum state value in the sm so we know how big
         // to make the tables.
         using state_set = typename StateMachine::state_set;
-        static constexpr int max_state = mp11::mp_size<state_set>::value;
+        static constexpr auto max_state = mp11::mp_size<state_set>::value;
 
         // Filter the transition tables by event.
         template <typename Transition,
@@ -285,12 +285,11 @@ struct compile_policy_impl<
                 using next_state_type = Submachine;
                 using transition_event = Event;
 
-                static process_result execute(
-                    StateMachine& sm,
-                    int region_id,
-                    Event const& event)
+                static process_result execute(StateMachine& sm,
+                                              uint8_t region_id,
+                                              Event const& event)
                 {
-                    [[maybe_unused]] const int state_id = sm.m_active_state_ids[region_id];
+                    [[maybe_unused]] const auto state_id = sm.m_active_state_ids[region_id];
                     BOOST_ASSERT(state_id == StateMachine::template get_state_id<Submachine>());
                     constexpr process_info info =
                         process_info::submachine_call;
@@ -340,7 +339,7 @@ struct compile_policy_impl<
 
             template <typename Transition>
             static process_result convert_event_and_execute(StateMachine& sm,
-                                                            int region_id,
+                                                            uint8_t region_id,
                                                             Event const& evt)
             {
                 typename Transition::transition_event kleene_event{evt};
@@ -357,10 +356,10 @@ struct compile_policy_impl<
         {
            using base = dispatch_base;
           public:
-            static inline process_result dispatch(StateMachine& sm, int region_id,
+            static inline process_result dispatch(StateMachine& sm, uint8_t region_id,
                                            const Event& event)
             {
-                const int state_id = sm.m_active_state_ids[region_id];
+                const auto state_id = sm.m_active_state_ids[region_id];
                 process_result result = process_result::HANDLED_FALSE;
                 mp11::mp_for_each<typename base::merged_transitions>(
                     [&sm, region_id, &event, state_id, &result](auto transition)
@@ -370,7 +369,7 @@ struct compile_policy_impl<
                             typename Transition::transition_event;
                         using SourceState =
                             typename Transition::current_state_type;
-                        constexpr int source_state_id =
+                        constexpr auto source_state_id =
                             StateMachine::template get_state_id<SourceState>();
                         if (state_id == source_state_id)
                         {
@@ -398,14 +397,14 @@ struct compile_policy_impl<
             : public dispatch_base
         {
             using base = dispatch_base;
-            using cell_t = process_result (*)(StateMachine&, int /*region_id*/,
+            using cell_t = process_result (*)(StateMachine&, uint8_t /*region_id*/,
                                               Event const&);
 
           public:
             static process_result dispatch(
-                StateMachine& sm, int region_id, const Event& event)
+                StateMachine& sm, uint8_t region_id, const Event& event)
             {
-                const int state_id = sm.m_active_state_ids[region_id];
+                const auto state_id = sm.m_active_state_ids[region_id];
                 constexpr auto& cells = m_cells;
                 const cell_t cell = cells[state_id];
                 if (cell)
@@ -438,7 +437,7 @@ struct compile_policy_impl<
             struct cell_table
             {
                 cell_t data[max_state]{};
-                constexpr cell_t operator[](int i) const { return data[i]; }
+                constexpr cell_t operator[](size_t i) const { return data[i]; }
             };
 
             // Build the cell table by traversing merged_transitions exactly once.
