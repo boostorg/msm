@@ -177,7 +177,7 @@ class state_machine_base : public FrontEnd
         using tag = state_machine_tag;
 
         using initial_states = to_mp_list_t<typename front_end_t::initial_state>;
-        static constexpr int nr_regions = mp11::mp_size<initial_states>::value;
+        static constexpr auto nr_regions = mp11::mp_size<initial_states>::value;
 
         using state_set = generate_state_set<state_machine_base>;
         using state_map = generate_state_map<state_set>;
@@ -223,8 +223,8 @@ class state_machine_base : public FrontEnd
   private:
     using state_set = typename internal::state_set;
     using state_map = typename internal::state_map;
-    static constexpr int nr_regions = internal::nr_regions;
-    using active_state_ids_t = std::array<int, nr_regions>;
+    static constexpr auto nr_regions = internal::nr_regions;
+    using active_state_ids_t = std::array<uint16_t, nr_regions>;
     using initial_state_ids =
         mp11::mp_transform<internal::template get_state_id,
                            typename internal::initial_states>;
@@ -518,7 +518,7 @@ class state_machine_base : public FrontEnd
 
     // Return the id of a state in the sm.
     template<typename State>
-    static constexpr int get_state_id(const State&)
+    static constexpr size_t get_state_id(const State&)
     {
         static_assert(
             mp11::mp_map_contains<state_map, State>::value,
@@ -527,7 +527,7 @@ class state_machine_base : public FrontEnd
     }
     // Return the id of a state in the sm.
     template<typename State>
-    static constexpr int get_state_id()
+    static constexpr size_t get_state_id()
     {
         static_assert(
             mp11::mp_map_contains<state_map, State>::value,
@@ -773,7 +773,7 @@ class state_machine_base : public FrontEnd
                                                                   Event>;
         process_result result = process_result::HANDLED_FALSE;
         // Dispatch the event to every region.
-        for (int region_id = 0; region_id < nr_regions; region_id++)
+        for (size_t region_id = 0; region_id < nr_regions; region_id++)
         {
             result |= dispatch_table::dispatch(self(), region_id, event);
         }
@@ -827,7 +827,7 @@ class state_machine_base : public FrontEnd
         using completion_transition = merge_transitions<completion_transitions>;
 
       public:
-        completion_event_occurrence(int region_id)
+        completion_event_occurrence(uint8_t region_id)
             : event_occurrence(&try_process), m_region_id(region_id)
         {
         }
@@ -846,11 +846,11 @@ class state_machine_base : public FrontEnd
                     process_completion_transition<completion_transition>(m_region_id);
             }
 
-        int m_region_id;
+        uint8_t m_region_id;
     };
 
     template <typename Transition>
-    process_result process_completion_transition(int region_id)
+    process_result process_completion_transition(uint8_t region_id)
     {
         // If the state machine has terminate or interrupt flags, check them.
         if constexpr (mp11::mp_any_of<state_set, is_state_blocking>::value)
@@ -997,7 +997,7 @@ class state_machine_base : public FrontEnd
       private:
         derived_t& m_self;
         const Event& m_event;
-        int m_region_id{};
+        uint8_t m_region_id{};
     };
 
 
@@ -1031,8 +1031,8 @@ class state_machine_base : public FrontEnd
             [this](auto state_identity)
             {
                 using State = typename decltype(state_identity)::type;
-                static constexpr int region_id = State::zone_index;
-                static_assert(region_id >= 0 && region_id < nr_regions);
+                static constexpr uint8_t region_id = State::zone_index;
+                static_assert(region_id < nr_regions);
                 m_active_state_ids[region_id] = get_state_id<State>();
             }
         );
@@ -1066,7 +1066,7 @@ class state_machine_base : public FrontEnd
     }
 
     template <typename State>
-    void on_state_entry_completed(int region_id)
+    void on_state_entry_completed(uint8_t region_id)
     {
         // Exclude composite states from completion transitions,
         // these should fire when all their regions reach a final state

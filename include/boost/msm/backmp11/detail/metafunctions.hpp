@@ -270,7 +270,7 @@ template <class StateSet>
 struct generate_state_map_impl
 {
     using indices = mp11::mp_iota<
-        std::integral_constant<int, mp11::mp_size<StateSet>::value>>;
+        std::integral_constant<uint16_t, mp11::mp_size<StateSet>::value>>;
     using type = mp11::mp_transform_q<
         mp11::mp_bind<mp11::mp_list, mp11::_1, mp11::_2>,
         StateSet,

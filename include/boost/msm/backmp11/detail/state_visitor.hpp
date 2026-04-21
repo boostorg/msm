@@ -199,14 +199,14 @@ class state_visitor_impl<
                 using state_identities = mp11::mp_transform<
                             mp11::mp_identity,
                             typename base::states_to_traverse>;
-                for (const int active_state_id : sm.m_active_state_ids)
+                for (const auto active_state_id : sm.m_active_state_ids)
                 {
                     mp11::mp_for_each<state_identities>(
                         [&sm, &visitor, active_state_id](auto state_identity)
                         {
                             using State =
                                 typename decltype(state_identity)::type;
-                            constexpr int state_id =
+                            constexpr auto state_id =
                                 StateMachine::template get_state_id<State>();
                             if (active_state_id == state_id)
                             {
@@ -293,13 +293,13 @@ class event_deferral_visitor
             using state_identities = mp11::mp_transform<
                         mp11::mp_identity,
                         typename visit_set::states_to_traverse>;
-            for (const int active_state_id : sm.m_active_state_ids)
+            for (const auto active_state_id : sm.m_active_state_ids)
             {
                 mp11::mp_for_each<state_identities>(
                     [&sm, &visitor, active_state_id](auto state_identity)
                     {
                         using State = typename decltype(state_identity)::type;
-                        constexpr int state_id =
+                        constexpr auto state_id =
                             StateMachine::template get_state_id<State>();
                         if (active_state_id == state_id)
                         {

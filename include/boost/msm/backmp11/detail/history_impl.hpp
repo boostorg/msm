@@ -90,7 +90,7 @@ public:
     template<typename T, typename U>
     friend void serialize(T&, history_impl<front::always_shallow_history, U>&);
 
-    std::array<int, mp11::mp_size<InitialStateIds>::value>
+    std::array<uint16_t, mp11::mp_size<InitialStateIds>::value>
         m_last_active_state_ids{value_array<InitialStateIds>};
 };
 
@@ -137,7 +137,7 @@ public:
     template<typename T, typename... Es, typename U>
     friend void serialize(T&, history_impl<front::shallow_history<Es...>, U>&);
 
-    std::array<int, mp11::mp_size<InitialStateIds>::value>
+    std::array<uint16_t, mp11::mp_size<InitialStateIds>::value>
         m_last_active_state_ids{value_array<InitialStateIds>};
 };
 

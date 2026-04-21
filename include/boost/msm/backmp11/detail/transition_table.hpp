@@ -230,13 +230,13 @@ struct transition_table_impl
 
         // Take the transition action and return the next state.
         static process_result execute(StateMachine& sm,
-                                      int region_id,
+                                      uint8_t region_id,
                                       transition_event const& event)
         {
-            int& state_id = sm.m_active_state_ids[region_id]; 
-            static constexpr int current_state_id =
+            auto& state_id = sm.m_active_state_ids[region_id]; 
+            static constexpr auto current_state_id =
                 StateMachine::template get_state_id<current_state_type>();
-            static constexpr int next_state_id =
+            static constexpr auto next_state_id =
                 StateMachine::template get_state_id<next_state_type>();
             BOOST_ASSERT(state_id == current_state_id);
 
@@ -286,10 +286,10 @@ struct transition_table_impl
 
         // Take the transition action and return the next state.
         static process_result execute(StateMachine& sm,
-                                      int region_id,
+                                      uint8_t region_id,
                                       transition_event const& event)
         {
-            [[maybe_unused]] const int state_id = sm.m_active_state_ids[region_id];
+            [[maybe_unused]] const auto state_id = sm.m_active_state_ids[region_id];
             BOOST_ASSERT(
                 state_id ==
                 StateMachine::template get_state_id<current_state_type>());
@@ -480,7 +480,7 @@ struct transition_chain
     using current_state_type = State;
     using transition_event = Event;
 
-    static process_result execute(StateMachine& sm, int region_id, Event const& evt)
+    static process_result execute(StateMachine& sm, uint8_t region_id, Event const& evt)
     {
         process_result result = process_result::HANDLED_FALSE;
         mp_for_each_until<Transitions>(

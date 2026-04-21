@@ -81,7 +81,7 @@ class state_machine_adapter
     using Base::Base;
 
     // The new API returns a const std::array<...>&.
-    const int* current_state() const
+    const uint16_t* current_state() const
     {
         return &this->get_active_state_ids()[0];
     }
