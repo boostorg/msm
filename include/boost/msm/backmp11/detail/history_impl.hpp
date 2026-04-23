@@ -54,10 +54,15 @@ class history_impl<front::no_history, InitialStateIds>
     {
     }
 
-  private:
-    // Allow access to private members for serialization.
-    template<typename T, typename U>
-    friend void serialize(T&, history_impl<front::no_history, U>&);
+    template <typename F>
+    void reflect(F&&)
+    {
+    }
+
+    template <typename F>
+    void reflect(F&&) const
+    {
+    }
 };
 
 template <typename InitialStateIds>
@@ -85,11 +90,19 @@ public:
         m_last_active_state_ids = sm.m_active_state_ids;
     }
 
-  private:
-    // Allow access to private members for serialization.
-    template<typename T, typename U>
-    friend void serialize(T&, history_impl<front::always_shallow_history, U>&);
+    template <typename F>
+    void reflect(F&& f)
+    {
+        f.visit_member("last_active_state_ids", m_last_active_state_ids);
+    }
 
+    template <typename F>
+    void reflect(F&& f) const
+    {
+        f.visit_member("last_active_state_ids", m_last_active_state_ids);
+    }
+
+  private:
     std::array<uint16_t, mp11::mp_size<InitialStateIds>::value>
         m_last_active_state_ids{value_array<InitialStateIds>};
 };
@@ -132,11 +145,19 @@ public:
         m_last_active_state_ids = sm.m_active_state_ids;
     }
 
-  private:
-    // Allow access to private members for serialization.
-    template<typename T, typename... Es, typename U>
-    friend void serialize(T&, history_impl<front::shallow_history<Es...>, U>&);
+    template <typename F>
+    void reflect(F&& f)
+    {
+        f.visit_member("last_active_state_ids", m_last_active_state_ids);
+    }
 
+    template <typename F>
+    void reflect(F&& f) const
+    {
+        f.visit_member("last_active_state_ids", m_last_active_state_ids);
+    }
+
+  private:
     std::array<uint16_t, mp11::mp_size<InitialStateIds>::value>
         m_last_active_state_ids{value_array<InitialStateIds>};
 };

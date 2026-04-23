@@ -21,10 +21,14 @@
 
 #include <boost/msm/front/detail/state_tags.hpp>
 
+#ifndef BOOST_MSM_FRONT_ATTRIBUTES_CONTAINER
+#define BOOST_MSM_FRONT_ATTRIBUTES_CONTAINER ::boost::fusion::map<>
+#endif
+
 namespace boost { namespace msm { namespace front {namespace detail
 {
 
-template <class Attributes= ::boost::fusion::map<> >
+template <class Attributes = BOOST_MSM_FRONT_ATTRIBUTES_CONTAINER>
 struct inherit_attributes
 {
     inherit_attributes():m_attributes(){}
@@ -57,8 +61,11 @@ private:
     Attributes m_attributes;
 };
 
+template <>
+struct inherit_attributes<void> {};
+
 // the interface for all states. Defines entry and exit functions. Overwrite to implement for any state needing it.
-template<class USERBASE,class Attributes= ::boost::fusion::map<> >
+template <class USERBASE, class Attributes = BOOST_MSM_FRONT_ATTRIBUTES_CONTAINER>
 struct state_base : public inherit_attributes<Attributes>, USERBASE
 {
     typedef USERBASE        user_state_base;
