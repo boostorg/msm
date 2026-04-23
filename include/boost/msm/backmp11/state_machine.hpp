@@ -56,6 +56,36 @@ class state_machine<FrontEnd>
     using Base::Base;
 };
 
+// Reflect on a state_machine's members with a visitor.
+// The visitor has to implement the methods:
+// - visit_front_end(auto&& front_end)
+// - visit_front_end(auto&& front_end, auto&& reflect)
+// - visit_member(const char* key, auto&& member)
+// - visit_state(size_t state_id, auto&& state)
+// - visit_state(size_t state_id, auto&& state, auto&& reflect)
+template <typename FrontEnd, typename Config, typename Derived,
+          typename Visitor>
+void reflect(detail::state_machine_base<FrontEnd, Config, Derived>& sm,
+             Visitor&& visitor)
+{
+    detail::reflect(sm, std::forward<Visitor>(visitor));
+}
+
+// Reflect on a state_machine's members with a visitor.
+// The visitor has to implement the methods:
+// - visit_front_end(auto&& front_end)
+// - visit_front_end(auto&& front_end, auto&& reflect)
+// - visit_member(const char* key, auto&& member)
+// - visit_state(size_t state_id, auto&& state)
+// - visit_state(size_t state_id, auto&& state, auto&& reflect)
+template <typename FrontEnd, typename Config, typename Derived,
+          typename Visitor>
+void reflect(const detail::state_machine_base<FrontEnd, Config, Derived>& sm,
+             Visitor&& visitor)
+{
+    detail::reflect(sm, std::forward<Visitor>(visitor));
+}
+
 } // boost::msm::backmp11
 
 #endif // BOOST_MSM_BACKMP11_STATE_MACHINE_HPP
