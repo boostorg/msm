@@ -301,21 +301,35 @@ If the `fsm_parameter` is set to `root_sm`, then also the `root_sm` must be set.
 ====
 
 
-=== Generic support for serializers
+=== Reflection API and serialization examples
 
-The `state_machine` allows access to its private members for serialization purposes with a friend:
+The `state_machine` allows access to its private members with a free function:
 
 ```cpp
-// Class boost::msm::backmp11::state_machine
-template<typename T, typename A0, typename A1, typename A2>
-friend void serialize(T&, state_machine<A0, A1, A2>&);
+// namespace boost::msm::backmp11
+
+// Reflect on a state_machine's members with a visitor.
+// The visitor has to implement the methods:
+// - visit_front_end(auto&& front_end)
+// - visit_front_end(auto&& front_end, auto&& reflect)
+// - visit_member(const char* key, auto&& member)
+// - visit_state(size_t state_id, auto&& state)
+// - visit_state(size_t state_id, auto&& state, auto&& reflect)
+template <typename FrontEnd, typename Config, typename Derived,
+          typename Visitor>
+void reflect(detail::state_machine_base<FrontEnd, Config, Derived>& sm,
+             Visitor&& visitor);
 ```
 
-A similar friend declaration is available in the `history_impl` classes.
+You can use the reflection API for introspection use cases, the most prominent one being serialization. Two comprehensive integration examples for serialization libraries are at your disposal to be taken over and adjusted to your serialization needs:
+
+- link:TODO[Boost.Serialization]
+- link:TODO[nlohmann json]
+
 
 [IMPORTANT]
 ====
-This design allows you to provide any serializer implementation, but due to the need to access private members there is no guarantee that your implementation breaks in a new version of the back-end.
+The required API of the Visitor is stable. However, do not rely on assumptions about call orders or cardinalities. The reflection API exposes private members of the state machine, which are subject to changes. There is no guarantee about the memory layout of the `state_machine` class.
 ====
 
 === Unified event pool for queued and deferred events
@@ -469,6 +483,13 @@ class state_machine_adapter
     void clear_deferred_queue()
     {
         this->get_event_pool().events.clear();
+    }
+
+    template <class Archive>
+    void serialize(Archive& ar,
+                   const unsigned int /*version*/)
+    {
+        backmp11::serialize(ar, *this);
     }
 
     // No adapter.

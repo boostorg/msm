@@ -72,6 +72,17 @@ class non_propagating
     T m_value;
 };
 
+// Wrapper to invoke a reflect free function
+// (required for ADL).
+struct invoke_reflect_free
+{
+    template <typename State, typename Visitor>
+    void operator()(State&& state, Visitor&& visitor)
+    {
+        reflect(std::forward<State>(state), std::forward<Visitor>(visitor));
+    }
+};
+
 template <class FrontEnd, class Config, class Derived>
 class state_machine_base : public FrontEnd
 {
@@ -262,12 +273,10 @@ class state_machine_base : public FrontEnd
     template <typename Event>
     friend class deferred_event;
 
-    // Allow access to private members for serialization.
-    // WARNING:
-    // No guarantee is given on the private member layout.
-    // Future changes may break existing serializer implementations.
-    template<typename T, typename A0, typename A1, typename A2>
-    friend void serialize(T&, state_machine_base<A0, A1, A2>&);
+    template<typename T0, typename T1, typename T2, typename F>
+    friend void reflect(state_machine_base<T0, T1, T2>&, F&&);
+    template<typename T0, typename T1, typename T2, typename F>
+    friend void reflect(const state_machine_base<T0, T1, T2>&, F&&);
 
     template <typename T>
     using get_initial_event = typename T::initial_event;
@@ -1110,6 +1119,87 @@ class state_machine_base : public FrontEnd
         return *static_cast<const derived_t*>(this);
     }
 
+    template <typename State, typename F, typename = void>
+    struct has_reflect_member : std::false_type {};
+    template <typename State, typename F>
+    struct has_reflect_member<State, F,
+        std::void_t<decltype(std::declval<State&>().reflect(std::declval<F&&>()))>>
+        : std::true_type {};
+
+    template <typename State, typename F, typename = void>
+    struct has_reflect_free : std::false_type {};
+    template <typename State, typename F>
+    struct has_reflect_free<State, F,
+        std::void_t<decltype(reflect(std::declval<State&>(), std::declval<F&&>()))>>
+        : std::true_type {};
+
+    template <typename Self, typename Visitor>
+    static void reflect_impl(Self& self, Visitor&& visitor)
+    {
+        using FrontEndRef = mp11::mp_if_c<
+            std::is_const_v<Self>,
+            const FrontEnd&,
+            FrontEnd&>;
+        
+        auto& front_end = static_cast<FrontEndRef>(self);
+        if constexpr (has_reflect_member<FrontEnd, Visitor>::value)
+        {
+            visitor.visit_front_end(front_end, [&front_end, &visitor]() {
+                front_end.reflect(std::forward<Visitor>(visitor));
+            });
+        }
+        else if constexpr (has_reflect_free<FrontEnd, Visitor>::value)
+        {
+            visitor.visit_front_end(front_end, [&front_end, &visitor]() {
+                invoke_reflect_free{}(front_end, std::forward<Visitor>(visitor));
+            });
+        }
+        else
+        {
+            visitor.visit_front_end(front_end);
+        }
+        visitor.visit_member("active_state_ids", self.m_active_state_ids);
+        // event pool and context cannot be serialized.
+        self.m_history.reflect(std::forward<Visitor>(visitor));
+        visitor.visit_member("event_processing", self.m_event_processing);
+        mp11::tuple_for_each(self.m_states,
+        [&visitor](auto& state)
+        {
+            using State = std::decay_t<decltype(state)>;
+
+            if constexpr (has_reflect_member<State, Visitor>::value ||
+                          has_state_machine_tag<State>::value)
+            {
+                visitor.visit_state(get_state_id<State>(), state, [&state, &visitor]() {
+                    state.reflect(std::forward<Visitor>(visitor));
+                });
+            }
+            else if constexpr (has_reflect_free<State, Visitor>::value)
+            {
+                visitor.visit_state(get_state_id<State>(), state, [&state, &visitor]() {
+                    invoke_reflect_free{}(state, std::forward<Visitor>(visitor));
+                });
+            }
+            else
+            {
+                visitor.visit_state(get_state_id<State>(), state);
+            }
+        });
+        visitor.visit_member("running", self.m_running);
+    }
+
+    template <typename Visitor>
+    void reflect(Visitor&& visitor)
+    {
+        reflect_impl(*this, std::forward<Visitor>(visitor));
+    }
+
+    template <typename Visitor>
+    void reflect(Visitor&& visitor) const
+    {
+        reflect_impl(*this, std::forward<Visitor>(visitor));
+    }
+
     struct optional_members :
         event_pool_member,
         context_member
@@ -1134,6 +1224,22 @@ class state_machine_base : public FrontEnd
     states_t               m_states{};
     bool                   m_running{false};
 };
+
+template <typename FrontEnd, typename Config, typename Derived,
+          typename Visitor>
+void reflect(state_machine_base<FrontEnd, Config, Derived>& sm,
+             Visitor&& visitor)
+{
+    sm.reflect(std::forward<Visitor>(visitor));
+}
+
+template <typename FrontEnd, typename Config, typename Derived,
+          typename Visitor>
+void reflect(const state_machine_base<FrontEnd, Config, Derived>& sm,
+             Visitor&& visitor)
+{
+    sm.reflect(std::forward<Visitor>(visitor));
+}
 
 } // boost::msm::backmp11::detail
 
