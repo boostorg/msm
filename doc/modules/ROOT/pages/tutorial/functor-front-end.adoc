@@ -88,9 +88,9 @@ top-level one.
 
 To illustrate the reusable point, MSM comes with a whole set of
 predefined functors. Please refer to eUML for the
-link:#Reference-begin[full list]. For example, we are now going to
-replace the first action by an action sequence and the guard by a more
-complex functor.
+xref:reference/euml-operators-and-basic-helpers.adoc[full list]. For
+example, we are now going to replace the first action by an action
+sequence and the guard by a more complex functor.
 
 We decide we now want to execute two actions in the first transition
 (Stopped -> Playing). We only need to change the action start_playback
