@@ -464,7 +464,7 @@ cases:
 * many transition conflicts
 * submachines
 
-The back-end `msm::back11::state_machine` has a policy argument (first
+The back-end `msm::back::state_machine` has a policy argument (first
 is the front-end, then the history policy) defaulting to
 `favor_runtime_speed`. To switch to `favor_compile_time`, which is
 declared in `<msm/back/favor_compile_time.hpp>`, you need to:
@@ -491,9 +491,9 @@ Independently, transition conflicts resolution will also be much faster.
 
 This policy uses boost.any behind the hood, which means that we will
 lose a feature which MSM offers with the default policy,
-link:#event-hierarchy[event hierarchy]. The following example takes our
-iPod example and speeds up compile-time by using this technique. We
-have:
+xref:tutorial/basic-front-end.adoc#event-hierarchy[event hierarchy].
+The following example takes our iPod example and speeds up compile-time 
+by using this technique. We have:
 
 * xref:attachment$iPod_distributed/iPod.cpp[our main state machine and
 main function]
