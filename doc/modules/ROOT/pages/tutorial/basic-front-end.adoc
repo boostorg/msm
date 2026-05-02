@@ -317,9 +317,9 @@ state machine just after creation. The start method will initiate the
 state machine, meaning it will activate the initial state, which means
 in turn that the initial state's entry behavior will be called. The
 reason why we need this will be explained in the
-link:#backend-start[back-end part]. After a call to start, the state
-machine is ready to process events. The same way, calling `stop()` will
-cause the last exit actions to be called.
+xref:tutorial/back-end.adoc#backend-start[back-end part].
+After a call to start, the state machine is ready to process events.
+The same way, calling `stop()` will cause the last exit actions to be called.
 
 [[defining-a-submachine]]
 
@@ -577,7 +577,7 @@ replaced by a History symbol (the H inside a circle).
 As explained in the `small UML tutorial`, History is a good concept with
 a not completely satisfying specification. MSM kept the concept but not
 the specification and goes another way by making this a policy and you
-can add your own history types (the link:#history-interface[reference]
+can add your own history types (the xref:reference/back-end-headers.adoc#history-interface[reference]
 explains what needs to be done). Furthermore, History is a backend
 policy. This allows you to reuse the same state machine definition with
 different history policies in different contexts.
@@ -1133,8 +1133,11 @@ if (p.template is_flag_active<CDLoaded>()) ...
 
 The following diagram displays the flag situation in the tutorial.
 
-image:FlagsTutorial.jpg[image] ### [[event-hierarchy]]Event
-Hierarchy
+image:FlagsTutorial.jpg[image]
+
+[[event-hierarchy]]
+
+== Event Hierarchy
 
 There are cases where one needs transitions based on categories of
 events. An example is text parsing. Let's say you want to parse a string

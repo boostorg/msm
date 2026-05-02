@@ -379,7 +379,7 @@ machine where the transition table, initial state, entry and exit
 actions are defined. Furthermore, attributes (read further on), flags,
 deferred events and configuration capabilities (no message queue / no
 exception catching) are added and a non-default base state (see the
-link:#backend-base-state[back-end description]) is defined.
+xref:tutorial/back-end.adoc#backend-base-state[back-end description]) is defined.
 
 For example, a minimum state machine could be defined as:
 
@@ -963,7 +963,7 @@ a functional programming paradigm, for example:
 
 In a nutshell, almost every STL method or algorithm is matched by a
 corresponding functor, which can then be used in the transition table or
-state actions. The link:#Reference-begin[reference] lists all eUML
+state actions. The xref:reference/euml-operators-and-basic-helpers.adoc[reference] lists all eUML
 functions and the underlying functor (so that this possibility is not
 reserved to eUML but also to the functor-based front-end). The file
 structure of this Phoenix-like library matches the one of Boost.Phoenix.
