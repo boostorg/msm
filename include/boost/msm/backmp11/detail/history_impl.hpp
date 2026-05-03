@@ -54,10 +54,15 @@ class history_impl<front::no_history, InitialStateIds>
     {
     }
 
-  private:
-    // Allow access to private members for serialization.
-    template<typename T, typename U>
-    friend void serialize(T&, history_impl<front::no_history, U>&);
+    template <typename F>
+    void reflect(F&&)
+    {
+    }
+
+    template <typename F>
+    void reflect(F&&) const
+    {
+    }
 };
 
 template <typename InitialStateIds>
@@ -85,17 +90,26 @@ public:
         m_last_active_state_ids = sm.m_active_state_ids;
     }
 
-  private:
-    // Allow access to private members for serialization.
-    template<typename T, typename U>
-    friend void serialize(T&, history_impl<front::always_shallow_history, U>&);
+    template <typename F>
+    void reflect(F&& f)
+    {
+        f.visit_member("last_active_state_ids", m_last_active_state_ids);
+    }
 
+    template <typename F>
+    void reflect(F&& f) const
+    {
+        f.visit_member("last_active_state_ids", m_last_active_state_ids);
+    }
+
+  protected:
     std::array<uint16_t, mp11::mp_size<InitialStateIds>::value>
         m_last_active_state_ids{value_array<InitialStateIds>};
 };
 
 template <typename... Events, typename InitialStateIds>
 class history_impl<front::shallow_history<Events...>, InitialStateIds>
+    : public history_impl<front::always_shallow_history, InitialStateIds>
 {
     using events = mp11::mp_list<Events...>;
 
@@ -105,7 +119,7 @@ public:
     {
         if constexpr (mp11::mp_contains<events, Event>::value)
         {
-            sm.m_active_state_ids = m_last_active_state_ids;
+            sm.m_active_state_ids = this->m_last_active_state_ids;
         }
         else
         {
@@ -125,20 +139,6 @@ public:
         // ... then execute each state entry.
         sm.template visit<visit_mode::active_non_recursive>(visitor);
     }
-
-    template <typename StateMachine>
-    void on_exit(StateMachine& sm)
-    {
-        m_last_active_state_ids = sm.m_active_state_ids;
-    }
-
-  private:
-    // Allow access to private members for serialization.
-    template<typename T, typename... Es, typename U>
-    friend void serialize(T&, history_impl<front::shallow_history<Es...>, U>&);
-
-    std::array<uint16_t, mp11::mp_size<InitialStateIds>::value>
-        m_last_active_state_ids{value_array<InitialStateIds>};
 };
 
 } // boost::msm::backmp11

@@ -248,24 +248,36 @@ struct transition_table_impl
                 // guard rejected the event, we stay in the current one
                 return process_result::HANDLED_GUARD_REJECT;
             }
-            state_id = active_state_switching::after_guard(current_state_id,
-                                                           next_state_id);
+            if constexpr (std::is_same_v<active_state_switching,
+                                         active_state_switch_before_transition>)
+            {
+                state_id = next_state_id;
+            }
 
             // first call the exit method of the current state
             source.on_exit(event, sm.get_fsm_argument());
-            state_id = active_state_switching::after_exit(current_state_id,
-                                                          next_state_id);
+            if constexpr (std::is_same_v<active_state_switching,
+                                         active_state_switch_after_exit>)
+            {
+                state_id = next_state_id;
+            }
 
             // then call the action method
             process_result res =
                 call_action_or_true<Row, HasAction>(sm, event, source, target);
-            state_id = active_state_switching::after_action(current_state_id,
-                                                            next_state_id);
+            if constexpr (std::is_same_v<active_state_switching,
+                                         active_state_switch_after_transition_action>)
+            {
+                state_id = next_state_id;
+            }
 
             // and finally the entry method of the new state
             call_entry<Row>(sm, event, target);
-            state_id = active_state_switching::after_entry(current_state_id,
-                                                           next_state_id);
+            if constexpr (std::is_same_v<active_state_switching,
+                                         active_state_switch_after_entry>)
+            {
+                state_id = next_state_id;
+            }
 
             // Give a chance to handle completion transitions.
             sm.template on_state_entry_completed<next_state_type>(region_id);
