@@ -166,6 +166,11 @@ jobs:
         run: |
           echo "using ${{matrix.toolset}} : : ${{matrix.compiler}} ;" > ~/user-config.jam
 
+      - name: Download nlohmann/json
+        run: |
+          cd ../boost-root/libs/$LIBRARY
+          python3 scripts/download_nlohmann_json.py
+
       - name: Run tests
         run: |
           cd ../boost-root
@@ -206,6 +211,11 @@ jobs:
           cp -r $GITHUB_WORKSPACE/* libs/$LIBRARY
           git submodule update --init tools/boostdep
           python tools/boostdep/depinst/depinst.py --git_args "--jobs 3" $LIBRARY
+
+      - name: Download nlohmann/json
+        run: |
+          cd ../boost-root/libs/$LIBRARY
+          python3 scripts/download_nlohmann_json.py
 
       - name: Configure
         run: |
@@ -271,6 +281,12 @@ jobs:
           python tools/boostdep/depinst/depinst.py --git_args "--jobs 3" %LIBRARY%
           cmd /c bootstrap
           b2 -d0 headers
+
+      - name: Download nlohmann/json
+        shell: cmd
+        run: |
+          cd ../boost-root/libs/%LIBRARY%
+          python3 scripts/download_nlohmann_json.py
 
       - name: Run tests
         shell: cmd

@@ -15,9 +15,9 @@ It offers a significant improvement in runtime and memory usage, as can be seen 
 | back                        | 14                 | 815              | 68               | 2.8
 | back_favor_compile_time     | 17                 | 775              | 226              | 3.5
 | back11                      | 37                 | 2682             | 84               | 2.8
-| backmp11                    | 3                  | 209              | 28               | 0.7
-| backmp11_favor_compile_time | 3                  | 195              | 43               | 6.0
-| sml                         | 5                  | 234              | 57               | 0.3
+| backmp11                    | 3                  | 209              | 29               | 0.7
+| backmp11_favor_compile_time | 3                  | 195              | 41               | 6.2
+| sml                         | 5                  | 235              | 57               | 0.3
 |=======================================================================================================
 
 
@@ -28,9 +28,9 @@ It offers a significant improvement in runtime and memory usage, as can be seen 
 |                                      | Compile time / sec | Compile RAM / MB | Binary size / kB | Runtime / sec
 | back                                 | 49                 | 2165             | 230              | 13.2
 | back_favor_compile_time              | 55                 | 1704             | 911              | > 300
-| backmp11                             | 8                  | 348              | 79               | 3.3
-| backmp11_favor_compile_time          | 5                  | 261              | 97               | 20.6
-| backmp11_favor_compile_time_multi_cu | 4                  | ~863             | 97               | 21.4
+| backmp11                             | 8                  | 351              | 82               | 3.4
+| backmp11_favor_compile_time          | 5                  | 263              | 89               | 20.4
+| backmp11_favor_compile_time_multi_cu | 4                  | ~863             | 89               | 20.2
 | sml                                  | 18                 | 543              | 422              | 5.4
 |================================================================================================================
 
@@ -301,22 +301,75 @@ If the `fsm_parameter` is set to `root_sm`, then also the `root_sm` must be set.
 ====
 
 
-=== Generic support for serializers
+=== Reflection API and serialization support
 
-The `state_machine` allows access to its private members for serialization purposes with a friend:
+The `state_machine` provides access to all its members recursively with a `reflect` free function and a visitor pattern:
 
 ```cpp
-// Class boost::msm::backmp11::state_machine
-template<typename T, typename A0, typename A1, typename A2>
-friend void serialize(T&, state_machine<A0, A1, A2>&);
-```
+// namespace boost::msm::backmp11
 
-A similar friend declaration is available in the `history_impl` classes.
+// Reflect on a state_machine's members with a visitor.
+// The visitor has to implement the methods:
+// - visit_front_end(auto&& front_end)
+// - visit_front_end(auto&& front_end, auto&& reflect)
+// - visit_member(const char* key, auto&& member)
+// - visit_state(size_t state_id, auto&& state)
+// - visit_state(size_t state_id, auto&& state, auto&& reflect)
+template <typename FrontEnd, typename Config, typename Derived,
+          typename Visitor>
+void reflect(detail::state_machine_base<FrontEnd, Config, Derived>& sm,
+             Visitor&& visitor);
+```
 
 [IMPORTANT]
 ====
-This design allows you to provide any serializer implementation, but due to the need to access private members there is no guarantee that your implementation breaks in a new version of the back-end.
+Do not rely on assumptions about call orders and argument details of the visit methods.
+The reflection API exposes internal members of the state machine, which are subject to changes.
 ====
+
+The visit methods of the front-end and states contain two overloads. The first one gets called in case the object to be visited does not have reflection, the second one provides a `reflect` functor argument that triggers the reflection deeper into the object. You can set up reflection for a front-end or state by implementing a `reflect` member function or alternatively a free function (with MSVC you have to use a member function due to ADL limitations).
+
+```cpp
+struct MyState : boost::msm::front::state<>
+{
+    // Reflect with a member function.
+    template <typename Visitor>
+    void reflect(Visitor&& visitor)
+    {
+        visitor.visit_member("my_member", my_member);
+    }
+    template <typename Visitor>
+    void reflect(Visitor&& visitor) const
+    {
+        visitor.visit_member("my_member", my_member);
+    }
+
+    uint32_t my_member{};
+};
+
+// Or reflect with a free function.
+template <typename Visitor>
+void reflect(MyState& my_state, Visitor&& visitor)
+{
+    visitor.visit_member("my_member", my_state.my_member);
+}
+template <typename Visitor>
+void reflect(const MyState& my_state, Visitor&& visitor)
+{
+    visitor.visit_member("my_member", my_state.my_member);
+}
+```
+
+You can use the reflection API for introspection use cases, the most prominent one being serialization of a state machine. `backmp11` supports 3 serialization libraries out-of-the-box:
+
+- Boost.Serialization
+- Boost.JSON
+- nlohmann/json
+
+For each serialization library you can find a corresponding header with serializer code under `boost/msm/backmp11/serialization`. The serializer expects all objects with non-static members to be serializable, which can be achieved by implementing either reflection or library-specific serialization methods. It is recommended to implement `backmp11`'s reflection API, because this mechanism is generic and supports all serialization libraries.
+
+For serialization with Boost.JSON and nlohmann/json you only need to include the corresponding header, for Boost.Serialization you additionally need to provide a `serialize` method for the (root) state machine. The https://github.com/boostorg/msm/blob/develop/test/Backmp11Adapter.hpp[backmp11 serialization test] demonstrates how to use the serialization libraries.
+
 
 === Unified event pool for queued and deferred events
 
@@ -387,11 +440,6 @@ In `back` the event is evaluted by all regions independently. This leads to the 
 === The required minimum C{plus}{plus} version is C{plus}{plus}17
 
 C{plus}{plus}11 brings the strongly needed variadic template support for MSM, but later C{plus}{plus} versions provide other important features - for example C{plus}{plus}17's `if constexpr (...)`.
-
-
-=== The signature of the state machine is changed
-
-Please refer to the simplified state machine signature above for more information.
 
 
 === The history policy of a state machine is defined in the front-end instead of the back-end
@@ -471,6 +519,13 @@ class state_machine_adapter
         this->get_event_pool().events.clear();
     }
 
+    template <class Archive>
+    void serialize(Archive& ar,
+                   const unsigned int /*version*/)
+    {
+        backmp11::reflect(*this, serializer<Archive>{ar});
+    }
+
     // No adapter.
     // Superseded by the visitor API.
     // void visit_current_states(...) {...}
@@ -488,57 +543,51 @@ class state_machine_adapter
 A working code example of such an adapter is available in https://github.com/boostorg/msm/blob/develop/test/Backmp11Adapter.hpp[the tests].
 It can be copied and adapted if needed, though this class is internal to the tests and not planned to be supported officially.
 
-Further details about the applied API changes:
-
-==== The dependency to `boost::serialization` is removed
-
-The back-end aims to support serialization in general, but without providing a concrete implementation for a specific serialization library.
-If you want to use `boost::serialization` for your state machine, you can look into the https://github.com/boostorg/msm/blob/develop/test/Backmp11Adapter.hpp[state machine adapter] from the tests for an example how to set it up.
-
-
-==== The back-end's constructor does not allow initialization of states and `set_states` is removed
-
-There were some caveats with one constructor that was used for different use cases: On the one hand some arguments were immediately forwarded to the front-end's constructor, on the other hand the stream operator was used to identify other arguments in the constructor as states, to copy them into the state machine. Besides the syntax of the later being rather unusual, when doing both at once the syntax becomes too difficult to understand; even more so if states within hierarchical sub state machines were initialized in this fashion.
-
-In order to keep the API of the constructor simpler and less ambiguous, it only supports forwarding arguments to the front-end and no more.
-Also the `set_states` API is removed. If setting a state is required, this can still be done (in a little more verbose, but also more direct & explicit fashion) by getting a reference to the desired state via `get_state` and then assigning the desired new state to it.
-
-
-==== The method `get_state_by_id` is removed
-
-If you really need to get a state by id, please use the universal visitor API to implement the function on your own.
-The `backmp11` `state_machine` has a new method to support getting the id of a state in the visitor:
-
-```cpp
-template<typename State>
-static constexpr int state_machine::get_state_id(const State&);
-```
-
-
-==== The pointer overload of `get_state` is removed
-
-Similarly to the STL's `std::get` of a tuple, the only sensible template parameter for `get_state` is `T` returning a `T&`.
-The overload for a `T*` is removed and the `T&` is discouraged, although still supported.
-If you need to get a state by its address, use the address operator after you have received the state by reference.
-
 
 === `boost::any` as Kleene event is replaced by `std::any`
 
 To reduce the amount of necessary header inclusions `backmp11` uses `std::any` for defining Kleene events instead of `boost::any`.
 You can still opt in to use `boost::any` by explicitly including `boost/msm/event_traits.h`.
 
+=== Removed features
 
-=== The eUML front-end support is removed
+==== Initialization of states in the constructor and the `set_states` method
+
+There were some caveats with one constructor that was used for different use cases: On the one hand some arguments were immediately forwarded to the front-end's constructor, on the other hand the stream operator was used to identify other arguments in the constructor as states, to copy them into the state machine. Besides the syntax of the later being rather unusual, when doing both at once the syntax becomes too difficult to understand; even more so if states within hierarchical sub state machines were initialized in this fashion.
+
+In order to keep the API of the constructor simpler and less ambiguous, it only supports forwarding arguments to the front-end.
+Also the `set_states` API is removed. If setting a state is required, this can still be done (in a little more verbose, but also more direct & explicit fashion) by getting a reference to the desired state via `get_state` and then assigning a new state object to it.
+
+
+==== The `get_state_by_id` method
+
+If you really need to get a state by id, please use the universal visitor API to implement the function on your own.
+The `backmp11` `state_machine` has a new method to support getting the id of a state in the visitor:
+
+```cpp
+template<typename State>
+static constexpr uint16_t state_machine::get_state_id(const State&);
+```
+
+
+==== The pointer overload of `get_state`
+
+Similarly to the STL's `std::get` of a tuple, the only sensible template parameter for `get_state` is `T` returning a `T&`.
+The overload for a `T*` is removed and the `T&` is discouraged, although still supported.
+If you need to get a state by its address, use the address operator after you have received the state by reference.
+
+
+==== The eUML front-end support
 
 The support for EUML induces longer compilation times by the need to include the Boost proto headers and applying C{plus}{plus}03 variadic template emulation. If you want to use a UML-like syntax, please try out the new PUML front-end.
 
 
-=== The fsm check and find region support is removed
+==== The fsm check and find region support
 
 The implementation of these two features depends on mpl_graph, which induces high compilation times.
 
 
-=== `sm_ptr` support is removed
+==== `sm_ptr` support
 
 Not needed with the functor front-end and was already deprecated, thus removed in `backmp11`.
 
@@ -550,7 +599,7 @@ Like `back`, this back-end supports 2 compile policies. In case of hierarchical 
 === `favor_runtime_speed`
 
 This policy favors runtime speed over compile time, it evaluates all transitions and generates the dispatch table at compile time.
-The dispatch strategy can be tuned by inheriting from `favor_runtime_speed` and adapting the using directive:
+The dispatch strategy can be tuned by inheriting from `favor_runtime_speed` and adapting the `using dispatch_strategy` directive:
 
 ```cpp
 struct favor_runtime_speed
@@ -585,7 +634,7 @@ Usually results in worse runtime performance and larger executable size, but sli
 
 This policy favors compile time over runtime speed. It evaluates transitions lazily and generates the dispatch table at runtime. Like its counterpart in `back`, it does not support Kleene events.
 
-Events are wrapped into a `std::any` when they enter event processing to reduce the number of necessary templates instances required to generate the state machine.
+Events are wrapped into a `std::any` when they enter event processing to reduce the number of necessary template instances required to generate the state machine.
 The policy utilizes a hash map for dispatch, with the type index of each event as the key and an array of function pointers to the matching transitions as the value.
 
 This policy allows compiling a state machine across multiple translation units (TUs) with the help of a preprocessor macro.
