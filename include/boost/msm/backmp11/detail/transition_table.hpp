@@ -12,11 +12,13 @@
 #ifndef BOOST_MSM_BACKMP11_DETAIL_TRANSITION_TABLE_HPP
 #define BOOST_MSM_BACKMP11_DETAIL_TRANSITION_TABLE_HPP
 
-#include "boost/assert.hpp"
+#include <boost/assert.hpp>
 
 #include <boost/msm/active_state_switching_policies.hpp>
+#include <boost/msm/backmp11/detail/common.hpp>
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
-#include "boost/msm/backmp11/state_machine_config.hpp"
+#include <boost/msm/backmp11/state_machine_config.hpp>
+#include <boost/msm/row_tags.hpp>
 
 namespace boost::msm::front
 {
