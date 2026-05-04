@@ -12,6 +12,9 @@
 #ifndef BOOST_MSM_BACKMP11_DETAIL_HISTORY_IMPL_HPP
 #define BOOST_MSM_BACKMP11_DETAIL_HISTORY_IMPL_HPP
 
+#include <cstdint>
+
+#include <boost/msm/backmp11/common_types.hpp>
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
 #include <boost/msm/front/history_policies.hpp>
 

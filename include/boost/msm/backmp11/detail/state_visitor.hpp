@@ -12,6 +12,7 @@
 #ifndef BOOST_MSM_BACKMP11_DETAIL_STATE_VISITOR_HPP
 #define BOOST_MSM_BACKMP11_DETAIL_STATE_VISITOR_HPP
 
+#include <boost/msm/backmp11/common_types.hpp>
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
 #include <boost/msm/backmp11/state_machine_config.hpp>
 

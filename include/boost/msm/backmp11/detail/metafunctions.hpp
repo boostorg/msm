@@ -12,15 +12,14 @@
 #ifndef BOOST_MSM_BACKMP11_DETAIL_METAFUNCTIONS_HPP
 #define BOOST_MSM_BACKMP11_DETAIL_METAFUNCTIONS_HPP
 
+#include <cstdint>
+
 #include <boost/mp11.hpp>
 #include <boost/mp11/mpl_list.hpp>
 
-#include <boost/msm/backmp11/common_types.hpp>
 #include <boost/msm/backmp11/detail/state_tags.hpp>
 #include <boost/msm/back/traits.hpp>
-#include <boost/msm/front/detail/state_tags.hpp>
 #include <boost/msm/front/completion_event.hpp>
-#include <boost/msm/row_tags.hpp>
 
 // Forward declarations to support MPL->Mp11 conversions
 // without MPL header dependencies.
