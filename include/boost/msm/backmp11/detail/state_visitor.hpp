@@ -12,7 +12,7 @@
 #ifndef BOOST_MSM_BACKMP11_DETAIL_STATE_VISITOR_HPP
 #define BOOST_MSM_BACKMP11_DETAIL_STATE_VISITOR_HPP
 
-#include <boost/msm/backmp11/common_types.hpp>
+#include <boost/msm/backmp11/detail/common.hpp>
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
 #include <boost/msm/backmp11/state_machine_config.hpp>
 
@@ -195,7 +195,7 @@ class state_visitor_impl<
     {
         if constexpr (base::needs_traversal::value)
         {
-            if (sm.m_running)
+            if (sm.m_machine_state != machine_state::stopped)
             {
                 using state_identities = mp11::mp_transform<
                             mp11::mp_identity,
@@ -289,7 +289,7 @@ class event_deferral_visitor
         // is evaluated before it's called.
         static_assert(visit_set::needs_traversal::value,
                       "The visitor must have at least one state to visit");
-        if (sm.m_running)
+        if (sm.m_machine_state != machine_state::stopped)
         {
             using state_identities = mp11::mp_transform<
                         mp11::mp_identity,
