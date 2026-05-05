@@ -151,6 +151,10 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(transitions, StateMachine, TestMachines)
     using compile_policy = typename TestMachine::config_t::compile_policy;
     TestMachine test_machine;
 
+    BOOST_REQUIRE(test_machine.process_event(TriggerInternalTransition{}) ==
+                  process_result::HANDLED_FALSE);
+    ASSERT_AND_RESET(test_machine.template get_state<MyState>().action_counter, 0);
+
     test_machine.start();
 
     if constexpr (std::is_same_v<compile_policy, favor_runtime_speed>)

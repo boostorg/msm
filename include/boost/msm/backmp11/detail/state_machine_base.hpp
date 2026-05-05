@@ -231,6 +231,11 @@ class state_machine_base : public FrontEnd
         return m_optional_members.template get<event_pool_member>();
     }
 
+    machine_state get_machine_state() const
+    {
+        return m_machine_state;
+    }
+
   private:
     using state_set = typename internal::state_set;
     using state_map = typename internal::state_map;
@@ -339,7 +344,6 @@ class state_machine_base : public FrontEnd
             visit_if<visit_mode::all_recursive, 
                      visitor_t::template predicate>(visitor);
         }
-        m_active_state_ids = value_array<initial_state_ids>;
     }
 
     // Construct with a context and
@@ -382,13 +386,6 @@ class state_machine_base : public FrontEnd
     // Start the state machine (calls entry of the initial state(s)).
     void start()
     {
-        // Assert for a case where root sm was not set up correctly
-        // after construction.
-        if constexpr (!std::is_same_v<typename Config::root_sm, no_root_sm>)
-        {
-            BOOST_ASSERT_MSG(&(this->get_root_sm()),
-            "Root sm must be passed as Derived and configured as root_sm");
-        }
         start(fsm_initial_event{});
     }
 
@@ -397,7 +394,14 @@ class state_machine_base : public FrontEnd
     template <class Event>
     void start(Event const& initial_event)
     {
-        if (!m_running)
+        // Assert for a case where root sm was not set up correctly
+        // after construction.
+        if constexpr (!std::is_same_v<typename Config::root_sm, no_root_sm>)
+        {
+            BOOST_ASSERT_MSG(&(this->get_root_sm()),
+            "Root sm must be passed as Derived and configured as root_sm");
+        }
+        if (m_machine_state == machine_state::stopped)
         {
             on_entry(initial_event, get_fsm_argument());
         }
@@ -414,10 +418,9 @@ class state_machine_base : public FrontEnd
     template <class Event>
     void stop(Event const& final_event)
     {
-        if (m_running)
+        if (m_machine_state != machine_state::stopped)
         {
             on_exit(final_event, get_fsm_argument());
-            m_running = false;
         }
     }
 
@@ -437,7 +440,8 @@ class state_machine_base : public FrontEnd
               typename = std::enable_if_t<C>>
     inline size_t process_event_pool(size_t max_events = SIZE_MAX)
     {
-        if (get_event_pool().events.empty() || m_event_processing)
+        if (get_event_pool().events.empty() ||
+            m_machine_state != machine_state::idle)
         {
             return 0;
         }
@@ -625,7 +629,8 @@ class state_machine_base : public FrontEnd
     void defer_event(Event const& event)
     {
         compile_policy_impl::defer_event(
-            *this, compile_policy_impl::normalize_event(event), m_event_processing);
+            *this, compile_policy_impl::normalize_event(event),
+            m_machine_state == machine_state::processing);
     }
 
   protected:
@@ -687,17 +692,22 @@ class state_machine_base : public FrontEnd
     BOOST_NOINLINE process_result process_event_internal(Event const& event,
                                                          process_info info)
     {
+        if (m_machine_state == machine_state::stopped)
+        {
+            return process_result::HANDLED_FALSE;
+        }
+
         // If the state machine has terminate or interrupt flags, check them.
         if constexpr (mp11::mp_any_of<state_set, is_state_blocking>::value)
         {
-            // If the state machine is terminated, do not handle any event.
+            // If the state machine is terminated, discard the event.
             if (is_flag_active<TerminateFlag>())
             {
                 return process_result::HANDLED_TRUE;
             }
 
-            // If the state machine is interrupted, do not handle any event
-            // unless the event is the end interrupt event.
+            // If the state machine is interrupted, discard the event
+            // unless it is the end interrupt event.
             if (is_flag_active<InterruptedFlag>() &&
                 !is_end_interrupt_event(event))
             {
@@ -713,7 +723,7 @@ class state_machine_base : public FrontEnd
                 // active state configuration, process it later.
                 // Skip the deferral check in submachine calls, since the
                 // parent has already checked and dispatched the event.
-                if (m_event_processing ||
+                if (m_machine_state == machine_state::processing ||
                     (info != process_info::submachine_call &&
                      compile_policy_impl::is_event_deferred(self(), event)))
                 {
@@ -728,13 +738,13 @@ class state_machine_base : public FrontEnd
         }
         else
         {
-            BOOST_ASSERT_MSG(!m_event_processing,
+            BOOST_ASSERT_MSG(m_machine_state != machine_state::processing,
                              "An event pool must be available to call "
                              "process_event while processing an event");
         }
 
         // Process the event.
-        m_event_processing = true;
+        m_machine_state = machine_state::processing;
         process_result result;
 #ifndef BOOST_NO_EXCEPTIONS
         if constexpr (has_no_exception_thrown<front_end_t>::value)
@@ -757,7 +767,7 @@ class state_machine_base : public FrontEnd
 #else
         result = do_process_event(event, info);
 #endif
-        m_event_processing = false;
+        m_machine_state = machine_state::idle;
 
         // After handling, look if we have more to process in the event pool
         // (but only if we're not already processing from it).
@@ -874,7 +884,7 @@ class state_machine_base : public FrontEnd
         // Process the event.
         using completion_event = typename Transition::transition_event;
         completion_event event{};
-        m_event_processing = true;
+        m_machine_state = machine_state::processing;
         process_result result;
 #ifndef BOOST_NO_EXCEPTIONS
         if constexpr (has_no_exception_thrown<front_end_t>::value)
@@ -896,7 +906,7 @@ class state_machine_base : public FrontEnd
 #else
         result = Transition::execute(self(), region_id, event);
 #endif
-        m_event_processing = false;
+        m_machine_state = machine_state::idle;
         return result;
     }
 
@@ -969,8 +979,7 @@ class state_machine_base : public FrontEnd
     template <class Event, class Fsm>
     void preprocess_entry(Event const& event, Fsm& fsm)
     {
-        m_running = true;
-        m_event_processing = true;
+        m_machine_state = machine_state::processing;
 
         // Call on_entry on this SM first.
         static_cast<front_end_t*>(this)->on_entry(event, fsm);
@@ -978,7 +987,7 @@ class state_machine_base : public FrontEnd
 
     void postprocess_entry()
     {
-        m_event_processing = false;
+        m_machine_state = machine_state::idle;
 
         // After handling, look if we have more to process in the event pool.
         if constexpr (event_pool_member::value)
@@ -1107,6 +1116,7 @@ class state_machine_base : public FrontEnd
         (static_cast<front_end_t*>(this))->on_exit(event, fsm);
         // Give the history a chance to handle this (or not).
         m_history.on_exit(self());
+        m_machine_state = machine_state::stopped;
     }
 
     derived_t& self()
@@ -1158,10 +1168,7 @@ class state_machine_base : public FrontEnd
         {
             visitor.visit_front_end(front_end);
         }
-        visitor.visit_member("active_state_ids", self.m_active_state_ids);
-        // event pool and context cannot be serialized.
-        self.m_history.reflect(std::forward<Visitor>(visitor));
-        visitor.visit_member("event_processing", self.m_event_processing);
+        // root_sm, event pool and context cannot be serialized.
         mp11::tuple_for_each(self.m_states,
         [&visitor](auto& state)
         {
@@ -1185,7 +1192,9 @@ class state_machine_base : public FrontEnd
                 visitor.visit_state(get_state_id<State>(), state);
             }
         });
-        visitor.visit_member("running", self.m_running);
+        visitor.visit_member("active_state_ids", self.m_active_state_ids);
+        self.m_history.reflect(std::forward<Visitor>(visitor));
+        visitor.visit_member("machine_state", self.m_machine_state);
     }
 
     template <typename Visitor>
@@ -1216,13 +1225,12 @@ class state_machine_base : public FrontEnd
         }
     };
 
-    active_state_ids_t     m_active_state_ids;
-    optional_members       m_optional_members;
-    history_impl           m_history{};
-    bool                   m_event_processing{false};
     non_propagating<void*> m_root_sm{nullptr};
+    optional_members       m_optional_members;
     states_t               m_states{};
-    bool                   m_running{false};
+    active_state_ids_t     m_active_state_ids;
+    history_impl           m_history{};
+    machine_state          m_machine_state{machine_state::stopped};
 };
 
 std::false_type is_state_machine(...);

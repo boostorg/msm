@@ -58,6 +58,13 @@ constexpr HandledEnum& operator&=(HandledEnum& lhs, HandledEnum rhs)
 namespace boost::msm::backmp11::detail
 {
 
+enum class machine_state : uint8_t
+{
+    stopped = 0,
+    idle,
+    processing
+};
+
 // Additional info required for event processing.
 enum class process_info
 {
