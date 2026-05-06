@@ -96,6 +96,9 @@ add_executable(boost_msm_cxx17_tests
 if(NOT BOOST_MSM_IS_ROOT)
     target_link_libraries(boost_msm_cxx17_tests Boost::json)
 endif()
+if(BOOST_MSM_TEST_NLOHMANN_JSON)
+    target_compile_definitions(boost_msm_cxx17_tests PRIVATE "BOOST_MSM_TEST_NLOHMANN_JSON")
+endif()
 target_compile_features(boost_msm_cxx17_tests PRIVATE cxx_std_17)
 if(((DEFINED CMAKE_CXX_STANDARD)     AND (CMAKE_CXX_STANDARD GREATER_EQUAL 17)) OR
    ((NOT DEFINED CMAKE_CXX_STANDARD) AND ("cxx_std_17" IN_LIST CMAKE_CXX_COMPILE_FEATURES)))

@@ -7,6 +7,8 @@ cmake_minimum_required(VERSION 3.12...3.16)
 
 project(boost_msm VERSION "${BOOST_SUPERPROJECT_VERSION}" LANGUAGES CXX)
 
+option(BOOST_MSM_TEST_NLOHMANN_JSON "Test serialization with nlohmann/json" OFF)
+
 add_library(boost_msm INTERFACE)
 add_library(Boost::msm ALIAS boost_msm)
 

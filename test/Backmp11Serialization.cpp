@@ -26,7 +26,9 @@
 #include <boost/msm/backmp11/serialization/boost_json.hpp>
 
 // nlohmann/json.
+#ifdef BOOST_MSM_TEST_NLOHMANN_JSON
 #include <boost/msm/backmp11/serialization/nlohmann_json.hpp>
+#endif
 
 using namespace boost::msm;
 namespace mp11 = boost::mp11;
@@ -232,6 +234,8 @@ R"({"front_end":{"brightness":75},"active_state_ids":[1],"event_processing":fals
         BOOST_REQUIRE(dim_switch_2.brightness = 75);
 }
 
+#ifdef BOOST_MSM_TEST_NLOHMANN_JSON
+
 // Helper for convenience:
 // Convert all state ids to a human-readable JSON array
 // to understand which states the ids refer to.
@@ -315,5 +319,7 @@ R"({
     BOOST_REQUIRE(dim_switch.get_state<On>().times_pressed == 1);
     BOOST_REQUIRE(dim_switch_2.brightness = 75);
 }
+
+#endif // BOOST_MSM_TEST_NLOHMANN_JSON
 
 } // namespace

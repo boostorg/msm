@@ -212,11 +212,6 @@ jobs:
           git submodule update --init tools/boostdep
           python tools/boostdep/depinst/depinst.py --git_args "--jobs 3" $LIBRARY
 
-      - name: Download nlohmann/json
-        run: |
-          cd ../boost-root/libs/$LIBRARY
-          python3 scripts/download_nlohmann_json.py
-
       - name: Configure
         run: |
           cd ../boost-root
