@@ -87,7 +87,7 @@ test-suite msm-unit-tests-cxxstd17
     [ run Backmp11History.cpp ]
     [ run Backmp11ManyDeferTransitions.cpp ]
     [ run Backmp11RootSm.cpp ]
-    [ run Backmp11Serialization.cpp ]
+    [ run Backmp11Serialization.cpp : : : <define>BOOST_MSM_TEST_NLOHMANN_JSON ]
     [ run Backmp11Transitions.cpp ]
     [ run Backmp11Visitor.cpp ]
     :
