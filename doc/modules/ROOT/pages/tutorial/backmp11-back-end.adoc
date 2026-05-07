@@ -12,12 +12,12 @@ It offers a significant improvement in runtime and memory usage, as can be seen 
 [%autowidth, options="header"]
 |=======================================================================================================
 |                             | Compile time / sec | Compile RAM / MB | Binary size / kB | Runtime / sec
-| back                        | 14                 | 815              | 68               | 2.8
-| back_favor_compile_time     | 17                 | 775              | 226              | 3.5
-| back11                      | 37                 | 2682             | 84               | 2.8
-| backmp11                    | 3                  | 209              | 29               | 0.7
-| backmp11_favor_compile_time | 3                  | 195              | 41               | 6.2
-| sml                         | 5                  | 235              | 57               | 0.3
+| back                        | 10                 | 844              | 73               | 0.7
+| back_favor_compile_time     | 12                 | 821              | 241              | 1.0
+| back11                      | 26                 | 2675             | 92               | 0.7
+| backmp11                    | 2                  | 239              | 32               | 0.4
+| backmp11_favor_compile_time | 2                  | 225              | 45               | 2.2
+| sml                         | 3                  | 242              | 57               | 0.1
 |=======================================================================================================
 
 
@@ -26,251 +26,115 @@ It offers a significant improvement in runtime and memory usage, as can be seen 
 [%autowidth, options="header"]
 |================================================================================================================
 |                                      | Compile time / sec | Compile RAM / MB | Binary size / kB | Runtime / sec
-| back                                 | 49                 | 2165             | 230              | 13.2
-| back_favor_compile_time              | 55                 | 1704             | 911              | > 300
-| backmp11                             | 8                  | 351              | 82               | 3.4
-| backmp11_favor_compile_time          | 5                  | 263              | 89               | 20.4
-| backmp11_favor_compile_time_multi_cu | 4                  | ~863             | 89               | 20.2
-| sml                                  | 18                 | 543              | 422              | 5.4
+| back                                 | 32                 | 2160             | 252              | 3.7
+| back_favor_compile_time              | 37                 | 1747             | 974              | 263
+| backmp11                             | 5                  | 371              | 91               | 2.0
+| backmp11_favor_compile_time          | 3                  | 264              | 98               | 7.6
+| backmp11_favor_compile_time_multi_cu | 3                  | ~934             | 99               | 8.6
+| sml                                  | 12                 | 567              | 436              | 2.5
 |================================================================================================================
 
 
 The full code with the benchmarks and more information about them is available https://github.com/chandryan/fsm-benchmarks[in this repository]. The tables in the repository are frequently updated with results from the latest development branches of the benchmarked libraries.
 
 
-== Deprecation information
+== Creation
 
-Deprecations of features, APIs, and other changes with additional context are listed in the table below.
-
-[width=95%, cols="16,5,40"]
-|===
-| Feature | Deprecation / Removal | Description
-
-| Support for event deferral as action and public access to the deferred event container
-| [line-through]#1.90 / 1.91#
-a| [line-through]#Deferring an event as an action triggered by the same event is not foreseen in UML and leads to ambiguities (the event is both consumed and deferred).#
-
-[line-through]#*Change:* The public API to defer an event will be changed to `protected`. If needed, users can inherit from `state_machine` and make the API public again, but without guarantees about correct functionality and API consistency.#
-
-Due to a merge of queued and deferred events into a single event pool, `defer_event` can be used in more contexts and the API remains public.
-It's still recommended to configure event deferral as a state property if possible. This enables processing of deferred events in FIFO order, provides full support for event deferral in orthogonal regions, and it is more performant because events don't need to be dispatched for evaluation.
-
-
-| Public access to the event container
-| 1.90 / 1.91
-a| The event container can be accessed and manipulated via public APIs. Manipulation of the container outside of the library code can lead to undefined behavior.
-
-*Change:* The public API to access the event container will be changed to `protected`. If needed, users can inherit from `state_machine` to access the event container, but without guarantees about correct functionality and API consistency.
-
-| Renaming of `transition_owner` to `local_transition_owner`
-| 1.91 / 1.92
-a| The default setting of the `Fsm` parameter was named `transition_owner`, which was intended to reflect the same behavior as in `back`. However, `transition_owner` does have a different behavior from `back`. Furthermore, it was not implemented correctly.
-
-*Change:* The behavior will be corrected to match `back` and the default setting will be renamed to `local_transition_owner` in 1.91. The previous setting name `transition_owner` will be deprecated in 1.91 and removed in 1.92.
-
-| Removal of APIs to process queued events
-| 1.91 / 1.92
-a| The event containers for queued events and deferred events have been merged into a single event pool. The APIs for processing queued events are obsolete.
-
-*Change:* The APIs `process_queued_events`, and `process_single_queued_event` will be removed.
-
-Occurrences of the old APIs can be replaced as follows:
-
-- to process a single event in the event pool, use `process_event_pool(1)`
-- to process all events in the event pool, use `process_event_pool()`
-
-| Removal of automatic enqueuing in the `process_event` API
-| 1.91 / 1.92
-a| The API `process_event` automatically enqueues events when the state machine is already processing. This requires instantiating `enqueue_event` for every event type, even though most instances are never called. They are only needed when `process_event` is called in actions.
-
-*Change:* The API `process_event` will reject an event and return `HANDLED_FALSE` when called during event processing instead of automatically enqueueing it.
-
-Calls to `process_event` in actions have to be replaced with `enqueue_event`.
-
-|===
-
-
-== New features
-
-=== Universal visitor API
-
-The need to define a `BaseState`, `accept_sig` and `accept` method in the front-end is obsolete.
-
-Instead there is a universal visitor API that supports traversing through the state machine in multiple modes:
-
-- only the active states or all states
-- non-recursive or recursive
-
-```cpp
-// API:
-enum class visit_mode
-{
-    // State selection (mutually exclusive).
-    active_states = 0b001,
-    all_states    = 0b010,
-
-    // Traversal mode (not set = non-recursive).
-    recursive     = 0b100,
-
-    // All valid combinations.
-    active_non_recursive = active_states,
-    active_recursive     = active_states | recursive,
-    all_non_recursive    = all_states,
-    all_recursive        = all_states | recursive
-};
-template<typename Visitor>
-void state_machine::visit(Visitor&& visitor); // Same as active_states | recursive
-template<visit_mode Mode, typename Visitor>
-void state_machine::visit(Visitor&& visitor);
-
-// Assemble your mode...
-state_machine machine;
-machine.visit
-    <visit_mode::all_states | visit_mode::recursive>
-    ([](auto &state) {/*...*/});
-// ... or use the pre-defined constants
-machine.visit
-    <visit_mode::all_recursive>
-    ([](auto &state) {/*...*/});
-
-```
-
-The visitor needs to fulfill the following signature requirement for all sub-states present in the state machine:
-
-```cpp
-template<typename State>
-void operator()(State& state);
-```
-
-Also these bugs are fixed:
-
-- If the SM is not started yet, no active state is visited instead of the initial state(s)
-- If the SM is stopped, no active state is visited instead of the last active state(s)
-
-
-=== Method to check whether a state is active
-
-A new method `is_state_active` can be used to check whether a state is currently active:
-
-```cpp
-template <typename State>
-bool state_machine::is_state_active() const;
-```
-
-If the type of the state appears multiple times in a hierarchical state machine, the method returns true if any of the states are active.
-
-
-// A new method `reset()` can be used to reset the state machine back to its initial state after construction.
-
-// ```cpp
-// void state_machine::reset();
-// ```
-
-// The behaviors are start and stop are:
-// - if `start()` is called for a running state machine, the call is ignored
-// - if `stop()` is called on a stopped (not running) state machine, the call is ignored
-
-=== Support for simplified functor signatures
-
-Further described in xref:./functor-front-end.adoc#simplified_functor_signatures[the functor front-end documentation].
-
-
-=== Simplified state machine signature
-
-The signature has been simplified to facilitate sharing configurations between state machines.
-The new signature looks as follows (pseudo-code, the implementation looks a little different):
+The `state_machine` signature in `backmp11` looks as follows (pseudo-code):
 
 ```cpp
 template <
-    class FrontEnd,
-    class Config = default_state_machine_config,
-    class Derived = state_machine
+    typename FrontEnd,
+    typename Config = default_state_machine_config,
+    typename Derived = state_machine
 >
 class state_machine;
 ```
 
-You can define state machine back-ends with a `using MyStateMachine = state_machine<...>;` declaration or by inheriting from `state_machine`.
+Only the `FrontEnd` parameter is mandatory, `using my_fsm = msm::backmp11::state_machine<my_front_end>;` is the minimal declaration to create a state machine.
 
 
-=== All settings are bundled in one Config parameter
+== Configuration
 
-The configuration of the state machine can be defined with a config structure. The default config looks as follows:
+A state machine's configuration can be adjusted by passing a custom `Config` parameter. The default configuration is:
 
 ```cpp
 // Default config:
 struct default_state_machine_config
 {
-    // Tune characteristics related to compile time, runtime performance,
-    // code size, and available features.
-    using compile_policy = favor_runtime_speed;
     // A common context that is shared by all SMs
     // in hierarchical state machines.
     using context = no_context;
-    // Identifier for the upper-most SM
-    // in hierarchical state machines.
-    using root_sm = no_root_sm;
-    // Type of the Fsm parameter passed in actions and guards.
-    using fsm_parameter = local_transition_owner;
+    // Tune characteristics related to compile time, runtime performance,
+    // code size, and available features.
+    using compile_policy = favor_runtime_speed;
     // Which container to use for the event pool.
     template <typename T>
     using event_container = std::deque<T>;
+    // Type of the Fsm parameter passed in actions and guards.
+    using fsm_parameter = local_transition_owner;
+    // Identifier for the upper-most SM
+    // in hierarchical state machines.
+    using root_sm = no_root_sm;
 };
 
 using state_machine_config = default_state_machine_config;
+```
 
-...
+Inherit from `state_machine_config` and override the `using` directives to create a custom configuration.
 
+```cpp
 // Custom config:
-struct CustomStateMachineConfig : public state_machine_config
+struct CustomStateMachineConfig : state_machine_config
 {
-    using compile_policy = favor_compile_time;
+    using context = Context;
+    using root_sm = RootSm;
+    using fsm_parameter = root_sm;
 };
 ```
 
-=== New state machine setting for defining a context
+The state machine configuration is designed to be shared in hierarchical state machines.
+
+=== Context
 
 The setting `context` sets up a context member in the state machine for dependency injection.
 
-If `using context = Context;` is defined in the config, a reference to it has to be passed to the state machine constructor as first argument.
+If `using context = CustomContext;` is defined in the config, a reference to it has to be passed to the state machine constructor as first argument.
 The following API becomes available to access it in the state machine:
 
 ```cpp
+// Context access:
 Context& state_machine::get_context();
 const Context& state_machine::get_context() const;
 ```
 
-
-=== New state machine setting for defining a root sm
+=== Root state machine
 
 The setting `root_sm` defines the type of the root state machine of hierarchical state machines. The root sm depicts the uppermost state machine.
 
-If `using root_sm = RootSm;` is defined in the config, the following API becomes available to access it from any sub-state machine:
+If `using root_sm = RootSm;` is defined in the config, the following API becomes available to access it from any submachine:
 
 ```cpp
+// Root state machine access:
 RootSm& state_machine::get_root_sm();
 const RootSm& state_machine::get_root_sm() const;
 ```
 
 It is highly recommended to always configure the `root_sm` in hierarchical state machines, even if access to it is not required.
 This reduces the compilation time, because it enables the back-end to instantiate the full set of construction-related methods
-only for the root and it can omit them for sub-state machines.
-
-[IMPORTANT]
-====
-If a `context` is used in a hierarchical state machine, then also the `root_sm` should be set.
-The `context` is then automatically accessed through the `root_sm`.
-====
+only for the root and it can omit them for submachines.
 
 
-=== New state machine setting for defining the `Fsm` parameter of actions and guards
+=== `Fsm` parameter of actions und guards
 
 The setting `fsm_parameter` defines the instance of the `Fsm& fsm` parameter that is passed to actions and guards in hierarchical state machines.
 
-By default it is set to `local_transition_owner`, which reflects the same behavior as in `back`:
+By default it is set to `local_transition_owner`, which behaves identically to `back`:
 
 - Actions and guards for transitions in the same transition table receive the SM instance that owns the transition (the one processing the event)
 - Entry and exit actions receive the "local" transition owner from the perspective of the state being entered/exited (the immediate parent SM)
 
+You can alternatively set it to `using fsm_parameter = root_sm`, in which case the configured `root_sm` is passed as `Fsm` parameter.
 
 [NOTE]
 ====
@@ -293,15 +157,220 @@ When a transition defined in SM1 causes SM2 and SM3 to exit:
 - SM2's exit action receives SM1 as `Fsm` (SM2's immediate parent)
 ====
 
-You can alternatively set it to `root_sm`, in which case always the root sm is passed as `Fsm` parameter.
 
-[IMPORTANT]
-====
-If the `fsm_parameter` is set to `root_sm`, then also the `root_sm` must be set.
-====
+=== Event pool
+
+The state machine utilizes an event pool for events that are not processed immediately. The default event pool container is a `std::deque<T>`. You can use a custom event pool container. It has to support push at both ends as well as removal at begin without iterator invalidation, in detail these API calls:
+
+- `push_back(const T&)`
+- `push_front(const T&)`
+- `begin()`
+- `end()`
+- `erase(iterator)`
+- `clear()`
+
+You can deactivate the event pool with `using event_container = no_event_container;`. A state machine requires the event pool to handle completion events, deferred events, and enqueued events.
 
 
-=== Reflection API and serialization support
+=== Compile policy
+
+==== `favor_runtime_speed`
+
+The default compile policy prioritizes runtime speed, it evaluates all transitions and generates the dispatch table at compile time.
+The dispatch strategy can be tuned by inheriting from `favor_runtime_speed` and adapting the `using dispatch_strategy` directive:
+
+```cpp
+struct favor_runtime_speed
+{
+    // Dispatch strategy for processing events.
+    // Supported strategies:
+    // - flat_fold (default)
+    // - function_pointer_array
+    using dispatch_strategy = dispatch_strategy::flat_fold;
+};
+```
+
+It currently supports two dispatch strategies:
+
+[%autowidth, options="header"]
+|===
+| Strategy | Description
+
+| `flat_fold` (default)
+| Generates a flat fold of inline comparison branches. +
+All transition logic is visible to the optimizer. +
+Usually results in optimal runtime performance and executable size.
+
+| `function_pointer_array`
+| Generates an array of function pointers. +
+Guarantees O(1) dispatch, but the function pointers cannot be inlined. +
+Usually results in worse runtime performance and larger executable size, but slightly better compile time.
+|===
+
+
+==== `favor_compile_time`
+
+This policy improves compile time at the cost of runtime speed. It evaluates transitions lazily and generates the dispatch table at runtime. Like its counterpart in `back`, it does not support Kleene events.
+
+Events are wrapped into a `std::any` when they enter event processing to reduce the number of necessary template instances required to generate the state machine.
+A hash map contains the dispatch table, with the type index of each event as the key and an array of function pointers to the matching transitions as the value.
+
+With this policy you can compile a state machine across multiple translation units (TUs) with the help of a preprocessor macro.
+Since the back-end should compile very fast for most state machines, this is an opt-in feature:
+
+- define `BOOST_MSM_BACKMP11_MANUAL_GENERATION` before including `msm/backmp11/favor_compile_time.hpp`
+- then generate your state machine back-end(s) with the macro `BOOST_MSM_BACKMP11_GENERATE_STATE_MACHINE(<sm_type>)`
+
+You can find an example for this in the https://github.com/boostorg/msm/blob/develop/test/Backmp11Visitor.cpp[visitor test].
+
+
+== Extension
+
+You can extend a state machine by inheriting from the `state_machine` template instead of a using directive.
+If the extended class is required to be available in `Fsm` parameter, pass it as third parameter to the `state_machine` template.
+
+
+== History
+
+In `backmp11` the history policy is defined in the front-end instead of the back-end.
+Defining it there ensures that one state machine config can be shared between multiple back-ends of hierarchical state machines.
+
+```cpp
+// No history (default).
+struct no_history {};
+
+// Shallow history.
+// For deep history use this policy for all the contained state machines.
+template <typename... Events>
+struct shallow_history {};
+
+// Shallow history for all events (not UML conform).
+// For deep history use this policy for all the contained state machines.
+struct always_shallow_history {};
+
+...
+
+// User-defined state machine.
+struct Playing_ : public msm::front::state_machine_def<Playing_>
+{
+    using history = msm::front::shallow_history<end_pause>;
+    ...
+};
+```
+
+== Start and stop
+
+A newly constructed state machine is inactive and does not process events as long as it is not yet started. The `void start()` method activates the state machine by first calling the state machine front-end's entry action and then the initial state's. By default the event passed to the entry actions is an empty struct `backmp11::starting`. You can pass a custom event with the overload `void start(const auto& initial_event)`.
+
+The `void stop()` method deactivates the state machine by first calling the active state's exit action and then the state machine front-end's. The default event is an empty struct `backmp11::stopping`, and a similar overload `void stop(const auto& final_event)` exists to customize it.
+
+Calling `start()` on an active or `stop()` on an inactive state machine has no effect.
+
+
+== Handling events
+
+Use `process_result process_event(const Event&)` to start processing an event while the state machine is idle or enqueue an event while the state machine is processing.
+
+You can enqueue an event for consecutive processing in an action with `void enqueue_event(const Event&)`. The event will be processed immediately after the current event is done processing.
+
+The back-end supports event deferral with the front-end's `deferred_events` state property. Deferred events are evaluated in the same order they have been deferred, ensuring FIFO processing semantics. They are stored in the event pool of the state machine that was requested to process the event. In hierarchical state machines this is usually the root state machine, in which case all submachines are able to receive the event upon dispatch. Event deferral in orthogonal regions behaves as described in the UML standard: As long as one active region decides to defer an event, it remains deferred for all regions. Events stay in the event pool 
+
+_Conditional deferral_ is a `backmp11`-exclusive extension of the `deferred_events` property in states.
+Deferral can be made conditional by defining a `bool is_event_deferred(...)` method in the state:
+
+```cpp
+struct MyState : boost::msm::front::state<>
+{
+    using deferred_events = mp11::mp_list<MyEvent>;
+
+    template <typename Fsm>
+    bool is_event_deferred(const MyEvent& event, Fsm& fsm) const
+    {
+        // Return true or false to decide
+        // whether the event shall be deferred.
+        ...
+    }
+};
+```
+
+You can also defer events in transitions by using the `front::Defer` action. While this mechanism offers additional flexibility for event deferral,
+it has a couple of limitations:
+
+- It uses the event pool of the state machine passed by the `Fsm` parameter - if this is not the root machine in hierarchical state machines, state machines further up the hierarchy cannot receive the event.
+- Action-deferred events get dispatched for evaluation and then put back into the event pool. This requires additional runtime and prevents deferred events from being processed in FIFO order.
+- In orthogonal regions each region evaluates the event independently, but the regions share the event pool of the containing state machine. This leads to the same event being dispatched multiple times.
+
+
+== Check for active states
+
+Use the method `bool is_state_active()` to query for active states:
+
+```cpp
+template <typename State>
+bool state_machine::is_state_active() const;
+```
+
+If the type of the state appears multiple times in a hierarchical state machine,
+the method returns true if any of the states are active.
+
+
+== Visit states
+
+You can visit all currently active states with a visitor API.
+In hierarchical state machines submachines are visited recursively.
+
+```cpp
+template <typename Visitor>
+void state_machine::visit(Visitor&& visitor);
+```
+
+The visitor functor must support to be called with all existing state types of the state machine.
+
+```cpp
+template <typename State>
+void operator()(State& state);
+```
+
+A state machine can be visited in multiple modes:
+
+- only the active states or all states
+- non-recursive or recursive
+
+The visit function can be customized with a `visit_mode` template parameter.
+
+
+```cpp
+// API:
+enum class visit_mode
+{
+    // State selection (mutually exclusive).
+    active_states = 0b001,
+    all_states    = 0b010,
+
+    // Traversal mode (not set = non-recursive).
+    recursive     = 0b100,
+
+    // All valid combinations.
+    active_non_recursive = active_states,
+    active_recursive     = active_states | recursive,
+    all_non_recursive    = all_states,
+    all_recursive        = all_states | recursive
+};
+template <visit_mode Mode, typename Visitor>
+void state_machine::visit(Visitor&& visitor);
+
+// Use the pre-defined constants...
+state_machine.visit
+    <visit_mode::all_recursive>
+    ([](auto &state) {/*...*/});
+// ... or assemble a mode
+state_machine.visit
+    <visit_mode::all_states | visit_mode::recursive>
+    ([](auto &state) {/*...*/});
+
+```
+
+== Reflection and serialization
 
 The `state_machine` provides access to all its members recursively with a `reflect` free function and a visitor pattern:
 
@@ -371,105 +440,20 @@ For each serialization library you can find a corresponding header with serializ
 For serialization with Boost.JSON and nlohmann/json you only need to include the corresponding header, for Boost.Serialization you additionally need to provide a `serialize` method for the (root) state machine. The https://github.com/boostorg/msm/blob/develop/test/Backmp11Adapter.hpp[backmp11 serialization test] demonstrates how to use the serialization libraries.
 
 
-=== Unified event pool for queued and deferred events
+== Comparison to `back`
 
-The containers for queued and deferred events have been merged into a single event pool.
-This unification results in improved processing performance if both types of events are used, because only one container needs to be traversed.
+The `backmp11` back-end should be mostly compatible with existing code utilizing the `back` back-end:
 
-It is also no longer required to set up `activate_deferred_events` in a state machine's front-end to use `Defer` actions.
+- for the state machine use `boost::msm::backmp11::state_machine` in place of `boost::msm::back::state_machine`
+- for configuring the compile policy and more use a `boost::msm::backmp11::state_machine_config` struct
+- adapt public API calls that have been changed in `backmp11` or write an adapter by extending the `state_machine` class
 
-
-=== Enhanced capabilities of the `deferred_events` property
-
-**Better performance:**
-
-Deferred events are inspected with a recursive visitor to decide whether 
-they remain deferred or are ready to be dispatched. This avoids the 
-overhead of dispatching and re-queuing them into the event pool for 
-re-evaluation.
-
-**Improved support in hierarchical state machines:**
-
-Prior to the recursive visitor mechanism, an event could have been 
-forwarded to a submachine for processing and then stored in 
-its event pool. Events stored in a submachine's event pool can only be 
-consumed by that submachine and its descendants; other submachines at 
-the same hierarchy level are unable to receive them.
-
-With the recursive visitor mechanism, deferred events are stored in the 
-event pool of the state machine that was requested to process the event. 
-This is usually the root state machine, in which case all submachines 
-can receive the event upon dispatch.
-
-**Conditional event deferral:**
-
-In `back` and `back11`, the events listed in a state's `deferred_events` 
-property are always deferred. In `backmp11`, deferral can be made 
-conditional by defining an `is_event_deferred` method in the state:
-
-```cpp
-struct MyState : boost::msm::front::state<>
-{
-    using deferred_events = mp11::mp_list<MyEvent>;
-
-    template <typename Fsm>
-    bool is_event_deferred(const MyEvent& event, Fsm& fsm) const
-    {
-        // Return true or false to decide
-        // whether the event shall be deferred.
-        ...
-    }
-};
-```
+The next paragraphs offer further details about the differences between `backmp11` and `back`.
 
 
-== Resolved issues with respect to `back`
+=== Public API of `state_machine`
 
-=== Deferring events in orthogonal regions
-
-Event deferral in orthogonal regions behaves as described in the UML standard:
-
-- If one active region decides to defer an event, then it is deferred for all regions instead of being processed
-- The event gets processed once no more active region decides to defer it
-
-In `back` the event is evaluted by all regions independently. This leads to the same event being processed multiple times (and worst case to infinite recursion).
-
-
-== Other changes with respect to `back`
-
-=== The required minimum C{plus}{plus} version is C{plus}{plus}17
-
-C{plus}{plus}11 brings the strongly needed variadic template support for MSM, but later C{plus}{plus} versions provide other important features - for example C{plus}{plus}17's `if constexpr (...)`.
-
-
-=== The history policy of a state machine is defined in the front-end instead of the back-end
-
-The definition of the history policy is closer related to the front-end, and defining it there ensures that state machine configs can be shared between back-ends.
-The definition looks as follows:
-
-```cpp
-struct no_history {};
-
-template <typename... Events>
-struct shallow_history {};
-
-struct always_shallow_history {};
-
-...
-
-// User-defined state machine
-struct Playing_ : public msm::front::state_machine_def<Playing_>
-{
-    using history = msm::front::shallow_history<end_pause>;
-    ...
-};
-```
-
-
-=== The public API of `state_machine` is refactored
-
-All methods that should not be part of the public API are removed from it, redundant methods are removed as well. A few other methods have been renamed.
-The following adapter pseudo-code showcases the differences to the `back` API:
+The following adapter pseudo-code showcases the differences to the `state_machine` API of `back`.
 
 ```cpp
 class state_machine_adapter
@@ -480,13 +464,6 @@ class state_machine_adapter
     const uint16_t* current_state() const
     {
         return &this->get_active_state_ids()[0];
-    }
-
-    // The history can be accessed like this,
-    // but it has to be configured in the front-end.
-    auto& get_history()
-    {
-        return this->m_history;
     }
 
     auto& get_message_queue()
@@ -544,35 +521,36 @@ A working code example of such an adapter is available in https://github.com/boo
 It can be copied and adapted if needed, though this class is internal to the tests and not planned to be supported officially.
 
 
-=== `boost::any` as Kleene event is replaced by `std::any`
+=== Kleene events
 
-To reduce the amount of necessary header inclusions `backmp11` uses `std::any` for defining Kleene events instead of `boost::any`.
-You can still opt in to use `boost::any` by explicitly including `boost/msm/event_traits.h`.
+To reduce the amount of necessary header inclusions, `backmp11` uses `std::any` for defining Kleene events instead of `boost::any`.
+You can opt in to support `boost::any` by including `boost/msm/event_traits.h`.
+
 
 === Removed features
 
-==== Initialization of states in the constructor and the `set_states` method
+==== Initialization of states in the constructor and the `set_states(...)` method
 
-There were some caveats with one constructor that was used for different use cases: On the one hand some arguments were immediately forwarded to the front-end's constructor, on the other hand the stream operator was used to identify other arguments in the constructor as states, to copy them into the state machine. Besides the syntax of the later being rather unusual, when doing both at once the syntax becomes too difficult to understand; even more so if states within hierarchical sub state machines were initialized in this fashion.
+There were some caveats with one constructor that was used for different use cases: On the one hand some arguments were immediately forwarded to the front-end's constructor, on the other hand the stream operator was used to identify other arguments in the constructor as states, to copy them into the state machine. Besides the syntax of the later being rather unusual, when doing both at once the syntax becomes too difficult to understand; even more so if states within hierarchical submachines are initialized in this fashion.
 
 In order to keep the API of the constructor simpler and less ambiguous, it only supports forwarding arguments to the front-end.
-Also the `set_states` API is removed. If setting a state is required, this can still be done (in a little more verbose, but also more direct & explicit fashion) by getting a reference to the desired state via `get_state` and then assigning a new state object to it.
+Also the `set_states(...)` API is removed. If setting a state is required, this can still be done (in a more verbose, but also more direct & explicit way) by getting a reference to the desired state via `get_state<State>()` and then assigning a new state object to it.
 
 
-==== The `get_state_by_id` method
+==== The `get_state_by_id(...)` method
 
-If you really need to get a state by id, please use the universal visitor API to implement the function on your own.
-The `backmp11` `state_machine` has a new method to support getting the id of a state in the visitor:
+If you really need to get a state by id, you can use the visitor API to implement the function on your own.
+The `state_machine` has a method to support getting the id of a state in the visitor:
 
 ```cpp
-template<typename State>
+template <typename State>
 static constexpr uint16_t state_machine::get_state_id(const State&);
 ```
 
 
-==== The pointer overload of `get_state`
+==== The pointer overload of `get_state<...>()`
 
-Similarly to the STL's `std::get` of a tuple, the only sensible template parameter for `get_state` is `T` returning a `T&`.
+Similarly to the STL's `std::get<...>(...)` method for a tuple, the only sensible template parameter for `get_state<T>()` is `T` returning a `T&`.
 The overload for a `T*` is removed and the `T&` is discouraged, although still supported.
 If you need to get a state by its address, use the address operator after you have received the state by reference.
 
@@ -592,65 +570,43 @@ The implementation of these two features depends on mpl_graph, which induces hig
 Not needed with the functor front-end and was already deprecated, thus removed in `backmp11`.
 
 
-== Compile policies
+== Deprecation information
 
-Like `back`, this back-end supports 2 compile policies. In case of hierarchical state machines all state machines must be configured with the same compile policy.
+Deprecations of features, APIs, and other changes with additional context are listed in the table below.
 
-=== `favor_runtime_speed`
-
-This policy favors runtime speed over compile time, it evaluates all transitions and generates the dispatch table at compile time.
-The dispatch strategy can be tuned by inheriting from `favor_runtime_speed` and adapting the `using dispatch_strategy` directive:
-
-```cpp
-struct favor_runtime_speed
-{
-    // Dispatch strategy for processing events.
-    // Supported strategies:
-    // - flat_fold (default)
-    // - function_pointer_array
-    using dispatch_strategy = dispatch_strategy::flat_fold;
-};
-```
-
-It currently supports two dispatch strategies:
-
-[%autowidth, options="header"]
+[width=95%, cols="16,5,40"]
 |===
-| Strategy | Description
+| Feature | Deprecation / Removal | Description
 
-| `flat_fold` (default)
-| Generates a flat fold of inline comparison branches. +
-All transition logic is visible to the optimizer. +
-Usually results in optimal runtime performance and executable size.
+| Public access to the event container
+| 1.90 / 1.91
+a| The event container can be accessed and manipulated via public APIs. Manipulation of the container outside of the library code can lead to undefined behavior.
 
-| `function_pointer_array`
-| Generates an array of function pointers. +
-Guarantees O(1) dispatch, but the function pointers cannot be inlined. +
-Usually results in worse runtime performance and larger executable size, but slightly better compile time.
+*Change:* The public API to access the event container will be changed to `protected`. If needed, users can inherit from `state_machine` to access the event container, but without guarantees about correct functionality and API consistency.
+
+| Renaming of `transition_owner` to `local_transition_owner`
+| 1.91 / 1.92
+a| The default setting of the `Fsm` parameter was named `transition_owner`, which was intended to reflect the same behavior as in `back`. However, `transition_owner` does have a different behavior from `back`. Furthermore, it was not implemented correctly.
+
+*Change:* The behavior will be corrected to match `back` and the default setting will be renamed to `local_transition_owner` in 1.91. The previous setting name `transition_owner` will be deprecated in 1.91 and removed in 1.92.
+
+| Removal of APIs to process queued events
+| 1.91 / 1.92
+a| The event containers for queued events and deferred events have been merged into a single event pool. The APIs for processing queued events are obsolete.
+
+*Change:* The APIs `process_queued_events`, and `process_single_queued_event` will be removed.
+
+Occurrences of the old APIs can be replaced as follows:
+
+- to process a single event in the event pool, use `process_event_pool(1)`
+- to process all events in the event pool, use `process_event_pool()`
+
+| Removal of automatic enqueuing in the `process_event` API
+| 1.91 / 1.92
+a| The API `process_event` automatically enqueues events when the state machine is already processing. This requires instantiating `enqueue_event` for every event type, even though most instances are never called. They are only needed when `process_event` is called in actions.
+
+*Change:* The API `process_event` will reject an event and return `HANDLED_FALSE` when called during event processing instead of automatically enqueueing it.
+
+Calls to `process_event` in actions have to be replaced with `enqueue_event`.
+
 |===
-
-
-=== `favor_compile_time`
-
-This policy favors compile time over runtime speed. It evaluates transitions lazily and generates the dispatch table at runtime. Like its counterpart in `back`, it does not support Kleene events.
-
-Events are wrapped into a `std::any` when they enter event processing to reduce the number of necessary template instances required to generate the state machine.
-The policy utilizes a hash map for dispatch, with the type index of each event as the key and an array of function pointers to the matching transitions as the value.
-
-This policy allows compiling a state machine across multiple translation units (TUs) with the help of a preprocessor macro.
-Since the back-end should compile very fast for most state machines, this is an opt-in feature.
-If you want to build your state machine across multiple TUs, you need to do the following:
-
-- define `BOOST_MSM_BACKMP11_MANUAL_GENERATION` before including `msm/backmp11/favor_compile_time.hpp`
-- then generate your state machine back-end(s) with the macro `BOOST_MSM_BACKMP11_GENERATE_STATE_MACHINE(<sm_type>)`
-
-You can find an example for this in the https://github.com/boostorg/msm/blob/develop/test/Backmp11Visitor.cpp[visitor test].
-
-
-== How to use it
-
-The back-end should be mostly compatible with existing code. Required replacements to try it out:
-
-- for the state machine use `boost::msm::backmp11::state_machine` in place of `boost::msm::back::state_machine` and
-- for configuring the compile policy and more use `boost::msm::backmp11::state_machine_config`
-- if you encounter API-incompatibilities please check the <<_other_changes_with_respect_to_back,details above>> for reference

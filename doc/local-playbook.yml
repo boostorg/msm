@@ -35,7 +35,6 @@
 #
 
 site:
-  url: https://antora.cppalliance.org/${page-boost-branch}/lib/doc
   title: Boost Libraries Documentation
   robots: allow
 

@@ -9,4 +9,4 @@ Run the following commands once for the initial setup:
 
 Antora requires the doc sources to be located within a git repository, but it cannot recognize git submodules. By setting up a pseudo-repository in the doc folder, the local documentation build works when MSM is used as a standalone repo as well as when MSM is opened from a submodule path within the Boost super-project.
 
-After the initial setup is done, the documentation can be built by running `npx antora --fetch local-playbook.yml` from the doc folder.
+After the initial setup is done, build the the documentation by running `npx antora --fetch local-playbook.yml` from the doc folder. Or use the Makefile, `make build`.

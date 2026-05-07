@@ -21,6 +21,11 @@ namespace boost::msm::backmp11
 
 using process_result = back::HandledEnum;
 
+// Event that describes the SM is starting.
+struct starting {};
+// Event that describes the SM is stopping.
+struct stopping {};
+
 // flag handling
 struct flag_or {};
 struct flag_and {};

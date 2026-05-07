@@ -99,13 +99,8 @@ class state_machine_base : public FrontEnd
     using context_t = typename config_t::context;
     using front_end_t = FrontEnd;
     using derived_t = Derived;
-
-    // Event that describes the SM is starting.
-    // Used when the front-end does not define an initial_event.
-    struct starting {};
-    // Event that describes the SM is stopping.
-    // Used when the front-end does not define a final_event.
-    struct stopping {};
+    using starting = backmp11::starting;
+    using stopping = backmp11::stopping;
 
     // Wrapper for an exit pseudostate,
     // which upper SMs can use to connect to it.

@@ -140,13 +140,6 @@ class state_machine_adapter
         return &this->get_active_state_ids()[0];
     }
 
-    // The history can be accessed like this,
-    // but it has to be configured in the front-end.
-    auto& get_history()
-    {
-        return this->m_history;
-    }
-
     auto& get_message_queue()
     {
         return this->get_event_pool().events;
