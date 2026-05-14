@@ -456,24 +456,6 @@ class state_machine_base : public FrontEnd
             *this, compile_policy_impl::normalize_event(event), false);
     }
 
-    // Process all queued events.
-    template <bool C = event_pool_member::value,
-              typename = std::enable_if_t<C>>
-    [[deprecated ("Use process_event_pool() instead")]]
-    void process_queued_events()
-    {
-        process_event_pool();
-    }
-
-    // Process a single queued event.
-    template <bool C = event_pool_member::value,
-              typename = std::enable_if_t<C>>
-    [[deprecated ("Use process_event_pool(1) instead")]]
-    void process_single_queued_event()
-    {
-        process_event_pool(1);
-    }
-
     // Get the context of the state machine.
     template <bool C = !std::is_same_v<context_t, no_context>,
               typename = std::enable_if_t<C>>

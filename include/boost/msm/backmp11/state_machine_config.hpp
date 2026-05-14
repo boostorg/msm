@@ -51,9 +51,6 @@ struct local_transition_owner{};
 template <typename T>
 struct no_event_pool_container;
 
-using transition_owner [[deprecated("Use local_transition_owner instead")]] =
-    local_transition_owner;
-
 // Default state machine config.
 struct default_state_machine_config
 {
