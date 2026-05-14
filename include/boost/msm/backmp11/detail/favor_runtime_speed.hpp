@@ -71,7 +71,7 @@ struct compile_policy_impl<
     };
 
     template <typename StateMachine, typename Event>
-    static bool is_event_deferred(const StateMachine& sm, const Event& event)
+    static constexpr bool needs_event_deferral_check()
     {
         // Instantiate the templates for checking lazily,
         // optimize for the no deferred events case.
@@ -91,13 +91,38 @@ struct compile_policy_impl<
             // We have deferring states that defer this event.
             if constexpr (minimal_visit_set::needs_traversal::value)
             {
-                using state_visitor =
-                    event_deferral_visitor<const StateMachine, visitor_t,
-                                           visitor_t::template predicate,
-                                           visitor_t::template predicate2>;
-                visitor_t visitor{event};
-                state_visitor::visit(sm, visitor);
-                return visitor.result();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    template <typename StateMachine, typename Event>
+    static bool is_event_deferred(const StateMachine& sm, const Event& event)
+    {
+        if constexpr (needs_event_deferral_check<StateMachine, Event>())
+        {
+            using visitor_t = is_event_deferred_visitor<Event>;
+            using state_visitor =
+                event_deferral_visitor<const StateMachine, visitor_t,
+                                       visitor_t::template predicate,
+                                       visitor_t::template predicate2>;
+            visitor_t visitor{event};
+            state_visitor::visit(sm, visitor);
+            return visitor.result();
+        }
+        return false;
+    }
+
+    template <typename StateMachine, typename Event>
+    static bool try_defer_event(StateMachine& sm, const Event& event)
+    {
+        if constexpr (needs_event_deferral_check<StateMachine, Event>())
+        {
+            if (is_event_deferred(sm, event))
+            {
+                defer_event(sm, event, false);
+                return true;
             }
         }
         return false;

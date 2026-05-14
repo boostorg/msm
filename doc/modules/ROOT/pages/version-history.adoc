@@ -6,6 +6,10 @@
 
 * New features (`backmp11`):
 ** Provide a reflection API and serialization support for Boost.Serialization, Boost.JSON and nlohmann/json (https://github.com/boostorg/msm/issues/197[#197])
+** **Breaking change**: Make enqueuing events explicit (https://github.com/boostorg/msm/issues/178[#178])
+* Bug fixes (`backmp11`):
+** State machine processes events although it is not running (https://github.com/boostorg/msm/issues/198[#198])
+* **Breaking change (`backmp11`)**: The APIs `process_queued_events` and `process_single_queued_event` are removed, use `process_event_pool` instead
 
 == Boost 1.91
 

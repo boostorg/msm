@@ -134,6 +134,20 @@ class state_machine_adapter
   public:
     using Base::Base;
 
+    template <typename Event>
+    back::HandledEnum process_event(const Event& event)
+    {
+        if (this->get_machine_state() == detail::machine_state::processing)
+        {
+            this->enqueue_event(event);
+            return back::HANDLED_DEFERRED;
+        }
+        else
+        {
+            return Base::process_event(event);
+        }
+    }
+
     // The new API returns a const std::array<...>&.
     const uint16_t* current_state() const
     {

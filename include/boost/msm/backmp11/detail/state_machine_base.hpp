@@ -697,15 +697,13 @@ class state_machine_base : public FrontEnd
         {
             if (info != process_info::event_pool)
             {
-                // If we are already processing or the event is deferred in the
+                // If the event is deferred in the
                 // active state configuration, process it later.
                 // Skip the deferral check in submachine calls, since the
                 // parent has already checked and dispatched the event.
-                if (m_machine_state == machine_state::processing ||
-                    (info != process_info::submachine_call &&
-                     compile_policy_impl::is_event_deferred(self(), event)))
+                if (info != process_info::submachine_call &&
+                    compile_policy_impl::try_defer_event(self(), event))
                 {
-                    compile_policy_impl::defer_event(self(), event, false);
                     return process_result::HANDLED_DEFERRED;
                 }
 
@@ -716,9 +714,10 @@ class state_machine_base : public FrontEnd
         }
         else
         {
-            BOOST_ASSERT_MSG(m_machine_state != machine_state::processing,
-                             "An event pool must be available to call "
-                             "process_event while processing an event");
+            if (m_machine_state == machine_state::processing)
+            {
+                return process_result::HANDLED_FALSE;
+            }
         }
 
         // Process the event.
