@@ -49,7 +49,7 @@ struct local_transition_owner{};
 
 // Config for disabling the event pool.
 template <typename T>
-struct no_event_container;
+struct no_event_pool_container;
 
 using transition_owner [[deprecated("Use local_transition_owner instead")]] =
     local_transition_owner;
@@ -65,7 +65,7 @@ struct default_state_machine_config
     using compile_policy = favor_runtime_speed;
     // Which container to use for the event pool.
     template <typename T>
-    using event_container = std::deque<T>;
+    using event_pool_container = std::deque<T>;
     // Type of the Fsm parameter passed in actions and guards.
     using fsm_parameter = local_transition_owner;
     // Identifier for the upper-most SM
