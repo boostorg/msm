@@ -175,13 +175,32 @@ struct compile_policy_impl<favor_compile_time>
         using visitor_t = is_event_deferred_visitor;
         using state_visitor =
             event_deferral_visitor<const StateMachine, 
-                                    visitor_t,
-                                    visitor_t::template predicate>;
+                                   visitor_t,
+                                   visitor_t::template predicate>;
         if constexpr (state_visitor::needs_traversal::value)
         {
             visitor_t visitor{event};
             state_visitor::visit(sm, visitor);
             return visitor.result();
+        }
+        return false;
+    }
+
+    template <typename StateMachine>
+    static bool try_defer_event(StateMachine& sm, const any_event& event)
+    {
+        using visitor_t = is_event_deferred_visitor;
+        using state_visitor =
+            event_deferral_visitor<const StateMachine, 
+                                    visitor_t,
+                                    visitor_t::template predicate>;
+        if constexpr (state_visitor::needs_traversal::value)
+        {
+            if (is_event_deferred(sm, event))
+            {
+                defer_event(sm, event, false);
+                return true;
+            }
         }
         return false;
     }

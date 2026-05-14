@@ -41,14 +41,19 @@ struct TriggerInternalTransitionWithGuard
 };
 struct TriggerSmInternalTransition{};
 struct TriggerAnyTransition{};
+struct TriggerNoTransition{};
 
 // Actions
 struct MyAction
 {
     template<typename Event, typename Fsm, typename Source, typename Target>
-    void operator()(const Event&, Fsm&, Source& source, Target&)
+    void operator()(const Event&, Fsm& fsm, Source& source, Target&)
     {
         source.action_counter++;
+        // Attempting to process events while the state machine is processing
+        // shall discard the event.
+        BOOST_REQUIRE(fsm.process_event(TriggerNoTransition{}) ==
+                      process_result::HANDLED_FALSE);
     }
 };
 

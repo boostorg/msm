@@ -15,7 +15,7 @@ It offers a significant improvement in runtime and memory usage, as can be seen 
 | back                        | 10                 | 844              | 73               | 0.7
 | back_favor_compile_time     | 12                 | 821              | 241              | 1.0
 | back11                      | 26                 | 2675             | 92               | 0.7
-| backmp11                    | 2                  | 239              | 32               | 0.4
+| backmp11                    | 2                  | 237              | 21               | 0.4
 | backmp11_favor_compile_time | 2                  | 225              | 45               | 2.2
 | sml                         | 3                  | 242              | 57               | 0.1
 |=======================================================================================================
@@ -28,8 +28,8 @@ It offers a significant improvement in runtime and memory usage, as can be seen 
 |                                      | Compile time / sec | Compile RAM / MB | Binary size / kB | Runtime / sec
 | back                                 | 32                 | 2160             | 252              | 3.7
 | back_favor_compile_time              | 37                 | 1747             | 974              | 263
-| backmp11                             | 5                  | 371              | 91               | 2.0
-| backmp11_favor_compile_time          | 3                  | 264              | 98               | 7.6
+| backmp11                             | 5                  | 362              | 52               | 1.8
+| backmp11_favor_compile_time          | 3                  | 263              | 98               | 7.6
 | backmp11_favor_compile_time_multi_cu | 3                  | ~934             | 99               | 8.6
 | sml                                  | 12                 | 567              | 436              | 2.5
 |================================================================================================================
@@ -269,14 +269,13 @@ Calling `start()` on an active or `stop()` on an inactive state machine has no e
 
 == Handling events
 
-Use `process_result process_event(const Event&)` to start processing an event while the state machine is idle or enqueue an event while the state machine is processing.
+Use `process_result process_event(const Event&)` to start processing an event while the state machine is idle.
 
 You can enqueue an event for consecutive processing in an action with `void enqueue_event(const Event&)`. The event will be processed immediately after the current event is done processing.
 
-The back-end supports event deferral with the front-end's `deferred_events` state property. Deferred events are evaluated in the same order they have been deferred, ensuring FIFO processing semantics. They are stored in the event pool of the state machine that was requested to process the event. In hierarchical state machines this is usually the root state machine, in which case all submachines are able to receive the event upon dispatch. Event deferral in orthogonal regions behaves as described in the UML standard: As long as one active region decides to defer an event, it remains deferred for all regions. Events stay in the event pool 
+The back-end supports event deferral with the front-end's `deferred_events` state property. Deferred events are evaluated in the same order they have been deferred, ensuring FIFO processing semantics. They are stored in the event pool of the state machine that was requested to process the event. In hierarchical state machines this is usually the root state machine, in which case all submachines are able to receive the event upon dispatch. Event deferral in orthogonal regions behaves as described in the UML standard: As long as one active region decides to defer an event, it remains deferred for all regions.
 
-_Conditional deferral_ is a `backmp11`-exclusive extension of the `deferred_events` property in states.
-Deferral can be made conditional by defining a `bool is_event_deferred(...)` method in the state:
+_Conditional deferral_ is a `backmp11`-exclusive extension of the `deferred_events` property in states. Deferral can be made conditional by defining a `bool is_event_deferred(...)` method in the state:
 
 ```cpp
 struct MyState : boost::msm::front::state<>
@@ -293,8 +292,7 @@ struct MyState : boost::msm::front::state<>
 };
 ```
 
-You can also defer events in transitions by using the `front::Defer` action. While this mechanism offers additional flexibility for event deferral,
-it has a couple of limitations:
+You can also defer events in transitions by using the `front::Defer` action. While this mechanism offers additional flexibility for event deferral, it has a couple of limitations:
 
 - It uses the event pool of the state machine passed by the `Fsm` parameter - if this is not the root machine in hierarchical state machines, state machines further up the hierarchy cannot receive the event.
 - Action-deferred events get dispatched for evaluation and then put back into the event pool. This requires additional runtime and prevents deferred events from being processed in FIFO order.
@@ -459,6 +457,20 @@ The following adapter pseudo-code showcases the differences to the `state_machin
 class state_machine_adapter
 {
     using Flag_AND = backmp11::flag_and;
+
+    template <typename Event>
+    back::HandledEnum process_event(const Event& event)
+    {
+        if (this->get_machine_state() == detail::machine_state::processing)
+        {
+            this->enqueue_event(event);
+            return back::HANDLED_DEFERRED;
+        }
+        else
+        {
+            return Base::process_event(event);
+        }
+    }
 
     // The new API returns a const std::array<...>&.
     const uint16_t* current_state() const
