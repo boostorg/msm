@@ -28,7 +28,7 @@ class StateMachine
 {
     using base = state_machine<FrontEnd, Config, StateMachine<FrontEnd, Config>>;
   public:
-    const typename base::event_container_t& get_pending_events() const
+    const typename base::event_pool_container_t& get_pending_events() const
     {
         return this->get_event_pool().events;
     }

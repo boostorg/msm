@@ -199,18 +199,19 @@ class state_machine_base : public FrontEnd
   protected:
     using processable_event = basic_polymorphic<event_occurrence>;
     template <typename T>
-    using event_container = typename config_t::template event_container<T>;
-    using event_container_t = event_container<processable_event>;
+    using event_pool_container =
+        typename config_t::template event_pool_container<T>;
+    using event_pool_container_t = event_pool_container<processable_event>;
 
     struct event_pool_t
     {
-        event_container_t events;
+        event_pool_container_t events;
         uint16_t cur_seq_cnt{};
     };
 
     using event_pool_member = optional_instance<
         event_pool_t,
-        !std::is_same_v<event_container<void>, no_event_container<void>>>;
+        !std::is_same_v<event_pool_container<void>, no_event_pool_container<void>>>;
 
     template <bool C = event_pool_member::value,
               typename = std::enable_if_t<C>>
