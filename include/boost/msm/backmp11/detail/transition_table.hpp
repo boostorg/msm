@@ -135,7 +135,7 @@ struct transition_table_impl
     template<typename T>
     using get_active_state_switch_policy = typename T::active_state_switch_policy;
     using active_state_switching =
-        boost::mp11::mp_eval_or<active_state_switch_after_entry,
+        boost::mp11::mp_eval_or<active_state_switch_after_exit,
                                 get_active_state_switch_policy, front_end_t>;
 
     template <typename Row, bool HasGuard, typename Event, typename Source,

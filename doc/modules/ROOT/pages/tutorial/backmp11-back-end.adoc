@@ -621,4 +621,12 @@ a| The API `process_event` automatically enqueues events when the state machine 
 
 Calls to `process_event` in actions have to be replaced with `enqueue_event`.
 
+| Removal of active state switch policies
+| 1.92 / 1.93
+a| The UML specification describes the exact point in time when an active state switch in a transition is expected to happen. The current setting `active_state_switch_policy` in the front-end allows to select unspecified values. Its default value "after target entry" is not UML compliant.
+
+*Change:* The active state switch policy is set to "after source exit" in compliance to the UML specification.
+
+The setting will be removed in 1.93.
+
 |===
