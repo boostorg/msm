@@ -18,10 +18,8 @@
 #include <utility>
 
 #include <boost/assert.hpp>
-#include <boost/config.hpp>
 #include <boost/mp11.hpp>
 
-#include <boost/msm/active_state_switching_policies.hpp>
 #include <boost/msm/row_tags.hpp>
 #include <boost/msm/backmp11/detail/basic_polymorphic.hpp>
 #include <boost/msm/backmp11/detail/favor_runtime_speed.hpp>
@@ -242,12 +240,6 @@ class state_machine_base : public FrontEnd
                            typename internal::initial_states>;
     using compile_policy = typename config_t::compile_policy;
     using compile_policy_impl = detail::compile_policy_impl<compile_policy>;
-
-    template<typename T>
-    using get_active_state_switch_policy = typename T::active_state_switch_policy;
-    using active_state_switching =
-        mp11::mp_eval_or<active_state_switch_after_entry,
-                         get_active_state_switch_policy, front_end_t>;
 
     template <class, class, class>
     friend class state_machine_base;
