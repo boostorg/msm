@@ -38,12 +38,9 @@ class history_impl<front::no_history, InitialStateIds>
         }
     }
 
-    template <typename StateMachine, typename Event, typename Visitor>
-    void on_entry(StateMachine& sm, const Event& event, Visitor&& visitor)
+    template <typename StateMachine, typename Visitor>
+    void on_entry(StateMachine& sm, Visitor&& visitor)
     {
-        // First set all active state ids...
-        on_entry(sm, event);
-        // ... then execute each state entry.
         mp11::mp_for_each<InitialStateIds>(
             [&sm, &visitor](auto state_id)
             {
@@ -78,12 +75,9 @@ public:
         sm.m_active_state_ids = m_last_active_state_ids;
     }
 
-    template <typename StateMachine, typename Event, typename Visitor>
-    void on_entry(StateMachine& sm, const Event& event, Visitor&& visitor)
+    template <typename StateMachine, typename Visitor>
+    void on_entry(StateMachine& sm, Visitor&& visitor)
     {
-        // First set all active state ids...
-        on_entry(sm, event);
-        // ... then execute each state entry.
         sm.template visit<visit_mode::active_non_recursive>(visitor);
     }
 
@@ -134,12 +128,9 @@ public:
         }
     }
 
-    template <typename StateMachine, typename Event, typename Visitor>
-    void on_entry(StateMachine& sm, const Event& event, Visitor&& visitor)
+    template <typename StateMachine, typename Visitor>
+    void on_entry(StateMachine& sm, Visitor&& visitor)
     {
-        // First set all active state ids...
-        on_entry(sm, event);
-        // ... then execute each state entry.
         sm.template visit<visit_mode::active_non_recursive>(visitor);
     }
 };

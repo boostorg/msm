@@ -15,8 +15,8 @@ It offers a significant improvement in runtime and memory usage, as can be seen 
 | back                        | 10                 | 844              | 73               | 0.7
 | back_favor_compile_time     | 12                 | 821              | 241              | 1.0
 | back11                      | 26                 | 2675             | 92               | 0.7
-| backmp11                    | 2                  | 237              | 21               | 0.4
-| backmp11_favor_compile_time | 2                  | 225              | 45               | 2.2
+| backmp11                    | 2                  | 236              | 20               | 0.4
+| backmp11_favor_compile_time | 2                  | 225              | 45               | 2.3
 | sml                         | 3                  | 242              | 57               | 0.1
 |=======================================================================================================
 
@@ -24,15 +24,14 @@ It offers a significant improvement in runtime and memory usage, as can be seen 
 *Large hierarchical state machine*
 
 [%autowidth, options="header"]
-|================================================================================================================
-|                                      | Compile time / sec | Compile RAM / MB | Binary size / kB | Runtime / sec
-| back                                 | 32                 | 2160             | 252              | 3.7
-| back_favor_compile_time              | 37                 | 1747             | 974              | 263
-| backmp11                             | 5                  | 362              | 52               | 1.8
-| backmp11_favor_compile_time          | 3                  | 263              | 98               | 7.6
-| backmp11_favor_compile_time_multi_cu | 3                  | ~934             | 99               | 8.6
-| sml                                  | 12                 | 567              | 436              | 2.5
-|================================================================================================================
+|=======================================================================================================
+|                             | Compile time / sec | Compile RAM / MB | Binary size / kB | Runtime / sec
+| back                        | 32                 | 2160             | 252              | 3.7
+| back_favor_compile_time     | 37                 | 1747             | 974              | 263
+| backmp11                    | 5                  | 361              | 48               | 1.7
+| backmp11_favor_compile_time | 3                  | 264              | 97               | 7.5
+| sml                         | 12                 | 567              | 436              | 2.5
+|=======================================================================================================
 
 
 The full code with the benchmarks and more information about them is available https://github.com/chandryan/fsm-benchmarks[in this repository]. The tables in the repository are frequently updated with results from the latest development branches of the benchmarked libraries.
@@ -46,8 +45,7 @@ The `state_machine` signature in `backmp11` looks as follows (pseudo-code):
 template <
     typename FrontEnd,
     typename Config = default_state_machine_config,
-    typename Derived = state_machine
->
+    typename Derived = state_machine>
 class state_machine;
 ```
 
@@ -270,8 +268,10 @@ Calling `start()` on an active or `stop()` on an inactive state machine has no e
 == Handling events
 
 Use `process_result process_event(const Event&)` to start processing an event while the state machine is idle.
+The back-end is exception-neutral, exceptions thrown during event processing are propagated to the caller.
+It provides a _basic exception guarantee_: The processing aborts mid-execution, but the state machine remains in a valid state. If the processing step involves a state switch, the active state switches to the target state as soon as the source state's exit action has completed. If you need to know exact details about the aborted state machine activities during event processing, take a look at the xref:#_run_to_completion[run-to-completion algorithm].
 
-You can enqueue an event for consecutive processing in an action with `void enqueue_event(const Event&)`. The event will be processed immediately after the current event is done processing.
+You can enqueue an event for consecutive processing in an action with `void enqueue_event(const Event&)`. The enqueued event will be processed immediately after the current event is done processing.
 
 The back-end supports event deferral with the front-end's `deferred_events` state property. Deferred events are evaluated in the same order they have been deferred, ensuring FIFO processing semantics. They are stored in the event pool of the state machine that was requested to process the event. In hierarchical state machines this is usually the root state machine, in which case all submachines are able to receive the event upon dispatch. Event deferral in orthogonal regions behaves as described in the UML standard: As long as one active region decides to defer an event, it remains deferred for all regions.
 
@@ -368,6 +368,7 @@ state_machine.visit
 
 ```
 
+
 == Reflection and serialization
 
 The `state_machine` provides access to all its members recursively with a `reflect` free function and a visitor pattern:
@@ -438,6 +439,36 @@ For each serialization library you can find a corresponding header with serializ
 For serialization with Boost.JSON and nlohmann/json you only need to include the corresponding header, for Boost.Serialization you additionally need to provide a `serialize` method for the (root) state machine. The https://github.com/boostorg/msm/blob/develop/test/Backmp11Adapter.hpp[backmp11 serialization test] demonstrates how to use the serialization libraries.
 
 
+== Run to completion
+
+The back-end uses the following run-to-completion algorithm for processing events:
+
+* Return if the state machine is not ready to process the event. It is ready if:
+** it is started and
+** it is not already processing an event and
+** either no terminate state is active, or an interrupt state is active and the event ends the interrupt state
+* If an active state defers the event, push it to the end of the event pool and return
+* Dispatch the event to the transition table of every region, in the order defined by the `initial_state` front-end definition
+* For each transition matching the active state and the event (in reverse order):
+** Execute the transition if there is no guard or it returns true, otherwise skip it
+** If the transition has a target state, call the source state's exit action and then switch the active state to the target state
+** If the transition has a transition action, call it
+** If the transition has a target state, call the target state's entry action
+** If a completion transition exists for the target state, push its execution to the beginning of the event pool
+** Consider the event processed and finish the transition execution loop
+* If the event is not yet processed and the state machine has an internal transition table, dispatch it to the internal transition table as well. For each transition matching the event (in reverse order):
+** Execute the transition if there is no guard or it returns true, otherwise skip it
+** If the transition has a transition action, call it
+** Consider the event processed and finish the transition execution loop
+* If the event is still not processed, call the front-end's `no_transition(...)` handler
+* If the state machine has an event pool, start processing it. For each event in the event pool:
+** Check if it is ready to be processed. It is ready if:
+*** it was not deferred in the same sequence and
+*** no active state defers the event
+** If it is ready, process it and start again from the beginning of the event pool (a new active state configuration might allow events to be processed that were deferred before)
+** Return when the state machine reaches the end of the event pool
+
+
 == Comparison to `back`
 
 The `backmp11` back-end should be mostly compatible with existing code utilizing the `back` back-end:
@@ -456,8 +487,6 @@ The following adapter pseudo-code showcases the differences to the `state_machin
 ```cpp
 class state_machine_adapter
 {
-    using Flag_AND = backmp11::flag_and;
-
     template <typename Event>
     back::HandledEnum process_event(const Event& event)
     {
@@ -468,7 +497,15 @@ class state_machine_adapter
         }
         else
         {
-            return Base::process_event(event);
+            try
+            {
+                return Base::process_event(event);
+            }
+            catch (std::exception& e)
+            {
+                this->exception_caught(event, *this, e);
+                return back::HANDLED_FALSE;
+            }
         }
     }
 
@@ -506,13 +543,6 @@ class state_machine_adapter
     void clear_deferred_queue()
     {
         this->get_event_pool().events.clear();
-    }
-
-    template <class Archive>
-    void serialize(Archive& ar,
-                   const unsigned int /*version*/)
-    {
-        backmp11::reflect(*this, serializer<Archive>{ar});
     }
 
     // No adapter.

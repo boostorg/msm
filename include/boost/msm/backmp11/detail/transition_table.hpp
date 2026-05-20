@@ -235,12 +235,12 @@ struct transition_table_impl
                                       uint8_t region_id,
                                       transition_event const& event)
         {
-            auto& state_id = sm.m_active_state_ids[region_id]; 
-            static constexpr auto current_state_id =
+            auto& state_id = sm.m_active_state_ids[region_id];
+            [[maybe_unused]] constexpr auto current_state_id =
                 StateMachine::template get_state_id<current_state_type>();
-            static constexpr auto next_state_id =
-                StateMachine::template get_state_id<next_state_type>();
             BOOST_ASSERT(state_id == current_state_id);
+            constexpr auto next_state_id =
+                StateMachine::template get_state_id<next_state_type>();
 
             auto& source = sm.template get_state<current_state_type>();
             auto& target = sm.template get_state<next_state_type>();

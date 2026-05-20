@@ -65,6 +65,24 @@ enum class machine_state : uint8_t
     processing
 };
 
+class process_guard
+{
+  public:
+    explicit process_guard(machine_state& machine_state)
+        : m_machine_state(machine_state)
+    {
+        m_machine_state = machine_state::processing;
+    }
+
+    ~process_guard()
+    {
+        m_machine_state = machine_state::idle;
+    }
+
+  private:
+    machine_state& m_machine_state;
+};
+
 // Additional info required for event processing.
 enum class process_info
 {

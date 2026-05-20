@@ -22,6 +22,12 @@
 namespace boost::msm::backmp11
 {
 
+template<class, class = void>
+struct is_backmp11_state_machine : std::false_type {};
+
+template<class T>
+struct is_backmp11_state_machine<T, std::void_t<typename T::config_t>> : std::true_type {};
+
 template <typename Archive>
 class serializer
 {
@@ -134,6 +140,30 @@ class state_machine_adapter
   public:
     using Base::Base;
 
+    void start()
+    {
+        try
+        {
+            Base::start();
+        }
+        catch (std::exception& e)
+        {
+            this->exception_caught(typename Base::starting{}, *this, e);
+        }
+    }
+
+    void stop()
+    {
+        try
+        {
+            Base::stop();
+        }
+        catch (std::exception& e)
+        {
+            this->exception_caught(typename Base::stopping{}, *this, e);
+        }
+    }
+
     template <typename Event>
     back::HandledEnum process_event(const Event& event)
     {
@@ -144,7 +174,15 @@ class state_machine_adapter
         }
         else
         {
-            return Base::process_event(event);
+            try
+            {
+                return Base::process_event(event);
+            }
+            catch (std::exception& e)
+            {
+                this->exception_caught(event, *this, e);
+                return back::HANDLED_FALSE;
+            }
         }
     }
 

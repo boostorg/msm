@@ -14,7 +14,6 @@
 
 #include <array>
 #include <cstdint>
-#include <exception>
 #include <utility>
 
 #include <boost/assert.hpp>
@@ -662,7 +661,7 @@ class state_machine_base : public FrontEnd
     BOOST_NOINLINE process_result process_event_internal(Event const& event,
                                                          process_info info)
     {
-        if (m_machine_state == machine_state::stopped)
+        if (m_machine_state != machine_state::idle)
         {
             return process_result::HANDLED_FALSE;
         }
@@ -704,39 +703,13 @@ class state_machine_base : public FrontEnd
                 get_event_pool().cur_seq_cnt += 1;
             }
         }
-        else
-        {
-            if (m_machine_state == machine_state::processing)
-            {
-                return process_result::HANDLED_FALSE;
-            }
-        }
 
         // Process the event.
-        m_machine_state = machine_state::processing;
         process_result result;
-#ifndef BOOST_NO_EXCEPTIONS
-        if constexpr (has_no_exception_thrown<front_end_t>::value)
         {
+            process_guard guard{m_machine_state};
             result = do_process_event(event, info);
         }
-        else
-        {
-            try
-            {
-                result = do_process_event(event, info);
-            }
-            catch (std::exception& e)
-            {
-                // give a chance to the concrete state machine to handle
-                this->exception_caught(event, get_fsm_argument(), e);
-                result = process_result::HANDLED_FALSE;
-            }
-        }
-#else
-        result = do_process_event(event, info);
-#endif
-        m_machine_state = machine_state::idle;
 
         // After handling, look if we have more to process in the event pool
         // (but only if we're not already processing from it).
@@ -760,24 +733,26 @@ class state_machine_base : public FrontEnd
             typename compile_policy_impl::template dispatch_table<derived_t,
                                                                   Event>;
         process_result result = process_result::HANDLED_FALSE;
+
         // Dispatch the event to every region.
         for (uint8_t region_id = 0; region_id < nr_regions; region_id++)
         {
             result |= dispatch_table::dispatch(self(), region_id, event);
         }
-        // Dispatch the event to the SM-internal table if it hasn't been consumed yet.
+        // Dispatch the event to the SM-internal table if it hasn't been
+        // consumed yet.
         if (!(result & handled_true_or_deferred))
         {
             result |= dispatch_table::internal_dispatch(self(), event);
         }
 
-        // If the event has not been handled and we have orthogonal zones, then
-        // generate an error on every active state.
-        // For events coming from upper machines, do not handle
-        // but let the upper sm handle the error.
+        // If the event has not been handled and we have orthogonal zones,
+        // then generate an error on every active state. For events coming
+        // from upper machines, do not handle but let the upper sm handle
+        // the error.
         if (!result && !(info == process_info::submachine_call))
         {
-            for (const auto state_id: m_active_state_ids)
+            for (const auto state_id : m_active_state_ids)
             {
                 this->no_transition(event, get_fsm_argument(), state_id);
             }
@@ -852,31 +827,10 @@ class state_machine_base : public FrontEnd
 
         // Process the event.
         using completion_event = typename Transition::transition_event;
-        completion_event event{};
-        m_machine_state = machine_state::processing;
-        process_result result;
-#ifndef BOOST_NO_EXCEPTIONS
-        if constexpr (has_no_exception_thrown<front_end_t>::value)
         {
-            result = Transition::execute(self(), region_id, event);
+            process_guard guard{m_machine_state};
+            return Transition::execute(self(), region_id, completion_event{});
         }
-        else
-        {
-            try
-            {
-                result = Transition::execute(self(), region_id, event);
-            }
-            catch (std::exception& e)
-            {
-                // give a chance to the concrete state machine to handle
-                this->exception_caught(event, get_fsm_argument(), e);
-            }
-        }
-#else
-        result = Transition::execute(self(), region_id, event);
-#endif
-        m_machine_state = machine_state::idle;
-        return result;
     }
 
     // Core logic for event pool processing,
@@ -945,26 +899,6 @@ class state_machine_base : public FrontEnd
             deferred_event<Event>{self(), event, seq_cnt}));
     }
 
-    template <class Event, class Fsm>
-    void preprocess_entry(Event const& event, Fsm& fsm)
-    {
-        m_machine_state = machine_state::processing;
-
-        // Call on_entry on this SM first.
-        static_cast<front_end_t*>(this)->on_entry(event, fsm);
-    }
-
-    void postprocess_entry()
-    {
-        m_machine_state = machine_state::idle;
-
-        // After handling, look if we have more to process in the event pool.
-        if constexpr (event_pool_member::value)
-        {
-            process_event_pool();
-        }
-    }
-
     template <typename Event>
     class state_entry_visitor
     {
@@ -991,56 +925,73 @@ class state_machine_base : public FrontEnd
     template <class Event, class Fsm>
     void on_entry(Event const& event, Fsm& fsm)
     {
-        preprocess_entry(event, fsm);
+        {
+            process_guard guard{m_machine_state};
 
-        state_entry_visitor<Event> visitor{self(), event};
-        m_history.on_entry(self(), event, visitor);
+            // First set all active state ids...
+            m_history.on_entry(self(), event);
+            
+            // ... then execute each state entry.
+            static_cast<front_end_t*>(this)->on_entry(event, fsm);
+            state_entry_visitor<Event> visitor{self(), event};
+            m_history.on_entry(self(), visitor);
+        }
 
-        postprocess_entry();
+        // After handling, look if we have more to process in the event pool.
+        if constexpr (event_pool_member::value)
+        {
+            process_event_pool();
+        }
     }
 
     template <class TargetStates, class Event, class Fsm>
     void on_explicit_entry(Event const& event, Fsm& fsm)
     {
-        preprocess_entry(event, fsm);
-
-        using state_identities =
-            mp11::mp_transform<mp11::mp_identity, TargetStates>;
-        static constexpr bool all_regions_defined =
-            mp11::mp_size<state_identities>::value == nr_regions;
-
-        // First set all active state ids...
-        if constexpr (!all_regions_defined)
         {
-            m_history.on_entry(self(), event);
-        }
-        mp11::mp_for_each<state_identities>(            
-            [this](auto state_identity)
+            process_guard guard{m_machine_state};
+
+            // First set all active state ids...
+            using state_identities =
+                mp11::mp_transform<mp11::mp_identity, TargetStates>;
+            static constexpr bool all_regions_defined =
+                mp11::mp_size<state_identities>::value == nr_regions;
+            if constexpr (!all_regions_defined)
             {
-                using State = typename decltype(state_identity)::type;
-                static constexpr uint8_t region_id = State::zone_index;
-                static_assert(region_id < nr_regions);
-                m_active_state_ids[region_id] = get_state_id<State>();
+                m_history.on_entry(self(), event);
             }
-        );
-        // ... then execute each state entry.
-        state_entry_visitor<Event> visitor{self(), event};
-        if constexpr (all_regions_defined)
-        {
             mp11::mp_for_each<state_identities>(
-                [this, &visitor](auto state_identity)
+                [this](auto state_identity)
                 {
                     using State = typename decltype(state_identity)::type;
-                    auto& state = this->get_state<State>();
-                    visitor(state);
+                    static constexpr uint8_t region_id = State::zone_index;
+                    static_assert(region_id < nr_regions);
+                    m_active_state_ids[region_id] = get_state_id<State>();
                 });
-        }
-        else
-        {
-            visit<visit_mode::active_non_recursive>(visitor);
+            
+            // ... then execute each state entry.
+            static_cast<front_end_t*>(this)->on_entry(event, fsm);
+            state_entry_visitor<Event> visitor{self(), event};
+            if constexpr (all_regions_defined)
+            {
+                mp11::mp_for_each<state_identities>(
+                    [this, &visitor](auto state_identity)
+                    {
+                        using State = typename decltype(state_identity)::type;
+                        auto& state = this->get_state<State>();
+                        visitor(state);
+                    });
+            }
+            else
+            {
+                visit<visit_mode::active_non_recursive>(visitor);
+            }
         }
 
-        postprocess_entry();
+        // After handling, look if we have more to process in the event pool.
+        if constexpr (event_pool_member::value)
+        {
+            process_event_pool();
+        }
     }
 
     template <class TargetStates, class Event, class Fsm>
@@ -1074,17 +1025,20 @@ class state_machine_base : public FrontEnd
     template <class Event, class Fsm>
     void on_exit(Event const& event, Fsm& fsm)
     {
-        // First exit the substates.
-        visit<visit_mode::active_non_recursive>(
-            [this, &event](auto& state)
-            {
-                state.on_exit(event, get_fsm_argument());
-            }
-        );
-        // Then call our own exit.
-        (static_cast<front_end_t*>(this))->on_exit(event, fsm);
-        // Give the history a chance to handle this (or not).
-        m_history.on_exit(self());
+        {
+            process_guard guard{m_machine_state};
+
+            // First exit the substates...
+            visit<visit_mode::active_non_recursive>(
+                [this, &event](auto& state)
+                {
+                    state.on_exit(event, get_fsm_argument());
+                });
+            // ... then call our own exit.
+            (static_cast<front_end_t*>(this))->on_exit(event, fsm);
+            // Give the history a chance to handle this (or not).
+            m_history.on_exit(self());
+        }
         m_machine_state = machine_state::stopped;
     }
 

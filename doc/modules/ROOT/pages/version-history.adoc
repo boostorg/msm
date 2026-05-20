@@ -6,9 +6,10 @@
 
 * **Breaking changes (`backmp11`)**:
 ** Make enqueuing events explicit (https://github.com/boostorg/msm/issues/178[#178])
-** The APIs `process_queued_events` and `process_single_queued_event` are removed, use `process_event_pool` instead
-** The active state switch policy is set to "after source exit" in compliance to the UML specification. The setting will be removed in version 1.93.
+** The APIs `process_queued_events()` and `process_single_queued_event()` are removed, use `process_event_pool(...)` instead
+** The default active state switch policy is set to "after source exit" in compliance to the UML specification. The other options are not UML-compliant and will be removed in version 1.93 (https://github.com/boostorg/msm/issues/222[#222])
 * New features (`backmp11`):
+** Ensure basic exception guarantee and propagate exceptions to the caller (https://github.com/boostorg/msm/issues/221[#221])
 ** Provide a reflection API and serialization support for Boost.Serialization, Boost.JSON and nlohmann/json (https://github.com/boostorg/msm/issues/197[#197])
 * Bug fixes (`backmp11`):
 ** State machine processes events although it is not running (https://github.com/boostorg/msm/issues/198[#198])
