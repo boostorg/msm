@@ -9,6 +9,8 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
+#define ASSERT_ZERO(value) BOOST_REQUIRE(value == 0);
+
 #define ASSERT_AND_RESET(value, expected)                                      \
     BOOST_REQUIRE(value == expected);                                          \
     value = 0
