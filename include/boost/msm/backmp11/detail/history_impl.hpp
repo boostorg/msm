@@ -12,8 +12,6 @@
 #ifndef BOOST_MSM_BACKMP11_DETAIL_HISTORY_IMPL_HPP
 #define BOOST_MSM_BACKMP11_DETAIL_HISTORY_IMPL_HPP
 
-#include <cstdint>
-
 #include <boost/msm/backmp11/common_types.hpp>
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
 #include <boost/msm/front/history_policies.hpp>
@@ -29,7 +27,7 @@ class history_impl<front::no_history, InitialStateIds>
 {
   public:
     template <typename StateMachine, typename Event>
-    void on_entry(StateMachine& sm, const Event&)
+    static void on_entry(StateMachine& sm, const Event&)
     {
         sm.m_active_state_ids = value_array<InitialStateIds>;
         if constexpr (StateMachine::event_pool_member::value)
@@ -39,7 +37,7 @@ class history_impl<front::no_history, InitialStateIds>
     }
 
     template <typename StateMachine, typename Visitor>
-    void on_entry(StateMachine& sm, Visitor&& visitor)
+    static void on_entry(StateMachine& sm, Visitor&& visitor)
     {
         mp11::mp_for_each<InitialStateIds>(
             [&sm, &visitor](auto state_id)
@@ -48,60 +46,22 @@ class history_impl<front::no_history, InitialStateIds>
                 visitor(state);
             });
     }
-
-    template <typename StateMachine>
-    void on_exit(StateMachine&)
-    {
-    }
-
-    template <typename F>
-    void reflect(F&&)
-    {
-    }
-
-    template <typename F>
-    void reflect(F&&) const
-    {
-    }
 };
 
 template <typename InitialStateIds>
 class history_impl<front::always_shallow_history, InitialStateIds>
 {
-public:
+  public:
     template <typename StateMachine, typename Event>
-    void on_entry(StateMachine& sm, const Event&)
+    static void on_entry(StateMachine&, const Event&)
     {
-        sm.m_active_state_ids = m_last_active_state_ids;
     }
 
     template <typename StateMachine, typename Visitor>
-    void on_entry(StateMachine& sm, Visitor&& visitor)
+    static void on_entry(StateMachine& sm, Visitor&& visitor)
     {
         sm.template visit<visit_mode::active_non_recursive>(visitor);
     }
-
-    template <typename StateMachine>
-    void on_exit(StateMachine& sm)
-    {
-        m_last_active_state_ids = sm.m_active_state_ids;
-    }
-
-    template <typename F>
-    void reflect(F&& f)
-    {
-        f.visit_member("last_active_state_ids", m_last_active_state_ids);
-    }
-
-    template <typename F>
-    void reflect(F&& f) const
-    {
-        f.visit_member("last_active_state_ids", m_last_active_state_ids);
-    }
-
-  protected:
-    std::array<uint16_t, mp11::mp_size<InitialStateIds>::value>
-        m_last_active_state_ids{value_array<InitialStateIds>};
 };
 
 template <typename... Events, typename InitialStateIds>
@@ -110,15 +70,11 @@ class history_impl<front::shallow_history<Events...>, InitialStateIds>
 {
     using events = mp11::mp_list<Events...>;
 
-public:
+  public:
     template <typename StateMachine, typename Event>
-    void on_entry(StateMachine& sm, const Event&)
+    static void on_entry(StateMachine& sm, const Event&)
     {
-        if constexpr (mp11::mp_contains<events, Event>::value)
-        {
-            sm.m_active_state_ids = this->m_last_active_state_ids;
-        }
-        else
+        if constexpr (!mp11::mp_contains<events, Event>::value)
         {
             sm.m_active_state_ids = value_array<InitialStateIds>;
             if constexpr (StateMachine::event_pool_member::value)
@@ -129,7 +85,7 @@ public:
     }
 
     template <typename StateMachine, typename Visitor>
-    void on_entry(StateMachine& sm, Visitor&& visitor)
+    static void on_entry(StateMachine& sm, Visitor&& visitor)
     {
         sm.template visit<visit_mode::active_non_recursive>(visitor);
     }

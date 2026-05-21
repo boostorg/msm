@@ -929,12 +929,12 @@ class state_machine_base : public FrontEnd
             process_guard guard{m_machine_state};
 
             // First set all active state ids...
-            m_history.on_entry(self(), event);
+            history_impl::on_entry(self(), event);
             
             // ... then execute each state entry.
             static_cast<front_end_t*>(this)->on_entry(event, fsm);
             state_entry_visitor<Event> visitor{self(), event};
-            m_history.on_entry(self(), visitor);
+            history_impl::on_entry(self(), visitor);
         }
 
         // After handling, look if we have more to process in the event pool.
@@ -957,7 +957,7 @@ class state_machine_base : public FrontEnd
                 mp11::mp_size<state_identities>::value == nr_regions;
             if constexpr (!all_regions_defined)
             {
-                m_history.on_entry(self(), event);
+                history_impl::on_entry(self(), event);
             }
             mp11::mp_for_each<state_identities>(
                 [this](auto state_identity)
@@ -1036,8 +1036,6 @@ class state_machine_base : public FrontEnd
                 });
             // ... then call our own exit.
             (static_cast<front_end_t*>(this))->on_exit(event, fsm);
-            // Give the history a chance to handle this (or not).
-            m_history.on_exit(self());
         }
         m_machine_state = machine_state::stopped;
     }
@@ -1116,7 +1114,6 @@ class state_machine_base : public FrontEnd
             }
         });
         visitor.visit_member("active_state_ids", self.m_active_state_ids);
-        self.m_history.reflect(std::forward<Visitor>(visitor));
         visitor.visit_member("machine_state", self.m_machine_state);
     }
 
@@ -1149,10 +1146,9 @@ class state_machine_base : public FrontEnd
     };
 
     non_propagating<void*> m_root_sm{nullptr};
-    optional_members       m_optional_members;
+    optional_members       m_optional_members{};
     states_t               m_states{};
-    active_state_ids_t     m_active_state_ids;
-    history_impl           m_history{};
+    active_state_ids_t     m_active_state_ids{value_array<initial_state_ids>};
     machine_state          m_machine_state{machine_state::stopped};
 };
 
