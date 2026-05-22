@@ -45,11 +45,11 @@ struct no_root_sm {};
 
 // Config for the default fsm parameter
 // (local transition owner).
-struct local_transition_owner{};
+struct local_transition_owner {};
 
 // Config for disabling the event pool.
 template <typename T>
-struct no_event_pool_container;
+struct no_event_pool_container {};
 
 // Default state machine config.
 struct default_state_machine_config

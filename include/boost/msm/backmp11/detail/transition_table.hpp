@@ -447,12 +447,9 @@ struct transition_table_impl
     using has_completion_event = has_completion_event<typename Transition::transition_event>;
     using completion_transition_table =
         mp11::mp_copy_if<transition_table, has_completion_event>;
-    static_assert(
-        mp11::mp_empty<completion_transition_table>::value ||
-            !std::is_same_v<
-                typename StateMachine::template event_pool_container<void>,
-                no_event_pool_container<void>>,
-        "Completion transitions require an event pool");
+    static_assert(mp11::mp_empty<completion_transition_table>::value ||
+                      StateMachine::has_event_pool,
+                  "Completion transitions require an event pool");
     template <typename State, typename Table = completion_transition_table>
     struct completion_transitions_impl
     {

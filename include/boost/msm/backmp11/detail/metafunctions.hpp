@@ -55,23 +55,6 @@ constexpr bool mp_for_each_until(F &&func)
     return mp11::mp_apply<mp_for_each_until_impl, L>::invoke(std::forward<F>(func));
 }
 
-// Wrapper for an instance of a type, which might not be present.
-template<typename T, bool C>
-struct optional_instance;
-template <typename T>
-struct optional_instance<T, true>
-{
-    using type = T;
-    type instance;
-    static constexpr bool value = true;
-};
-template<typename T>
-struct optional_instance<T, false>
-{
-    using type = T;
-    static constexpr bool value = false;
-};
-
 // Helper to convert a single type or MPL sequence to Mp11
 template<typename T, typename Enable = void>
 struct to_mp_list

@@ -40,11 +40,7 @@
 namespace boost:: msm::backmp11
 {
 
-struct favor_compile_time
-{
-    // TODO fix adapter and remove this.
-    using compile_policy = int;
-};
+struct favor_compile_time {};
 
 namespace detail
 {

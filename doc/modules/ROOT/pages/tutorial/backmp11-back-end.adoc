@@ -15,8 +15,8 @@ It offers a significant improvement in runtime and memory usage, as can be seen 
 | back                        | 10                 | 844              | 73               | 0.7
 | back_favor_compile_time     | 12                 | 821              | 241              | 1.0
 | back11                      | 26                 | 2675             | 92               | 0.7
-| backmp11                    | 2                  | 236              | 20               | 0.4
-| backmp11_favor_compile_time | 2                  | 225              | 45               | 2.3
+| backmp11                    | 2                  | 236              | 18               | 0.2
+| backmp11_favor_compile_time | 2                  | 225              | 44               | 2.2
 | sml                         | 3                  | 242              | 57               | 0.1
 |=======================================================================================================
 
@@ -28,8 +28,8 @@ It offers a significant improvement in runtime and memory usage, as can be seen 
 |                             | Compile time / sec | Compile RAM / MB | Binary size / kB | Runtime / sec
 | back                        | 32                 | 2160             | 252              | 3.7
 | back_favor_compile_time     | 37                 | 1747             | 974              | 263
-| backmp11                    | 5                  | 361              | 48               | 1.7
-| backmp11_favor_compile_time | 3                  | 264              | 97               | 7.5
+| backmp11                    | 5                  | 360              | 55               | 0.9
+| backmp11_favor_compile_time | 3                  | 263              | 96               | 7.5
 | sml                         | 12                 | 567              | 436              | 2.5
 |=======================================================================================================
 
@@ -132,7 +132,7 @@ By default it is set to `local_transition_owner`, which behaves identically to `
 - Actions and guards for transitions in the same transition table receive the SM instance that owns the transition (the one processing the event)
 - Entry and exit actions receive the "local" transition owner from the perspective of the state being entered/exited (the immediate parent SM)
 
-You can alternatively set it to `using fsm_parameter = root_sm`, in which case the configured `root_sm` is passed as the `Fsm` parameter.
+The default setting is useful for accessing members contained in submachines or their front-ends. If access to submachine members is not required, you can set it to `using fsm_parameter = root_sm` instead. The configured `root_sm` will then be passed as the `Fsm` parameter to all actions and guards.
 
 [NOTE]
 ====
