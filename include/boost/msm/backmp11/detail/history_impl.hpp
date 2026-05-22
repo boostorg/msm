@@ -30,7 +30,7 @@ class history_impl<front::no_history, InitialStateIds>
     static void on_entry(StateMachine& sm, const Event&)
     {
         sm.m_active_state_ids = value_array<InitialStateIds>;
-        if constexpr (StateMachine::event_pool_member::value)
+        if constexpr (StateMachine::has_event_pool)
         {
             sm.get_event_pool().events.clear();
         }
@@ -77,7 +77,7 @@ class history_impl<front::shallow_history<Events...>, InitialStateIds>
         if constexpr (!mp11::mp_contains<events, Event>::value)
         {
             sm.m_active_state_ids = value_array<InitialStateIds>;
-            if constexpr (StateMachine::event_pool_member::value)
+            if constexpr (StateMachine::has_event_pool)
             {
                 sm.get_event_pool().events.clear();
             }

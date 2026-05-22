@@ -85,48 +85,49 @@ class serializer
 
 using back::queue_container_deque;
 
-template <
-    class A1,
-    class A2,
-    class A3,
-    class A4
->
+template <typename CompilePolicy, typename QueueContainerPolicy>
 struct state_machine_config_adapter : state_machine_config
 {
-    typedef ::boost::parameter::parameters<
-      ::boost::parameter::optional<
-            ::boost::parameter::deduced< back::tag::history_policy>, has_history_policy< ::boost::mpl::_ >
-        >
-    , ::boost::parameter::optional<
-            ::boost::parameter::deduced< back::tag::compile_policy>, has_compile_policy< ::boost::mpl::_ >
-        >
-    , ::boost::parameter::optional<
-            ::boost::parameter::deduced< back::tag::fsm_check_policy>, has_fsm_check< ::boost::mpl::_ >
-        >
-    , ::boost::parameter::optional<
-            ::boost::parameter::deduced< back::tag::queue_container_policy>,
-            has_queue_container_policy< ::boost::mpl::_ >
-        >
-    > config_signature;
-
-    typedef typename
-        config_signature::bind<A1,A2,A3,A4>::type
-        config_args;
-
-    typedef typename ::boost::parameter::binding<
-        config_args, back::tag::compile_policy, favor_runtime_speed >::type    CompilePolicy;
     using compile_policy = mp11::mp_if_c<
         std::is_same_v<CompilePolicy, favor_runtime_speed>,
         favor_runtime_speed,
         favor_compile_time>;
     
-
-    typedef typename ::boost::parameter::binding<
-        config_args, back::tag::queue_container_policy,
-        queue_container_deque >::type                                    QueueContainerPolicy;
-    template<typename T>
-    using queue_container = typename QueueContainerPolicy::template In<T>::type;
+    template <typename T>
+    using event_pool_container = typename QueueContainerPolicy::template In<T>::type;
 };
+
+template <class A1, class A2, class A3, class A4>
+struct get_state_machine_config_adapter_impl
+{
+    using config_signature = parameter::parameters<
+        parameter::optional<parameter::deduced<back::tag::history_policy>,
+                            has_history_policy<mpl::_>>,
+        parameter::optional<parameter::deduced<back::tag::compile_policy>,
+                            has_compile_policy<mpl::_>>,
+        parameter::optional<parameter::deduced<back::tag::fsm_check_policy>,
+                            has_fsm_check<mpl::_>>,
+        parameter::optional<parameter::deduced<back::tag::queue_container_policy>,
+                            has_queue_container_policy<mpl::_>>>;
+
+    using config_args = typename config_signature::bind<A1, A2, A3, A4>::type;
+
+    using CompilePolicy =
+        typename parameter::binding<config_args,
+                                    back::tag::compile_policy,
+                                    favor_runtime_speed>::type;
+
+    using QueueContainerPolicy =
+        typename parameter::binding<config_args,
+                                    back::tag::queue_container_policy,
+                                    queue_container_deque>::type;
+
+    using type =
+        state_machine_config_adapter<CompilePolicy, QueueContainerPolicy>;
+};
+template <class A1, class A2, class A3, class A4>
+using get_state_machine_config_adapter =
+    typename get_state_machine_config_adapter_impl<A1, A2, A3, A4>::type;
 
 template <class A0,
           class A1 = parameter::void_,
@@ -134,9 +135,15 @@ template <class A0,
           class A3 = parameter::void_,
           class A4 = parameter::void_>
 class state_machine_adapter
-    : public state_machine<A0, state_machine_config_adapter<A1, A2, A3, A4>, state_machine_adapter<A0, A1, A2, A3, A4>>
+    : public state_machine<A0,
+                           get_state_machine_config_adapter<A1, A2, A3, A4>,
+                           state_machine_adapter<A0, A1, A2, A3, A4>>
 {
-    using Base = state_machine<A0, state_machine_config_adapter<A1, A2, A3, A4>, state_machine_adapter<A0, A1, A2, A3, A4>>;
+    using Base =
+        state_machine<A0,
+                      get_state_machine_config_adapter<A1, A2, A3, A4>,
+                      state_machine_adapter<A0, A1, A2, A3, A4>>;
+
   public:
     using Base::Base;
 

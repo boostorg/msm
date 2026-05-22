@@ -128,6 +128,10 @@ struct recursive_visit_set<StateMachine, FirstPredicate, Predicate>
     using needs_traversal = mp11::mp_not<mp11::mp_empty<states_to_traverse>>;
 };
 
+template <visit_mode Mode, template <typename> typename... Predicates,
+          typename StateMachine, typename Visitor>
+void visit_if(StateMachine& sm, Visitor&& visitor);
+
 template <typename StateMachine,
           template <typename> typename... Predicates>
 class state_visitor_base_impl<
@@ -155,7 +159,7 @@ class state_visitor_base_impl<
                           typename visit_set::submachines_to_traverse,
                           State>::value)
         {
-            state.template visit_if<Mode, Predicates...>(visitor);
+            visit_if<Mode, Predicates...>(state, visitor);
         }
     }
 };
@@ -200,7 +204,7 @@ class state_visitor_impl<
                 using state_identities = mp11::mp_transform<
                             mp11::mp_identity,
                             typename base::states_to_traverse>;
-                for (const auto active_state_id : sm.m_active_state_ids)
+                for (const auto active_state_id : sm.get_active_state_ids())
                 {
                     mp11::mp_for_each<state_identities>(
                         [&sm, &visitor, active_state_id](auto state_identity)
@@ -294,7 +298,7 @@ class event_deferral_visitor
             using state_identities = mp11::mp_transform<
                         mp11::mp_identity,
                         typename visit_set::states_to_traverse>;
-            for (const auto active_state_id : sm.m_active_state_ids)
+            for (const auto active_state_id : sm.get_active_state_ids())
             {
                 mp11::mp_for_each<state_identities>(
                     [&sm, &visitor, active_state_id](auto state_identity)
@@ -332,6 +336,16 @@ class event_deferral_visitor
         }
     }
 };
+
+// Visit states with a compile-time filter (reduces template instantiations).
+template <visit_mode Mode, template <typename> typename... Predicates,
+          typename StateMachine, typename Visitor>
+void visit_if(StateMachine& sm, Visitor&& visitor)
+{
+    using state_visitor =
+        state_visitor<StateMachine, Visitor, Mode, Predicates...>;
+    state_visitor::visit(sm, visitor);
+}
 
 // Predefined visitor functors used in backmp11.
 
@@ -450,8 +464,8 @@ class init_state_visitor
                 std::is_same_v<typename State::context_t, no_context> ||
                 std::is_same_v<typename State::context_t, typename RootSm::context_t>,
                 "The configured context must match the root sm's one");
-            static_assert(std::is_same_v<typename RootSm::compile_policy,
-                                         typename State::compile_policy>,
+            static_assert(std::is_same_v<typename RootSm::config_t::compile_policy,
+                                         typename State::config_t::compile_policy>,
                           "All compile policies must be identical");
 
             *state.m_root_sm = &m_root_sm;
