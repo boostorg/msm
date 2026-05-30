@@ -28,49 +28,99 @@ using is_config = std::is_same<typename T::internal::tag, config_tag>;
 } // namespace detail
 
 /// No derived is configured.
-/// See @ref state_machine
+/// See @ref state_machine.
 struct no_derived {};
 
-// Config for the default compile policy
-// (runtime over compile time).
-struct favor_runtime_speed;
+/// Configuration parameters to select how events are dispatched.
+namespace dispatch_strategy
+{
 
-// Config for a compile policy,
-// which favors compile time over runtime.
-struct favor_compile_time;
+/** Generates a flat fold of inline comparison branches.
 
-// Config for the default context parameter
-// (no context).
+    The code can be optimized to a jump table.
+    - + Best executable size and runtime speed for most compilers
+    - + No indirection — fully inlinable
+    - \- O(n) comparisons in the worst case
+ */
+struct flat_fold {};
+
+/** Generates an array of function pointers.
+
+    - + O(1) dispatch
+    - + Slightly better compile times
+    - \- Indirect call through function pointer — not inlinable
+    - \- Larger executable size (one pointer per state per event type)
+ */
+struct function_pointer_array {};
+
+} // namespace dispatch_strategy
+
+/** Optimizes for runtime speed (see @ref
+    state_machine_config::compile_policy).
+
+    Provides the best runtime speed and executable size at the cost of
+    increased compile time. 
+ */
+struct favor_runtime_speed
+{
+    /// Dispatch strategy for processing events. Defaults to @ref dispatch_strategy::flat_fold.
+    using dispatch_strategy = dispatch_strategy::flat_fold;
+};
+
+/** Optimizes for compile time (see @ref
+    state_machine_config::compile_policy).
+
+    Trades lower compile time for bigger executable size and lower runtime
+    speed. Does not support the following features:
+   - event hierarchies
+   - Kleene events
+ */
+struct favor_compile_time {};
+
+/// No context is configured (see @ref state_machine_config::context).
 struct no_context {};
 
-// Config for the default root sm parameter
-// (no root sm).
+/// No root state machine is configured (see @ref state_machine_config::root_sm).
 struct no_root_sm {};
 
-// Config for the default fsm parameter
-// (local transition owner).
+/// Passes the immediate parent machine as `Fsm` argument
+/// (see @ref state_machine_config::fsm_parameter).
 struct local_transition_owner {};
 
-// Config for disabling the event pool.
+/// Deactivates the event pool (see @ref state_machine_config::event_pool_container).
 template <typename T>
 struct no_event_pool_container {};
 
-// Default state machine config.
+/// Default state machine configuration.
 struct default_state_machine_config
 {
-    // A common context that is shared by all SMs
-    // in hierarchical state machines.
+    /** Sets up a context accessible by all (sub-)machines in hierarchical state
+        machines. Defaults to @ref no_context.
+
+        Requires a reference to the context for state machine construction.
+     */
     using context = no_context;
-    // Tune characteristics related to compile time, runtime performance,
-    // code size, and available features.
+    /** Optimizes for runtime speed or compile time.
+        Defaults to @ref favor_runtime_speed.
+
+        The compile policy affects characteristics related to compile time,
+        runtime speed, code size, and available features.
+     */
     using compile_policy = favor_runtime_speed;
-    // Which container to use for the event pool.
+    /**
+     * @brief Configures the container type of the event pool. Defaults to
+     * `std::deque`.
+     *
+     * The event pool is required to handle deferred events, enqueued events,
+     * and completion transitions.
+     */
     template <typename T>
     using event_pool_container = std::deque<T>;
-    // Type of the Fsm parameter passed in actions and guards.
+    /// Type of the Fsm parameter passed in actions and guards.
+    /// Defaults to @ref local_transition_owner.
     using fsm_parameter = local_transition_owner;
-    // Identifier for the upper-most SM
-    // in hierarchical state machines.
+    /// Identifies the upper-most machine in hierarchical state machines.
+    /// Defaults to @ref no_root_sm.
     using root_sm = no_root_sm;
 
     struct internal
@@ -79,27 +129,8 @@ struct default_state_machine_config
     };
 };
 
+/// Alias for @ref default_state_machine_config.
 using state_machine_config = default_state_machine_config;
-
-// Configuration parameters to select how events are dispatched.
-namespace dispatch_strategy
-{
-
-// Generates a flat fold of inline comparison branches.
-// The code can be optimized to a jump table.
-// + Best executable size and runtime speed for most compilers.
-// + No indirection — fully inlinable.
-// - O(n) comparisons in the worst case.
-struct flat_fold {};
-
-// Generates an array of function pointers.
-// + O(1) dispatch.
-// + Slightly better compile times.
-// - Indirect call through function pointer — not inlinable.
-// - Larger executable size (one pointer per state per event type).
-struct function_pointer_array {};
-
-} // namespace dispatch_strategy
 
 } // namespace boost::msm::backmp11
 

@@ -23,7 +23,7 @@
 namespace boost::msm::front
 {
     struct Defer;
-};
+}
 
 namespace boost::msm::backmp11::detail
 {

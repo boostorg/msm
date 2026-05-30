@@ -53,13 +53,13 @@ antora:
         using-namespaces:
           - 'boost::'
     - require: '@cppalliance/antora-downloads-extension'
-    # - require: '@cppalliance/antora-cpp-reference-extension'
-    #   dependencies:
-    #     - name: 'boost'
-    #       repo: 'https://github.com/boostorg/boost.git'
-    #       tag: 'develop'
-    #       variable: 'BOOST_SRC_DIR'
-    #       system-env: 'BOOST_SRC_DIR'
+    - require: '@cppalliance/antora-cpp-reference-extension'
+      # dependencies:
+      #   - name: 'boost'
+      #     repo: 'https://github.com/boostorg/boost.git'
+      #     tag: 'develop'
+      #     variable: 'BOOST_SRC_DIR'
+      #     system-env: 'BOOST_SRC_DIR'
 
 asciidoc:
   attributes:

@@ -155,7 +155,7 @@ class state_machine_adapter
         }
         catch (std::exception& e)
         {
-            this->exception_caught(typename Base::starting{}, *this, e);
+            this->exception_caught(starting{}, *this, e);
         }
     }
 
@@ -167,7 +167,7 @@ class state_machine_adapter
         }
         catch (std::exception& e)
         {
-            this->exception_caught(typename Base::stopping{}, *this, e);
+            this->exception_caught(stopping{}, *this, e);
         }
     }
 

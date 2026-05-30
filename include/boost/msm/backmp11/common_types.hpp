@@ -19,34 +19,43 @@
 namespace boost::msm::backmp11
 {
 
+/// Return type of @ref state_machine::process_event calls.
 using process_result = back::HandledEnum;
 
-// Event that describes the SM is starting.
+/// Default event when starting a state machine (see @ref state_machine::start).
 struct starting {};
-// Event that describes the SM is stopping.
+
+/// Default event when stopping a state machine (see @ref state_machine::stop).
 struct stopping {};
 
-// flag handling
+/// Fold flags with a logical OR operation (see @ref state_machine::is_flag_active).
 struct flag_or {};
+
+/// Fold flags with a logical AND operation (see @ref state_machine::is_flag_active).
 struct flag_and {};
 
-// Selector for the visit mode.
-// Can be active_states or all_states in recursive or non-recursive mode.
+/**
+ * @brief Selector for the visit mode (see @ref state_machine::visit).
+ *
+ * Can be active_states or all_states in recursive or non-recursive mode.
+ */
 enum class visit_mode
 {
-    // State selection (mutually exclusive).
+    /// Visit only active states (mutually exclusive with all_states).
     active_states = 0b001,
+    /// Visit all states (mutually exclusive with active_states).
     all_states    = 0b010,
 
-    // Traversal mode (not set = non-recursive).
+    /// Visit states recursively (not set == not recursive).
     recursive     = 0b100,
 
-    // All valid combinations.
+    ///
     active_non_recursive = active_states,
     active_recursive     = active_states | recursive,
     all_non_recursive    = all_states,
     all_recursive        = all_states | recursive
 };
+
 constexpr visit_mode operator|(visit_mode lhs, visit_mode rhs)
 {
     return static_cast<visit_mode>(

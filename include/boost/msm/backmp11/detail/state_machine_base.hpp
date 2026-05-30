@@ -148,7 +148,8 @@ class state_machine_base
     using root_sm_t = typename Config::root_sm;
     using context_t = typename Config::context;
 
-    // Get the context of the state machine.
+    /// Gets the context of the state machine.
+    /// See @ref state_machine_config::context.
     template <bool C = !std::is_same_v<context_t, no_context>,
               typename = std::enable_if_t<C>>
     context_t& get_context()
@@ -156,7 +157,8 @@ class state_machine_base
         return const_cast<context_t&>(std::as_const(*this).get_context());
     }
 
-    // Get the context of the state machine.
+    /// Gets the context of the state machine.
+    /// See @ref state_machine_config::context.
     template <bool C = !std::is_same_v<context_t, no_context>,
               typename = std::enable_if_t<C>>
     const context_t& get_context() const
@@ -171,9 +173,12 @@ class state_machine_base
         }
     }
 
-    // Try to process pending event occurrences in the event pool,
-    // with an optional limit for the max no. of events that shall be processed.
-    // Returns the no. of processed events.
+    /**
+     * @brief Processes up to `max_events` from the event pool.
+     * 
+     * @param max_events 
+     * @return size_t The no. of processed events.
+     */
     template <bool C = state_machine_base::has_event_pool,
               typename = std::enable_if_t<C>>
     inline size_t process_event_pool(size_t max_events = SIZE_MAX)
@@ -183,17 +188,19 @@ class state_machine_base
         {
             return 0;
         }
-        return this->do_process_event_pool(max_events);
+        return event_pool_processor::process_event_pool(max_events);
     }
 
-    // Get the root sm.
+    /// Gets the root machine.
+    /// See @ref state_machine_config::root_sm.
     template <bool C = !std::is_same_v<root_sm_t, no_root_sm>,
               typename = std::enable_if_t<C>>
     root_sm_t& get_root_sm()
     {
         return *static_cast<root_sm_t*>(*m_root_sm);
     }
-    // Get the root sm.
+    /// Gets the root machine.
+    /// See @ref state_machine_config::root_sm.
     template <bool C = !std::is_same_v<root_sm_t, no_root_sm>,
               typename = std::enable_if_t<C>>
     const root_sm_t& get_root_sm() const
@@ -201,7 +208,7 @@ class state_machine_base
         return *static_cast<const root_sm_t*>(*m_root_sm);
     }
 
-    // True if the sm is used in another sm.
+    /// Checks if the sm is contained in another sm.
     bool is_contained() const
     {
         return (static_cast<const void*>(this) != *m_root_sm);

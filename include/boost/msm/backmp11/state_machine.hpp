@@ -43,6 +43,16 @@ struct invoke_reflect_free
 
 } // namespace detail
 
+
+/**
+ * @brief Back-end for a state machine.
+ *
+ * Wraps a state machine front-end into an executable state machine.
+ *
+ * @tparam FrontEnd
+ * @tparam Config
+ * @tparam Derived
+ */
 template <class FrontEnd,
           class Config = default_state_machine_config,
           class Derived = no_derived>
@@ -70,17 +80,20 @@ class state_machine
         "FrontEnd must be a composite state");
 
   public:
+    /// Type of the configuration (same as Config, see @ref state_machine_config).
     using config_t = typename state_machine_base::config_t;
+    /// Type of the root machine (see @ref state_machine_config::root_sm).
     using root_sm_t = typename state_machine_base::root_sm_t;
+    /// Type of the context (see @ref state_machine_config::context).
     using context_t = typename state_machine_base::context_t;
+    /// Type of the front-end (same as FrontEnd).
     using front_end_t = FrontEnd;
+    /// Type of the derived machine (corresponds to Derived).
     using derived_t = mp11::mp_if_c<std::is_same_v<Derived, no_derived>,
                                     state_machine<FrontEnd, Config, Derived>, Derived>;
-    using starting = backmp11::starting;
-    using stopping = backmp11::stopping;
 
-    // Wrapper for an exit pseudostate,
-    // which upper SMs can use to connect to it.
+    /// Wrapper for an exit pseudostate,
+    /// which upper machines can use to connect to it.
     template <class ExitPseudostate>
     struct exit_pt : public ExitPseudostate
     {
@@ -126,8 +139,8 @@ class state_machine
         forward_fn_t m_forward_fn{};
     };
 
-    // Wrapper for an entry pseudostate,
-    // which upper SMs can use to connect to it.
+    /// Wrapper for a direct entry,
+    /// which upper machines can use to connect to it.
     template <class EntryPseudostate>
     struct entry_pt : public EntryPseudostate
     {
@@ -141,8 +154,8 @@ class state_machine
         using owner = derived_t;
     };
 
-    // Wrapper for a direct entry,
-    // which upper SMs can use to connect to it.
+    /// Wrapper for a direct entry,
+    /// which upper machines can use to connect to it.
     template <class State>
     struct direct : public State
     {
@@ -171,6 +184,7 @@ class state_machine
         using submachines = mp11::mp_copy_if<state_set, detail::is_composite>;
     };
 
+    /// Container with all contained states.
     using states_t = mp11::mp_rename<typename internal::state_set, std::tuple>;
 
   private:
@@ -221,12 +235,6 @@ class state_machine
         static_assert(
             std::is_base_of_v<state_machine, derived_t>,
             "Derived must inherit from state_machine");
-        if constexpr (!std::is_same_v<context_t, no_context>)
-        {
-            static_assert(
-                std::is_constructible_v<derived_t, context_t&>,
-                "Derived must inherit the base class constructors");
-        }
         if constexpr (std::is_same_v<root_sm_t, no_root_sm> ||
                       std::is_same_v<root_sm_t, derived_t>)
         {
@@ -243,26 +251,45 @@ class state_machine
     {
     }
 
-    // Construct and forward constructor arguments to the front-end.
+    /**
+     * @brief Constructs and forwards further constructor arguments to the
+     * front-end.
+     *
+     * @param arg Constructor argument for the front-end.
+     * @param args Constructor arguments for the front-end.
+     */
     template <typename Arg,
-              typename = std::enable_if_t<
-                  !std::is_same_v<std::decay_t<Arg>, state_machine>>,
+              typename = std::enable_if_t<!mp11::mp_contains<
+                  // front_end_init_tag & context_t are required to work around
+                  // gcc9 overload detection issue.
+                  mp11::mp_list<state_machine, front_end_init_tag, context_t>,
+                  std::decay_t<Arg>>::value>,
               typename... Args>
     state_machine(Arg&& arg, Args&&... args)
-        : state_machine(front_end_init_tag{},
-                        std::forward<Arg>(arg),
+        : state_machine(front_end_init_tag{}, std::forward<Arg>(arg),
                         std::forward<Args>(args)...)
     {
     }
 
-    // Construct with a context and
-    // forward further constructor arguments to the front-end.
+    /**
+     * @brief Constructs with a context and forwards further constructor
+     * arguments to the front-end.
+     *
+     * @param context The context.
+     * @param args Constructor arguments for the front-end.
+     */
     template <bool C = state_machine_base::has_context_member,
               typename = std::enable_if_t<C>,
               typename... Args>
     state_machine(context_t& context, Args&&... args)
-        : state_machine(std::forward<Args>(args)...)
+        : state_machine(front_end_init_tag{}, std::forward<Args>(args)...)
     {
+        if constexpr (!std::is_same_v<context_t, no_context>)
+        {
+            static_assert(
+                std::is_constructible_v<derived_t, context_t&>,
+                "Derived must inherit the base class constructors");
+        }
         this->m_context = &context;
     }
 
@@ -284,14 +311,21 @@ class state_machine
     // Move assignment operator.
     state_machine& operator=(state_machine&& rhs) = default;
 
-    // Start the state machine (calls entry of the initial state(s)).
+    /**
+     * @brief Starts the state machine with a @ref starting event.
+     *
+     * Sets up the initial state(s) and calls its entry method(s).
+     */
     void start()
     {
         start(starting{});
     }
 
-    // Start the state machine
-    // (calls entry of the initial state(s) with initial_event).
+    /**
+     * @brief Starts the state machine with a custom event.
+     *
+     * Sets up the initial state(s) and calls its entry method(s).
+     */
     template <class Event>
     void start(Event const& initial_event)
     {
@@ -308,14 +342,21 @@ class state_machine
         }
     }
 
-    // Stop the state machine (calls exit of the current state(s)).
+    /**
+     * @brief Stops the state machine with a @ref stopping event.
+     *
+     * Calls the active state's exit method(s).
+     */
     void stop()
     {
         stop(stopping{});
     }
 
-    // Stop the state machine
-    // (calls exit of the current state(s) with final_event).
+    /**
+     * @brief Stops the state machine with a custom event.
+     *
+     * Calls the active state's exit method(s).
+     */
     template <class Event>
     void stop(Event const& final_event)
     {
@@ -325,7 +366,7 @@ class state_machine
         }
     }
 
-    // Main function to process events.
+    /// Processes the event.
     template<class Event>
     process_result process_event(Event const& event)
     {
@@ -334,9 +375,14 @@ class state_machine
             detail::process_info::direct_call);
     }
 
-    // Enqueues an event in the event pool for later processing.
-    // If the state machine is already processing, the event will be processed
-    // after the current event completes.
+    /**
+     * @brief Puts the event into the event pool to process it in the same
+     * processing cycle.
+     *
+     * The event will be processed after the current event completes.
+     * Behaves identically to @ref defer_event if called while no event
+     * processing takes place.
+     */
     template <class Event,
               bool C = state_machine_base::has_event_pool,
               typename = std::enable_if_t<C>>
@@ -346,9 +392,13 @@ class state_machine
             *this, compile_policy_impl::normalize_event(event), false);
     }
 
-    // Puts the event into the event pool for later processing.
-    // If the deferral takes place while the state machine is processing,
-    // the event will be evaluated for dispatch from the next processing cycle.
+    /**
+     * @brief Puts the event into the event pool to process it in the next
+     * processing cycle.
+     *
+     * The event will be processed in the next call to @ref process_event or
+     * @ref process_event_pool.
+     */
     template <
         class Event,
         bool C = state_machine_base::has_event_pool,
@@ -360,13 +410,13 @@ class state_machine
             this->m_machine_state == detail::machine_state::processing);
     }
 
-    // Getter that returns the currently active state ids of the FSM.
+    /// Returns the active state ids of the machine.
     const active_state_ids_t& get_active_state_ids() const
     {
         return m_active_state_ids;
     }
 
-    // Return the id of a state in the sm.
+    /// Returns the id of a state.
     template<typename State>
     static constexpr size_t get_state_id(const State&)
     {
@@ -375,7 +425,8 @@ class state_machine
             "The state must be contained in the state machine");
         return detail::get_state_id<state_map, State>::value;
     }
-    // Return the id of a state in the sm.
+    
+    /// Returns the id of a state.
     template<typename State>
     static constexpr size_t get_state_id()
     {
@@ -385,50 +436,49 @@ class state_machine
         return detail::get_state_id<state_map, State>::value;
     }
 
-    // Get a state.
+    /// Gets a state.
     template <class State>
     State& get_state()
     {
         return std::get<std::remove_reference_t<State>>(m_states);
     }
-    // Get a state.
+    
+    /// Gets a state.
     template <class State>
     const State& get_state() const
     {
         return std::get<std::remove_reference_t<State>>(m_states);
     }
 
-    // Visit the states (only active states, recursive).
+    /// Visits the states (only active states, recursive).
     template <typename Visitor>
     void visit(Visitor&& visitor)
     {
         visit<visit_mode::active_recursive>(std::forward<Visitor>(visitor));
     }
 
-    // Visit the states (only active states, recursive).
+    /// Visits the states (only active states, recursive).
     template <typename Visitor>
     void visit(Visitor&& visitor) const
     {
         visit<visit_mode::active_recursive>(std::forward<Visitor>(visitor));
     }
 
-    // Visit the states.
-    // How to traverse is selected with visit_mode.
+    /// Visits the states with a @ref visit_mode.
     template <visit_mode Mode, typename Visitor>
     void visit(Visitor&& visitor)
     {
         detail::visit_if<Mode>(self(), std::forward<Visitor>(visitor));
     }
 
-    // Visit the states.
-    // How to traverse is selected with visit_mode.
+    /// Visits the states with a @ref visit_mode.
     template <visit_mode Mode, typename Visitor>
     void visit(Visitor&& visitor) const
     {
         detail::visit_if<Mode>(self(), std::forward<Visitor>(visitor));
     }
 
-    // Check whether a state is currently active.
+    /// Checks whether a state is currently active.
     template <typename State>
     bool is_state_active() const
     {
@@ -439,7 +489,7 @@ class state_machine
         return visitor.result();
     }
 
-    // Check if a flag is active, using the BinaryOp as folding function.
+    /// Checks if a flag is active, using the BinaryOp (default @ref flag_or) as folding function.
     template <typename Flag, typename BinaryOp = flag_or>
     bool is_flag_active() const
     {
@@ -502,6 +552,7 @@ class state_machine
         return compile_policy_impl::is_end_interrupt_event(*this, event);
     }
 
+  private:
     // Main function used internally to process events.
     template <class Event>
     process_result process_event_internal(Event const& event, detail::process_info info)
@@ -569,7 +620,6 @@ class state_machine
         return result;
     }
 
-  private:
     // Core logic for event processing without exceptions, queues, etc.
     template<class Event>
     process_result do_process_event(Event const& event, detail::process_info info)
@@ -940,13 +990,16 @@ constexpr bool is_state_machine_v =
 
 } // namespace detail
 
-// Reflect on a state_machine's members with a visitor.
-// The visitor has to implement the methods:
-// - visit_front_end(auto&& front_end)
-// - visit_front_end(auto&& front_end, auto&& reflect)
-// - visit_member(const char* key, auto&& member)
-// - visit_state(size_t state_id, auto&& state)
-// - visit_state(size_t state_id, auto&& state, auto&& reflect)
+/**
+ * @brief Reflects on a state_machine's members with a visitor.
+ * 
+ * The visitor has to implement the methods:
+ * - visit_front_end(auto&& front_end)
+ * - visit_front_end(auto&& front_end, auto&& reflect)
+ * - visit_member(const char* key, auto&& member)
+ * - visit_state(size_t state_id, auto&& state)
+ * - visit_state(size_t state_id, auto&& state, auto&& reflect)
+ */
 template <typename FrontEnd, typename Config, typename Derived,
           typename Visitor>
 void reflect(state_machine<FrontEnd, Config, Derived>& sm,
@@ -955,13 +1008,16 @@ void reflect(state_machine<FrontEnd, Config, Derived>& sm,
     sm.reflect(std::forward<Visitor>(visitor));
 }
 
-// Reflect on a state_machine's members with a visitor.
-// The visitor has to implement the methods:
-// - visit_front_end(auto&& front_end)
-// - visit_front_end(auto&& front_end, auto&& reflect)
-// - visit_member(const char* key, auto&& member)
-// - visit_state(size_t state_id, auto&& state)
-// - visit_state(size_t state_id, auto&& state, auto&& reflect)
+/**
+ * @brief Reflects on a state_machine's members with a visitor.
+ * 
+ * The visitor has to implement the methods:
+ * - visit_front_end(auto&& front_end)
+ * - visit_front_end(auto&& front_end, auto&& reflect)
+ * - visit_member(const char* key, auto&& member)
+ * - visit_state(size_t state_id, auto&& state)
+ * - visit_state(size_t state_id, auto&& state, auto&& reflect)
+ */
 template <typename FrontEnd, typename Config, typename Derived,
           typename Visitor>
 void reflect(const state_machine<FrontEnd, Config, Derived>& sm,

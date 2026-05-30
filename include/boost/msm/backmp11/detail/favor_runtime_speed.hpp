@@ -20,15 +20,6 @@
 namespace boost::msm::backmp11
 {
 
-struct favor_runtime_speed
-{
-    // Dispatch strategy for processing events.
-    // Supported strategies:
-    // - flat_fold (default)
-    // - function_pointer_array
-    using dispatch_strategy = dispatch_strategy::flat_fold;
-};
-
 namespace detail
 {
 

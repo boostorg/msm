@@ -131,7 +131,7 @@ class event_pool_processor
     // Core logic for event pool processing.
     // Explicitly not inline, because code size can significantly increase if
     // this method's content is inlined in all entries and process_event calls.
-    BOOST_NOINLINE size_t do_process_event_pool(size_t max_events)
+    BOOST_NOINLINE size_t process_event_pool(size_t max_events)
     {
         size_t processed_events = 0;
         auto it = m_event_pool.events.begin();

@@ -7,6 +7,7 @@ cmake_minimum_required(VERSION 3.12...3.16)
 
 project(boost_msm VERSION "${BOOST_SUPERPROJECT_VERSION}" LANGUAGES CXX)
 
+option(BOOST_MSM_BUILD_MRDOCS "Build the target for MrDocs" OFF)
 option(BOOST_MSM_TEST_NLOHMANN_JSON "Test serialization with nlohmann/json" OFF)
 
 add_library(boost_msm INTERFACE)
@@ -51,4 +52,9 @@ endif()
 if(BUILD_TESTING AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/CMakeLists.txt")
   enable_testing()
   add_subdirectory(test)
+endif()
+
+if(BOOST_MSM_BUILD_MRDOCS)
+  add_library(boost_msm_mrdocs ${CMAKE_CURRENT_SOURCE_DIR}/doc/mrdocs.cpp)
+  target_link_libraries(boost_msm_mrdocs boost_msm)
 endif()
