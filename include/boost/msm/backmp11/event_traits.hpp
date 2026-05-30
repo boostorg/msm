@@ -25,7 +25,7 @@ struct is_kleene_event<std::any> : std::true_type {};
 
 } // boost::msm
 
-namespace boost::msm::backmp11
+namespace boost::msm::backmp11::detail
 {
 
 // Import std::any_cast for overload resolution:

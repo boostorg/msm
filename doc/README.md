@@ -2,11 +2,13 @@
 
 Run the following commands once for the initial setup:
 
-- Make sure nodejs (>= 16.0.0) & npm are installed: `sudo apt install nodejs npm`
+- Make sure nodejs (LTS version >= 16.0.0) & npm are installed: `sudo apt install nodejs npm`
 - Make sure you are in the doc folder: `cd doc`
-- Install the required packages: `npm install`
-- Set up a pseudo-repository: `git init && git commit --allow-empty -m init`
+- Run the Make target for the setup: `make setup`
 
-Antora requires the doc sources to be located within a git repository, but it cannot recognize git submodules. By setting up a pseudo-repository in the doc folder, the local documentation build works when MSM is used as a standalone repo as well as when MSM is opened from a submodule path within the Boost super-project.
+The setup creates a pseudo-repository in the doc folder:
+Antora requires the doc sources to be located within a git repository, but it cannot recognize git submodules. By setting up a pseudo-repository, the local documentation build works when MSM is used as a standalone repo as well as when MSM is opened from a submodule path within the Boost super-project.
 
-After the initial setup is done, build the the documentation by running `npx antora --fetch local-playbook.yml` from the doc folder. Or use the Makefile, `make build`.
+After the initial setup is done, build the the documentation with `make build`.
+
+If you are not interested in viewing the generated API reference, you can speed up the documenation build with the ENV `ANTORA_SKIP_CPP_REFERENCE=1`.
