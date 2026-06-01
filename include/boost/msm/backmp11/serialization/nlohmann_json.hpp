@@ -16,7 +16,7 @@
 
 #include <nlohmann/json.hpp>
 
-#include <boost/msm/backmp11/detail/state_machine_base.hpp>
+#include <boost/msm/backmp11/state_machine.hpp>
 
 namespace boost::msm::backmp11::serialization
 {
@@ -145,21 +145,17 @@ namespace boost::msm::backmp11::detail
 {
 
 template <typename StateMachine,
-          typename = std::enable_if_t<
-              backmp11::detail::is_state_machine_v<StateMachine>>>
+          typename = std::enable_if_t<is_state_machine_v<StateMachine>>>
 void to_json(nlohmann::json& json, const StateMachine& state_machine)
 {
-    detail::reflect(state_machine,
-                    serialization::nlohmann_json_serializer{json});
+    reflect(state_machine, serialization::nlohmann_json_serializer{json});
 }
 
 template <typename StateMachine,
-          typename = std::enable_if_t<
-              backmp11::detail::is_state_machine_v<StateMachine>>>
+          typename = std::enable_if_t<is_state_machine_v<StateMachine>>>
 void from_json(const nlohmann::json& json, StateMachine& state_machine)
 {
-    detail::reflect(state_machine,
-                    serialization::nlohmann_json_deserializer{json});
+    reflect(state_machine, serialization::nlohmann_json_deserializer{json});
 }
 
 } // namespace boost::msm::backmp11::detail

@@ -96,9 +96,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(copy_operators, StateMachine, TestMachines)
     test_machine.process_event(EnterSubmachine{});
     BOOST_REQUIRE(test_machine.template is_state_active<typename StateMachine::Submachine>());
 
-// MSVC uses the variadic arg constructor instead of the copy constructor
-// (which shouldn't even compile because the argument cannot be forwarded to the front-end).
-#ifndef BOOST_MSVC
     {
         TestMachine other_test_machine{test_machine};
         auto& other_submachine = other_test_machine.template get_state<typename StateMachine::Submachine>();
@@ -108,7 +105,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(copy_operators, StateMachine, TestMachines)
         auto& other_submachine_state = other_submachine.template get_state<MyState>();
         ASSERT_ONE_AND_RESET(other_submachine_state.copied_to_counter);
     }
-#endif
 
     {
         TestMachine other_test_machine;

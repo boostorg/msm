@@ -14,7 +14,7 @@
 
 #include <boost/serialization/array.hpp>
 
-#include <boost/msm/backmp11/detail/state_machine_base.hpp>
+#include <boost/msm/backmp11/state_machine.hpp>
 
 namespace boost::msm::backmp11::serialization
 {

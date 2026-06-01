@@ -27,6 +27,10 @@ using is_config = std::is_same<typename T::internal::tag, config_tag>;
 
 } // namespace detail
 
+/// No derived is configured.
+/// See @ref state_machine
+struct no_derived {};
+
 // Config for the default compile policy
 // (runtime over compile time).
 struct favor_runtime_speed;
