@@ -16,7 +16,7 @@
 
 #include <boost/json.hpp>
 
-#include <boost/msm/backmp11/detail/state_machine_base.hpp>
+#include <boost/msm/backmp11/state_machine.hpp>
 
 namespace boost::msm::backmp11::serialization
 {
@@ -199,7 +199,7 @@ template <typename StateMachine,
 void tag_invoke(const boost::json::value_from_tag&, boost::json::value& json,
                 const StateMachine& sm)
 {
-    detail::reflect(sm, serialization::boost_json_serializer{json});
+    reflect(sm, serialization::boost_json_serializer{json});
 }
 
 template <typename StateMachine,
@@ -208,7 +208,7 @@ StateMachine tag_invoke(const boost::json::value_to_tag<StateMachine>&,
                         const boost::json::value& json)
 {
     StateMachine state_machine;
-    detail::reflect(state_machine,
+    reflect(state_machine,
                     serialization::boost_json_deserializer{json});
     return state_machine;
 }
