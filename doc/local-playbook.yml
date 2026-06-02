@@ -54,12 +54,12 @@ antora:
           - 'boost::'
     - require: '@cppalliance/antora-downloads-extension'
     - require: '@cppalliance/antora-cpp-reference-extension'
-      # dependencies:
-      #   - name: 'boost'
-      #     repo: 'https://github.com/boostorg/boost.git'
-      #     tag: 'develop'
-      #     variable: 'BOOST_SRC_DIR'
-      #     system-env: 'BOOST_SRC_DIR'
+      dependencies:
+        - name: 'boost'
+          repo: 'https://github.com/boostorg/boost.git'
+          tag: 'develop'
+          variable: 'BOOST_SRC_DIR'
+          system-env: 'BOOST_SRC_DIR'
 
 asciidoc:
   attributes:
@@ -77,8 +77,8 @@ runtime:
 # Libraries that support Antora should be included here
 content:
   sources:
-    - url: .
-      start_path: .
+    - url: ..
+      start_path: doc
       edit_url: 'https://github.com/boostorg/msm/edit/develop/{path}'
 
 ui:

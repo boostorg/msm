@@ -1,11 +1,8 @@
 
 SOURCE:=$(shell find modules)
 
-build/lib/doc/robots.txt: $(SOURCE)
-	npx antora --fetch local-playbook.yml --stacktrace
-
 .PHONY: build
-build : build/lib/doc/robots.txt
+build : build/lib/doc/msm/index.html
 
 .PHONY: setup
 setup:
@@ -13,5 +10,6 @@ setup:
 	wget -q https://github.com/cppalliance/mrdocs/releases/download/v0.8.0/MrDocs-0.8.0-Linux.tar.xz -O mrdocs.tar.xz
 	sudo tar -xJf mrdocs.tar.xz -C /usr/local --strip-components=1 MrDocs-0.8.0-Linux
 	rm mrdocs.tar.xz
-	git init && git commit --allow-empty -m init
 
+build/lib/doc/msm/index.html: $(SOURCE)
+	npx antora --fetch local-playbook.yml --stacktrace
