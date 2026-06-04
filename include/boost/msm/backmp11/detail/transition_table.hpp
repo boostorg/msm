@@ -243,10 +243,10 @@ struct transition_table_impl
         using next_state_type =
             convert_target_state<derived_t, typename Row::Target>;
 
-        // Take the transition action and return the next state.
-        static process_result execute(StateMachine& sm,
+        template <typename Event>
+        static process_result process(StateMachine& sm,
                                       uint8_t region_id,
-                                      transition_event const& event)
+                                      const Event& event)
         {
             auto& state_id = sm.m_active_state_ids[region_id];
             [[maybe_unused]] constexpr auto current_state_id =
@@ -311,10 +311,10 @@ struct transition_table_impl
         using current_state_type = State;
         using next_state_type = current_state_type;
 
-        // Take the transition action and return the next state.
-        static process_result execute(StateMachine& sm,
+        template <typename Event>
+        static process_result process(StateMachine& sm,
                                       uint8_t region_id,
-                                      transition_event const& event)
+                                      const Event& event)
         {
             [[maybe_unused]] const auto state_id = sm.m_active_state_ids[region_id];
             BOOST_ASSERT(
@@ -339,9 +339,9 @@ struct transition_table_impl
     {
         using transition_event = typename Row::Evt;
 
-        // Take the transition action and return the next state.
-        static process_result execute(StateMachine& sm,
-                                      transition_event const& event)
+        template <typename Event>
+        static process_result process(StateMachine& sm,
+                                      const Event& event)
         {
             auto& source = sm;
             auto& target = source;
@@ -457,7 +457,8 @@ struct transition_table_impl
 
     // Completion transitions are handled separately per state.
     template <typename Transition>
-    using has_completion_event = has_completion_event<typename Transition::transition_event>;
+    using has_completion_event =
+        has_completion_event<typename Transition::transition_event>;
     using completion_transition_table =
         mp11::mp_copy_if<transition_table, has_completion_event>;
     static_assert(mp11::mp_empty<completion_transition_table>::value ||
@@ -504,14 +505,16 @@ struct transition_chain
     using current_state_type = State;
     using transition_event = Event;
 
-    static process_result execute(StateMachine& sm, uint8_t region_id, Event const& evt)
+    static process_result process(StateMachine& sm,
+                                  uint8_t region_id,
+                                  const Event& evt)
     {
         process_result result = process_result::HANDLED_FALSE;
         mp_for_each_until<Transitions>(
             [&result, &sm, region_id, &evt](auto transition)
             {
                 using Transition = decltype(transition);
-                result |= Transition::execute(sm, region_id, evt);
+                result |= Transition::process(sm, region_id, evt);
                 if (result & handled_true_or_deferred)
                 {
                     // If a guard rejected previously, ensure this bit is not present.

@@ -134,7 +134,7 @@ struct compile_policy_impl<favor_compile_time>
         static bool convert_and_execute(const State& state,
                                         const any_event& event, const Fsm& fsm)
         {
-            return state.is_event_deferred(*any_cast<Event>(&event), fsm);
+            return state.is_event_deferred(*std::any_cast<Event>(&event), fsm);
         }
 
         std::unordered_map<std::type_index, generic_cell> m_cells;
@@ -189,18 +189,11 @@ struct compile_policy_impl<favor_compile_time>
         {
             if (is_event_deferred(sm, event))
             {
-                defer_event(sm, event, false);
+                sm.defer_event(event);
                 return true;
             }
         }
         return false;
-    }
-
-    template <typename StateMachine>
-    static void defer_event(StateMachine& sm, any_event const& event,
-                            bool next_rtc_seq)
-    {
-        sm.do_defer_event(event, next_rtc_seq);
     }
 
     // Convert an event to a type index.
@@ -217,7 +210,7 @@ struct compile_policy_impl<favor_compile_time>
     {
       public:
         template <typename StateMachine>
-        process_result execute(StateMachine& sm, uint8_t region_id,
+        process_result process(StateMachine& sm, uint8_t region_id,
                                any_event const& event,
                                process_result result) const
         {
@@ -254,7 +247,7 @@ struct compile_policy_impl<favor_compile_time>
     {
       public:
         template<typename StateMachine>
-        process_result execute(StateMachine& sm, any_event const& event) const
+        process_result process(StateMachine& sm, any_event const& event) const
         {
             using cell_t = process_result (*)(StateMachine&, any_event const&);
             process_result result = process_result::HANDLED_FALSE;
@@ -333,10 +326,10 @@ struct compile_policy_impl<favor_compile_time>
         };
 
         template<typename Event, typename Transition>
-        static process_result convert_event_and_execute(
+        static process_result convert_event_and_process(
             StateMachine& sm, uint8_t region_id, const any_event& event)
         {
-            return Transition::execute(sm, region_id, *any_cast<Event>(&event));
+            return Transition::process(sm, region_id, *std::any_cast<Event>(&event));
         }
 
         template <typename Transition>
@@ -345,7 +338,7 @@ struct compile_policy_impl<favor_compile_time>
             using type = init_cell_constant<
                 typename Transition::transition_event,
                 StateMachine::template get_state_id<typename Transition::current_state_type>(),
-                convert_event_and_execute<typename Transition::transition_event, Transition>
+                convert_event_and_process<typename Transition::transition_event, Transition>
                 >;
         };
         template<typename Transition>
@@ -389,7 +382,7 @@ struct compile_policy_impl<favor_compile_time>
                 auto it = m_transition_chains.find(event.type());
                 if (it != m_transition_chains.end())
                 {
-                    result = (it->second.execute)(sm, region_id, event, result);
+                    result = (it->second.process)(sm, region_id, event, result);
                 }
                 return result;
             }
@@ -422,10 +415,10 @@ struct compile_policy_impl<favor_compile_time>
         };
 
         template<typename Event, typename Transition>
-        static process_result convert_event_and_execute_internal(
+        static process_result convert_event_and_process(
             StateMachine& sm, const any_event& event)
         {
-            return Transition::execute(sm, *any_cast<Event>(&event));
+            return Transition::process(sm, *std::any_cast<Event>(&event));
         }
 
         template <typename Transition>
@@ -433,8 +426,8 @@ struct compile_policy_impl<favor_compile_time>
         {
             using type = init_internal_cell_constant<
                 typename Transition::transition_event,
-                convert_event_and_execute_internal<typename Transition::transition_event, Transition>
-                >;
+                convert_event_and_process<typename Transition::transition_event,
+                                          Transition>>;
         };
         template <typename Transition>
         using get_internal_init_cell_constant =
@@ -459,7 +452,7 @@ struct compile_policy_impl<favor_compile_time>
                 auto it = m_transition_chains.find(event.type());
                 if (it != m_transition_chains.end())
                 {
-                    result = (it->second.execute)(sm, event);
+                    result = (it->second.process)(sm, event);
                 }
                 return result;
             }
@@ -479,7 +472,8 @@ struct compile_policy_impl<favor_compile_time>
                     using Submachine = typename decltype(state_identity)::type;
                     static constexpr auto state_id =
                         StateMachine::template get_state_id<Submachine>();
-                    m_state_dispatch_tables[state_id].template init_composite_state<Submachine>();
+                    m_state_dispatch_tables[state_id]
+                        .template init_composite_state<Submachine>();
                 });
             if constexpr (has_transitions::value)
             {

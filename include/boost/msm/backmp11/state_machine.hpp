@@ -388,8 +388,7 @@ class state_machine
               typename = std::enable_if_t<C>>
     void enqueue_event(Event const& event)
     {
-        compile_policy_impl::defer_event(
-            *this, compile_policy_impl::normalize_event(event), false);
+        do_defer_event(compile_policy_impl::normalize_event(event), false);
     }
 
     /**
@@ -405,9 +404,9 @@ class state_machine
         typename = std::enable_if_t<C>>
     void defer_event(Event const& event)
     {
-        compile_policy_impl::defer_event(
-            *this, compile_policy_impl::normalize_event(event),
-            this->m_machine_state == detail::machine_state::processing);
+        do_defer_event(compile_policy_impl::normalize_event(event),
+                       this->m_machine_state ==
+                           detail::machine_state::processing);
     }
 
     /// Returns the active state ids of the machine.
@@ -728,7 +727,7 @@ class state_machine
         using completion_event = typename Transition::transition_event;
         {
             detail::process_guard guard{this->m_machine_state};
-            return Transition::execute(self(), region_id, completion_event{});
+            return Transition::process(self(), region_id, completion_event{});
         }
     }
 

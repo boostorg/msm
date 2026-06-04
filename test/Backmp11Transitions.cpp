@@ -50,6 +50,13 @@ struct MyAction
     void operator()(const Event&, Fsm& fsm, Source& source, Target&)
     {
         source.action_counter++;
+        if constexpr (std::is_same_v<typename Fsm::config_t::compile_policy, favor_runtime_speed>)
+        {
+            // An action in favor_runtime_speed shall not receive an event
+            // converted to Kleene, the Kleene event type is only used as a
+            // placeholder in the front-end.
+            static_assert(!std::is_same_v<Event, std::any>);
+        }
         // Attempting to process events while the state machine is processing
         // shall discard the event.
         BOOST_REQUIRE(fsm.process_event(TriggerNoTransition{}) ==
