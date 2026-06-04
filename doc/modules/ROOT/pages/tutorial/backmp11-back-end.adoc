@@ -584,6 +584,8 @@ It can be copied and adapted if needed, though this class is internal to the tes
 To reduce the number of required header inclusions, `backmp11` uses `std::any` for defining Kleene events instead of `boost::any`.
 You can opt in to use `boost::any` support by including `boost/msm/event_traits.h`.
 
+Futhermore, the back-end forwards Kleene events without converting them to `std::any` or `boost:any`. Actions and guards receive the original event.
+
 
 === Removed features
 
