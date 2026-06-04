@@ -33,8 +33,9 @@ namespace boost::msm::backmp11::detail
 //   ↓ (SFINAE fails?)
 // priority_tag_1 (base of priority_tag_0)
 //   ↓ (SFINAE fails?)
-// priority_tag_2 (base of priority_tag_1)
-struct priority_tag_2 {};
+// ...
+struct priority_tag_3 {};
+struct priority_tag_2 : priority_tag_3 {};
 struct priority_tag_1 : priority_tag_2 {};
 struct priority_tag_0 : priority_tag_1 {};
 
@@ -59,6 +60,18 @@ auto invoke_functor(priority_tag_2, Functor&&, const Event&, Fsm& fsm, Source&,
                     Target&) -> decltype(Functor{}(fsm))
 {
     return Functor{}(fsm);
+}
+template <typename...>
+inline constexpr bool invokable = false;
+template <typename Functor, typename Event, typename Fsm, typename Source,
+          typename Target>
+auto invoke_functor(priority_tag_3, Functor&&, const Event&, Fsm&, Source&,
+                    Target&)
+{
+    static_assert(
+        invokable<Functor, Event, Fsm, Source, Target>,
+        "Action/Guard must be invokable with one of these signatures: "
+        "(event, fsm, source, target), (event, fsm), or (fsm)");
 }
 
 template <typename Row>
