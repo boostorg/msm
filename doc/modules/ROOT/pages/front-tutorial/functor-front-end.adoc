@@ -317,9 +317,10 @@ Row < State1 , none , State2 , State1ToState2, none >
 The following diagram shows an example and its
 xref:attachment$AnonymousTutorialWithFunctors.cpp[implementation]:
 
-image:Anonymous.jpg[image] ###
+image:Anonymous.jpg[image]
 
-[[functor-internal-transitions]]Internal transitions
+[[functor-internal-transitions]]
+== Internal transitions
 
 The xref:attachment$SimpleTutorialInternalFunctors.cpp[following example]
 uses internal transitions with the functor front-end. As for the simple

@@ -317,7 +317,7 @@ state machine just after creation. The start method will initiate the
 state machine, meaning it will activate the initial state, which means
 in turn that the initial state's entry behavior will be called. The
 reason why we need this will be explained in the
-xref:tutorial/back-end.adoc#backend-start[back-end part].
+xref:back-back-end.adoc#backend-start[back-end part].
 After a call to start, the state machine is ready to process events.
 The same way, calling `stop()` will cause the last exit actions to be called.
 
@@ -1239,6 +1239,47 @@ struct player_ : public msm::front::state_machine_def<player_>
 ...
 typedef my_initial_event initial_event; 
 };
+----
+
+== FAQ
+
+_Why do I see no call to `no_transition(...)`` in my submachine?_
+
+Because of the priority rule defined by UML. It says that in case of transition conflict, the most inner state has a higher priority.
+So after asking the inner state, the containing composite has to be also asked to handle the transition and could find a possible transition.
+
+_Why do I get a compile error saying the compiler cannot convert to a function ...Fsm::*(some_event)?_
+
+You probably defined a transition triggered by the event some_event, but used a guard/action method taking another event.
+
+_Why do I get a compile error saying something like "too few" or "too many" template arguments?_
+
+You probably defined a transition in form of an a_row or g_row where you wanted just a _row or the other way around. With Row, it could mean that you forgot a "none".
+
+_Why do I get a very long compile error when I define more than 20 rows in the transition table?_
+
+MSM uses Boost.MPL under the hood and this is the default maximum size. Please define the following 3 macros before including any MSM headers:
+
+[source,cpp]
+----
+#define BOOST_MPL_CFG_NO_PREPROCESSED_HEADERS
+#define BOOST_MPL_LIMIT_VECTOR_SIZE 30 // or whatever you need               
+#define BOOST_MPL_LIMIT_MAP_SIZE 30 // or whatever you need 
+----
+
+_Why do I get this error: "error C2977: 'boost::mpl::vector' : too many template arguments"?_
+
+The first possibility is that you defined a transition table as, say, vector17 and have 18 entries.
+The second is that you have 17 entries and have a composite state. Under the hood, MSM adds a row for every event in the composite transition table.
+The third one is that you used a mpl::vector without the number of entries but are close to the MPL default of 50 and have a composite, thus pushing you above 50. Then you need mpl/vector60/70….hpp and a mpl/map60/70….hpp.
+
+_Why do I get a very long compile error when I define more than 10 states in a state machine?_
+
+MSM uses Boost.Fusion under the hood and this is the default maximum size. Please define the following macro before including any MSM headers:
+
+[source,cpp]
+----
+#define FUSION_MAX_VECTOR_SIZE 20 // or whatever you need 
 ----
 
 [[containing-state-machine-deprecated]]

@@ -1,6 +1,6 @@
 [[back-end]]
 
-= Back-end
+= `back` & `back11` back-end
 
 The back-end contains the library engine and defines the performance and functionality trade-offs. There are, at the moment, three back-ends:
 
@@ -14,8 +14,6 @@ for longer compile-time. The runtime speed is due to a constant-time
 double-dispatch and self-adapting capabilities allowing the framework to
 adapt itself to the features used by a given concrete state machine. All
 unneeded features either disable themselves or can be manually disabled.
-See section 5.1 for a complete description of the run-to-completion
-algorithm.
 
 [[creation]]
 
@@ -491,7 +489,7 @@ Independently, transition conflicts resolution will also be much faster.
 
 This policy uses boost.any behind the hood, which means that we will
 lose a feature which MSM offers with the default policy,
-xref:tutorial/basic-front-end.adoc#event-hierarchy[event hierarchy].
+xref:front-tutorial/basic-front-end.adoc#event-hierarchy[event hierarchy].
 The following example takes our iPod example and speeds up compile-time 
 by using this technique. We have:
 
@@ -556,7 +554,7 @@ used.
 == Enqueueing events for later processing
 
 Calling `process_event(Event const&)` will immediately process the event
-with run-to-completion semantics. You can also enqueue the events and
+with xref:#run-to-completion[run-to-completion] semantics. You can also enqueue the events and
 delay their processing by calling `enqueue_event(Event const&)` instead.
 Calling `execute_queued_events()` will then process all enqueued events
 (in FIFO order). Calling `execute_single_queued_event()` will execute
@@ -569,7 +567,7 @@ You can query the queue size by calling `get_message_queue_size()`.
 == Customizing the message queues
 
 MSM uses by default a std::deque for its queues (one message queue for
-events generated during run-to-completion or with `enqueue_event`, one
+events generated during xref:#run-to-completion[run-to-completion] or with `enqueue_event`, one
 for deferred events). Unfortunately, on some STL implementations, it is
 a very expensive container in size and copying time. Should this be a
 problem, MSM offers an alternative based on boost::circular_buffer. The
@@ -653,10 +651,82 @@ xref:attachment$ActivateStateBeforeTransitionEuml.cpp[eUML]. Removing
 `active_state_switch_before_transition` will show the default state.
 
 
+[[run-to-completion]]
+
+== Run to completion
+
+The back-end implements the following run-to-completion algorithm:
+
+* Check if one region of the concrete state machine is in a terminate or
+interrupt state. If yes, event processing is disabled while the
+condition lasts (forever for a terminate pseudo-state, while active for
+an interrupt pseudo-state).
+* If the message queue feature is enabled and if the state machine is
+already processing an event, push the currently processed event into the
+queue and end processing. Otherwise, remember that the state machine is
+now processing an event and continue.
+* If the state machine detected that no deferred event is used, skip
+this step. Otherwise, mark the first deferred event from the deferred
+queue as active.
+* Now start the core of event dispatching. If exception handling is
+activated, this will happen inside a try/catch block and the front-end
+`exception_caught` is called if an exception occurs.
+* The event is now dispatched in turn to every region, in the order
+defined by the initial state front-end definition. This will, for every
+region, call the corresponding front-end transition definition (the
+"row" or "Row" of the transition table).
+* Without transition conflict, if for a given region a transition is
+possible, the guard condition is checked. If it returns `true`, the
+transition processing continues and the current state's exit action is
+called, followed by the transition action behavior and the new active
+state's entry behavior.
+* With transition conflicts (several possible transitions, disambiguated
+by mutually exclusive guard conditions), the guard conditions are tried
+in reverse order of their transition definition in the transition table.
+The first one returning `true` selects its transition. Note that this is
+not defined by the UML standard, which simply specifies that if the
+guard conditions are not mutually exclusive, the state machine is
+ill-formed and the behaviour undefined. Relying on this
+implementation-specific behaviour will make it harder for the developer
+to support another state machine framework.
+* If at least one region processes the event, this event is seen as
+having been accepted. If not, the library calls `no_transition` on the
+state machine for every contained region.
+* If the currently active state is a submachine, the behaviour is
+slightly different. The UML standard specifies that internal transitions
+have to be tried first, so the event is first dispatched to the
+submachine. Only if the submachine does not accept the event are other
+(non internal) transitions tried.
+* This back-end supports simple states' and submachines' internal
+transitions. These are provided in the state's
+`internal_transition_table` type. Transitions defined in this table are
+added at the end of the main state machine's transition table, but with
+a lesser priority than the submachine's transitions (defined in
+`transition_table`). This means, for simple states, that these
+transitions have higher priority than non-internal transitions, conform
+to the UML standard which gives higher priority to deeper-level
+transitions. For submachines, this is a non-standard addition which can
+help make event processing faster by giving a chance to bypass subregion
+processing. With standard UML, one would need to add a subregion only to
+process these internal transitions, which would be slower.
+* After the dispatching itself, the deferred event marked in step 3 (if
+any) now gets a chance of processing.
+* Then, events queued in the message queue also get a dispatching
+chance.
+* Finally, completion / anonymous transitions, if to be found in the
+transition table, also get their dispatching chance.
+
+This algorithm illustrates how the back-end configures itself at
+compile-time as much as possible. Every feature not found in a given
+state machine definition is deactivated and has therefore no runtime
+cost. Completion events, deferred events, terminate states, dispatching
+to several regions, internal transitions are all deactivated if not
+used. User configuration is only for exception handling and message
+queue necessary.
+
 == Known limitations
 
 Any currently known issues and limitations with the `back` and `back11` back-ends are described below.
-
 
 === Deferring events in orthogonal regions
 
@@ -667,3 +737,23 @@ causing infinite recursions because the event deferral logic needs to re-evaluat
 
 According to the UML standard, in such a case the event should be deferred as long as one region decides to defer it.
 This issue can be worked around by explicitly ensuring (for example with guards) that the event is exclusively _either_ deferred _or_ processed.
+
+== FAQ
+
+_Where should I define a state machine?_:
+
+The tutorials are implemented in a simple cpp source file for simplicity.
+
+_I want to model dynamic behavior of a class as a state machine, how should I define the state machine?_
+
+Usually you'll want to implement the state machine as an attribute of the class. Unfortunately, a concrete state machine is a typedef, which cannot be forward-declared. This leaves you with two possibilities:
+
+* Provide the state machine definition inside the header class and
+contain an instance as attribute. Simple, but with several drawbacks:
+using namespace directives are not advised, and compile-time cost for
+all modules including the header.
+* Keep the state machine as (shared) pointer to void inside the
+xref:attachment$FsmAsPtr.hpp[class definition], and implement the state
+machine in the xref:attachment$FsmAsPtr.cpp[cpp file]. Minimum
+compile-time, using directives are okay, but the state machine is now
+located inside the heap.

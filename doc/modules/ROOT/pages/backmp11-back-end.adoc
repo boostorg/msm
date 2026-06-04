@@ -381,7 +381,7 @@ The `state_machine` provides access to all its members recursively with a xref:r
  */
 template <typename FrontEnd, typename Config, typename Derived,
           typename Visitor>
-void reflect(detail::state_machine_base<FrontEnd, Config, Derived>& sm,
+void reflect(state_machine<FrontEnd, Config, Derived>& sm,
              Visitor&& visitor);
 ```
 

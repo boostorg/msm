@@ -1,6 +1,6 @@
 [[euml-front-end]]
 
-= eUML front-end (deprecated)
+= `eUML` front-end (deprecated)
 
 _Important note_: eUML is not further under development and will be
 gradually replaced by Puml with PlantUML syntax.
@@ -379,7 +379,7 @@ machine where the transition table, initial state, entry and exit
 actions are defined. Furthermore, attributes (read further on), flags,
 deferred events and configuration capabilities (no message queue / no
 exception catching) are added and a non-default base state (see the
-xref:tutorial/back-end.adoc#backend-base-state[back-end description]) is defined.
+xref:back-back-end.adoc#backend-base-state[back-end description]) is defined.
 
 For example, a minimum state machine could be defined as:
 

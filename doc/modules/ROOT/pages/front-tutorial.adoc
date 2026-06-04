@@ -1,8 +1,7 @@
 [[tutorial]]
 
-= Tutorial
+= `front` tutorial
 
-MSM is divided between front-ends and back-ends.
 You will find four front-ends, which are as many state machine description languages, with many more
 possible. For potential language writers, this document contains a
 xref:internals.adoc#internals-front-back-interface[description of the interface between front-end and back-end].
