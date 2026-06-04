@@ -1,6 +1,6 @@
 [[puml-front-end]]
 
-= PUML front-end (C++20, experimental)
+= `puml` front-end (C++20, experimental)
 
 [[plantuml-basics]]
 
