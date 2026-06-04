@@ -40,19 +40,12 @@ site:
 
 antora:
   extensions:
-    - require: '@cppalliance/antora-playbook-macros-extension'
-      macros:
-        # Default values for macros
-        # These values can be overridden with environment variables,
-        # asciidoc.attributes, or --attribute command line option.
-        page-boost-branch: develop
-        page-boost-ui-branch: develop
-        page-commit-id: '000000'
+    - require: '@antora/lunr-extension'
+      index_latest_only: true
     - require: '@cppalliance/antora-cpp-tagfiles-extension'
       cpp-tagfiles:
         using-namespaces:
           - 'boost::'
-    - require: '@cppalliance/antora-downloads-extension'
     - require: '@cppalliance/antora-cpp-reference-extension'
       dependencies:
         - name: 'boost'
@@ -60,6 +53,7 @@ antora:
           tag: 'develop'
           variable: 'BOOST_SRC_DIR'
           system-env: 'BOOST_SRC_DIR'
+    - require: '@cppalliance/antora-downloads-extension'
 
 asciidoc:
   attributes:
