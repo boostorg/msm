@@ -113,14 +113,6 @@ class context_member
 
     context_member(Context& context) noexcept : m_context(&context) {}
 
-    context_member(const context_member&) noexcept = default;
-    
-    context_member& operator=(const context_member&) noexcept = default;
-
-    context_member(context_member&&) noexcept = default;
-    
-    context_member& operator=(context_member&&) noexcept = default;
-
   private:
     template <typename, typename, typename>
     friend class backmp11::state_machine;
@@ -151,16 +143,60 @@ class context_member<no_context, nesting_role::unknown>
     static constexpr bool has_context_member = false;
 };
 
+template <typename Observer, nesting_role NestingRole>
+class observer_member
+{
+  protected:
+    static constexpr bool has_observer_member = true;
+
+    observer_member() = default;
+
+    template <typename T,
+              typename = std::enable_if_t<std::is_constructible_v<Observer, T>>>
+    observer_member(T&& arg) : m_observer(std::forward<T>(arg)) {}
+
+  private:
+    template <typename, typename, typename>
+    friend class backmp11::state_machine;
+    template <typename, nesting_role>
+    friend class state_machine_base;
+
+    Observer m_observer;
+};
+
+template <typename Observer>
+class observer_member<Observer, nesting_role::nested>
+{
+  protected:
+    static constexpr bool has_observer_member = false;
+};
+
+template <>
+class observer_member<no_observer, nesting_role::root>
+{
+  protected:
+    static constexpr bool has_observer_member = false;
+};
+
+template <>
+class observer_member<no_observer, nesting_role::unknown>
+{
+  protected:
+    static constexpr bool has_observer_member = false;
+};
+
 template <typename Config, nesting_role NestingRole>
 class state_machine_base
     : public event_pool_processor<Config::template event_pool_container,
                                   basic_polymorphic<event_occurrence>>,
-      public context_member<typename Config::context, NestingRole>
+      public context_member<typename Config::context, NestingRole>,
+      public observer_member<typename Config::observer, NestingRole>
 {
   public:
     using config_t = Config;
     using root_sm_t = typename Config::root_sm;
     using context_t = typename Config::context;
+    using observer_t = typename Config::observer;
 
     /// Gets the context of the state machine.
     /// See @ref state_machine_config::context.
@@ -184,6 +220,31 @@ class state_machine_base
         else
         {
             return *(*m_root_sm)->m_context;
+        }
+    }
+
+    /// Get the observer of the state machine.
+    /// See @ref state_machine_config::observer.
+    template <bool C = !std::is_same_v<observer_t, no_observer>,
+              typename = std::enable_if_t<C>>
+    observer_t& get_observer()
+    {
+        return const_cast<observer_t&>(std::as_const(*this).get_observer());
+    }
+
+    /// Gets the observer of the state machine.
+    /// See @ref state_machine_config::observer.
+    template <bool C = !std::is_same_v<observer_t, no_observer>,
+              typename = std::enable_if_t<C>>
+    const observer_t& get_observer() const
+    {
+        if constexpr (NestingRole == nesting_role::root)
+        {
+            return this->m_observer;
+        }
+        else
+        {
+            return (*m_root_sm)->m_observer;
         }
     }
 
@@ -231,8 +292,23 @@ class state_machine_base
   protected:
     using context_member =
         detail::context_member<typename Config::context, NestingRole>;
+    using observer_member =
+        detail::observer_member<typename Config::observer, NestingRole>;
 
     using context_member::context_member;
+
+    using observer_member::observer_member;
+
+    state_machine_base() = default;
+
+    template <typename T, typename = std::enable_if_t<
+                              context_member::has_context_member &&
+                              observer_member::has_observer_member &&
+                              std::is_constructible_v<observer_t, T>>>
+    state_machine_base(context_t& context, T&& arg)
+        : context_member(context), observer_member(std::forward<T>(arg))
+    {
+    }
 
     machine_state get_machine_state() const
     {

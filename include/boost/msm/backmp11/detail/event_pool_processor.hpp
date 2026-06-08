@@ -94,7 +94,7 @@ class deferred_event : public event_occurrence
             return std::nullopt;
         }
         mark_for_deletion();
-        return sm.process_event_internal(m_event, process_info::event_pool);
+        return sm.process_event_observed(m_event, process_info::event_pool);
     }
 
   private:

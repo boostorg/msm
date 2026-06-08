@@ -1,0 +1,23 @@
+= Examples
+
+== xref:attachment$backmp11/Logger.cpp[Logger]
+
+This example contains an observer implementation for logging state machine activities.
+The implementation logs the start of event processing and every processed transition.
+
+Running the example produces the following output:
+
+```bash
+Starting state machine...
+MyStateMachine processed transition "none + starting -> MyState" (handled)
+MyStateMachine processing event TransitionEvent
+MyStateMachine processed transition "MyState + TransitionEvent [ NotMyGuard ] / MyAction -> MyOtherState" (rejected)
+MyStateMachine processed transition "MyState + TransitionEvent [ MyGuard ] / MyAction -> MyOtherState" (handled)
+MyStateMachine processing event TransitionEvent
+MyStateMachine processed transition "MyOtherState + TransitionEvent -> MyState" (handled)
+MyStateMachine processing event InternalTransitionEvent
+MyStateMachine processed transition "MyState + InternalTransitionEvent / MyAction" (handled)
+MyStateMachine processing event SmInternalTransitionEvent
+MyStateMachine processed transition "MyStateMachine + SmInternalTransitionEvent / MyAction" (handled)
+Stopping state machine...
+```

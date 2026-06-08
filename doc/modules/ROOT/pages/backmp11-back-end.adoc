@@ -16,8 +16,8 @@ It offers a significant improvement in runtime and memory usage, as can be seen 
 | back_favor_compile_time     | 12                 | 821              | 241              | 1.0
 | back11                      | 26                 | 2675             | 92               | 0.7
 | backmp11                    | 2                  | 236              | 18               | 0.2
-| backmp11_favor_compile_time | 2                  | 225              | 44               | 2.2
-| sml                         | 3                  | 242              | 57               | 0.1
+| backmp11_favor_compile_time | 2                  | 226              | 44               | 2.2
+| sml                         | 4                  | 254              | 64               | 0.1
 |=======================================================================================================
 
 
@@ -28,9 +28,9 @@ It offers a significant improvement in runtime and memory usage, as can be seen 
 |                             | Compile time / sec | Compile RAM / MB | Binary size / kB | Runtime / sec
 | back                        | 32                 | 2160             | 252              | 3.7
 | back_favor_compile_time     | 37                 | 1747             | 974              | 263
-| backmp11                    | 5                  | 360              | 55               | 0.9
-| backmp11_favor_compile_time | 3                  | 263              | 96               | 7.5
-| sml                         | 12                 | 567              | 436              | 2.5
+| backmp11                    | 5                  | 362              | 55               | 0.9
+| backmp11_favor_compile_time | 3                  | 266              | 96               | 7.5
+| sml                         | 13                 | 612              | 460              | 2.8
 |=======================================================================================================
 
 
@@ -68,6 +68,8 @@ struct default_state_machine_config
     using event_pool_container = std::deque<T>;
     // Type of the Fsm parameter passed in actions and guards.
     using fsm_parameter = local_transition_owner;
+    // Sets up an observer for monitoring state machine activities.
+    using observer = no_observer;
     // Identifies the upper‐most machine in hierarchical state machines. 
     using root_sm = no_root_sm;
 };
@@ -115,6 +117,26 @@ MyContext& state_machine::get_context();
 
 If a context is configured, a reference to an instance of it must be passed as the first argument to the state_machine constructor.
 In hierarchical state machines the root state machine has to be set as well.
+
+
+=== Observer
+
+The setting `observer` sets up an xref:reference:boost/msm/backmp11/default_observer.adoc[`observer member`] in the state machine for monitoring state machine activities.
+An observer is particularly useful for logging and capturing metrics. You can find a demo logger implementation in the xref:backmp11-back-end/examples.adoc#_logger[`Logger example`].
+
+If `using observer = MyObserver;` is defined in the config, the following API becomes available to access it in the state machine:
+
+```cpp
+MyObserver& state_machine::get_observer();
+```
+
+This creates an observer instance whose lifetime is managed within the state machine. If your instance's lifetime is managed externally, wrap your observer into an `observer_ref`:
+
+```cpp
+using observer = observer_ref<MyObserver>;
+```
+
+If an observer ref is configured, a reference to an instance of it must be passed as the first argument (second argument if a context is also configured) to the `state_machine` constructor. In hierarchical state machines the root state machine has to be set as well.
 
 
 === `Fsm` parameter of actions and guards

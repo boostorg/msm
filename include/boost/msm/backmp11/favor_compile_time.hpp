@@ -392,7 +392,7 @@ struct compile_policy_impl<favor_compile_time>
             static process_result call_process_event(StateMachine& sm, const any_event& event)
             {
                 return sm.template get_state<Submachine&>()
-                    .process_event_internal(event, process_info::submachine_call);
+                    .process_event_observed(event, process_info::submachine_call);
             }
 
             std::unordered_map<std::type_index, transition_chain> m_transition_chains;
