@@ -9,14 +9,16 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-// back-end
-#include "BackCommon.hpp"
-//front-end
-#include "FrontCommon.hpp"
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
 #define BOOST_TEST_MODULE test_constructor
 #endif
 #include <boost/test/unit_test.hpp>
+
+// back-end
+#include "BackCommon.hpp"
+#include <boost/msm/backmp11/observer.hpp>
+//front-end
+#include "FrontCommon.hpp"
 #include <boost/config.hpp>
 
 namespace msm = boost::msm;
@@ -33,12 +35,6 @@ struct MyState : test::StateBase {};
 struct StateMachine_ : test::StateMachineBase_<StateMachine_>
 {
     using initial_state = MyState;
-
-    StateMachine_() = default;
-    
-    StateMachine_(int n) : number(n) {}
-
-    int number{};
 };
 
 struct Context
@@ -51,12 +47,42 @@ struct context_config : state_machine_config
     using context = Context;
 };
 
+using Observer = msm::backmp11::default_observer;
+
+struct observer_config : state_machine_config
+{
+    using observer = Observer;
+};
+
+struct co_config : context_config
+{
+    using observer = Observer;
+};
+
+
 BOOST_AUTO_TEST_CASE(context_constructors)
 {
     using StateMachine = state_machine<StateMachine_, context_config>;
     Context context;
 
     StateMachine sm{context};
+}
+
+BOOST_AUTO_TEST_CASE(observer_constructors)
+{
+    using StateMachine = state_machine<StateMachine_, observer_config>;
+    Observer observer;
+
+    StateMachine sm{observer};
+}
+
+BOOST_AUTO_TEST_CASE(co_constructors)
+{
+    using StateMachine = state_machine<StateMachine_, co_config>;
+    Context context;
+    Observer observer;
+
+    StateMachine sm{context, observer};
 }
 
 } // namespace

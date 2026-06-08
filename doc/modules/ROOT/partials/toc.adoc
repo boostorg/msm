@@ -11,6 +11,7 @@
 *** xref:back-back-end/examples.adoc[Examples]
 *** xref:back-back-end/performance-compilers.adoc[Performance / Compilers]
 ** xref:backmp11-back-end.adoc[`backmp11` back-end (C++17, experimental)]
+*** xref:backmp11-back-end/examples.adoc[Examples]
 ** xref:internals.adoc[Internals]
 ** xref:acknowledgements.adoc[Acknowledgements]
 ** xref:version-history.adoc[Version history]

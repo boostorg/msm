@@ -120,7 +120,7 @@ struct DimSwitch_ : front::state_machine_def<DimSwitch_>
         visitor.visit_member("brightness", brightness);
     }
 
-    uint8_t brightness;
+    uint8_t brightness{};
 };
 
 using DimSwitch = backmp11::state_machine<DimSwitch_>;

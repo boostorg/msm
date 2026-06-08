@@ -91,6 +91,9 @@ struct local_transition_owner {};
 template <typename T>
 struct no_event_pool_container {};
 
+/// No observer is configured (see @ref state_machine_config::observer).
+struct no_observer {};
+
 /// Default state machine configuration.
 struct default_state_machine_config
 {
@@ -119,6 +122,8 @@ struct default_state_machine_config
     /// Type of the Fsm parameter passed in actions and guards.
     /// Defaults to @ref local_transition_owner.
     using fsm_parameter = local_transition_owner;
+    /// Sets up an observer for monitoring state machine activities.
+    using observer = no_observer;
     /// Identifies the upper-most machine in hierarchical state machines.
     /// Defaults to @ref no_root_sm.
     using root_sm = no_root_sm;

@@ -86,6 +86,8 @@ class state_machine
     using config_t = typename state_machine_base::config_t;
     /// Type of the context (see @ref state_machine_config::context).
     using context_t = typename state_machine_base::context_t;
+    /// Type of the context (see @ref state_machine_config::observer).
+    using observer_t = typename state_machine_base::observer_t;
     /// Type of the root machine (see @ref state_machine_config::root_sm).
     using root_sm_t = typename state_machine_base::root_sm_t;
     /// Type of the derived machine (corresponds to Derived).
@@ -247,6 +249,7 @@ class state_machine
      *
      * Requires constructor arguments as configured:
      * - Context& (if context = Context is set)
+     * - Observer& (if observer = observer_ref<Observer> is set)
      */
     template <typename... Args>
     state_machine(Args&&... args)
@@ -264,10 +267,8 @@ class state_machine
     }
 
     state_machine(state_machine& rhs)
-        : state_machine_base(rhs), m_states(rhs.m_states),
-          m_active_state_ids(rhs.m_active_state_ids)
+        : state_machine(static_cast<state_machine const&>(rhs))
     {
-        init();
     }
 
     // Copy assignment operator.
@@ -343,7 +344,7 @@ class state_machine
     template<class Event>
     process_result process_event(Event const& event)
     {
-        return process_event_internal(
+        return process_event_observed(
             compile_policy_impl::normalize_event(event),
             detail::process_info::direct_call);
     }
@@ -527,7 +528,23 @@ class state_machine
   private:
     // Main function used internally to process events.
     template <class Event>
-    process_result process_event_internal(Event const& event, detail::process_info info)
+    process_result process_event_observed(Event const& event,
+                                          detail::process_info info)
+    {
+        if constexpr (!std::is_same_v<observer_t, no_observer>)
+        {
+            this->get_observer().pre_process_event(self(), event);
+        }
+        const auto result = process_event_impl(event, info);
+        if constexpr (!std::is_same_v<observer_t, no_observer>)
+        {
+            this->get_observer().post_process_event(self(), event, result);
+        }
+        return result;
+    }
+
+    template <class Event>
+    process_result process_event_impl(Event const& event, detail::process_info info)
     {
         if (this->m_machine_state != detail::machine_state::idle)
         {
@@ -726,8 +743,22 @@ class state_machine
         template <typename State>
         void operator()(State& state)
         {
+            if constexpr (!std::is_same_v<observer_t, no_observer>)
+            {
+                m_self.get_observer()
+                    .template pre_process_transition<front::none, Event, State,
+                                                     front::none, front::none>(
+                        m_self, m_region_id);
+            }
             state.on_entry(m_event, m_self.get_fsm_argument());
             m_self.template on_state_entry_completed<State>(m_region_id++);
+            if constexpr (!std::is_same_v<observer_t, no_observer>)
+            {
+                m_self.get_observer()
+                    .template post_process_transition<front::none, Event, State,
+                                                      front::none, front::none>(
+                        m_self, m_region_id, process_result::HANDLED_TRUE);
+            }
         }
 
       private:

@@ -262,7 +262,6 @@ struct compile_policy_impl<
             struct forward_transition
             {
                 using current_state_type = Submachine;
-                using next_state_type = Submachine;
                 using transition_event = Event;
 
                 static process_result process(StateMachine& sm,
@@ -275,7 +274,7 @@ struct compile_policy_impl<
                         process_info::submachine_call;
                     process_result result =
                         sm.template get_state<Submachine>()
-                            .process_event_internal(event, info);
+                            .process_event_observed(event, info);
                     return result;
                 }
             };

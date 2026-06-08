@@ -7,7 +7,7 @@ if(NOT TARGET tests)
 endif()
 
 link_libraries(Boost::msm Boost::unit_test_framework)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../doc/modules/ROOT)
 add_compile_definitions("BOOST_MSM_NONSTANDALONE_TEST")
 if(BOOST_MSM_TEST_ONLY_BACKMP11)
     add_compile_definitions("BOOST_MSM_TEST_ONLY_BACKMP11")
@@ -88,6 +88,7 @@ add_executable(boost_msm_cxx17_tests
     Backmp11FunctorApi.cpp
     Backmp11History.cpp
     Backmp11ManyDeferTransitions.cpp
+    Backmp11Observer.cpp
     Backmp11RootSm.cpp
     Backmp11Serialization.cpp
     Backmp11Transitions.cpp

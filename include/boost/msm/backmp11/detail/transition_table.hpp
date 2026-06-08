@@ -248,6 +248,33 @@ struct transition_table_impl
                                       uint8_t region_id,
                                       const Event& event)
         {
+            if constexpr (!std::is_same_v<typename StateMachine::observer_t,
+                                          no_observer>)
+            {
+                sm.get_observer()
+                    .template pre_process_transition<
+                        typename Row::Source, typename Row::Evt,
+                        typename Row::Target, typename Row::Action,
+                        typename Row::Guard>(sm, region_id);
+            }
+            const auto result = process_impl(sm, region_id, event);
+            if constexpr (!std::is_same_v<typename StateMachine::observer_t,
+                                          no_observer>)
+            {
+                sm.get_observer()
+                    .template post_process_transition<
+                        typename Row::Source, typename Row::Evt,
+                        typename Row::Target, typename Row::Action,
+                        typename Row::Guard>(sm, region_id, result);
+            }
+            return result;
+        }
+
+        template <typename Event>
+        static process_result process_impl(StateMachine& sm,
+                                           uint8_t region_id,
+                                           const Event& event)
+        {
             auto& state_id = sm.m_active_state_ids[region_id];
             [[maybe_unused]] constexpr auto current_state_id =
                 StateMachine::template get_state_id<current_state_type>();
@@ -309,12 +336,38 @@ struct transition_table_impl
     {
         using transition_event = typename Row::Evt;
         using current_state_type = State;
-        using next_state_type = current_state_type;
 
         template <typename Event>
         static process_result process(StateMachine& sm,
                                       uint8_t region_id,
                                       const Event& event)
+        {
+            if constexpr (!std::is_same_v<typename StateMachine::observer_t,
+                                          no_observer>)
+            {
+                sm.get_observer()
+                    .template pre_process_transition<
+                        typename Row::Source, typename Row::Evt,
+                        typename front::none, typename Row::Action,
+                        typename Row::Guard>(sm, region_id);
+            }
+            const auto result = process_impl(sm, region_id, event);
+            if constexpr (!std::is_same_v<typename StateMachine::observer_t,
+                                          no_observer>)
+            {
+                sm.get_observer()
+                    .template post_process_transition<
+                        typename Row::Source, typename Row::Evt,
+                        typename front::none, typename Row::Action,
+                        typename Row::Guard>(sm, region_id, result);
+            }
+            return result;
+        }
+
+        template <typename Event>
+        static process_result process_impl(StateMachine& sm,
+                                           uint8_t region_id,
+                                           const Event& event)
         {
             [[maybe_unused]] const auto state_id = sm.m_active_state_ids[region_id];
             BOOST_ASSERT(
@@ -342,6 +395,32 @@ struct transition_table_impl
         template <typename Event>
         static process_result process(StateMachine& sm,
                                       const Event& event)
+        {
+            if constexpr (!std::is_same_v<typename StateMachine::observer_t,
+                                          no_observer>)
+            {
+                sm.get_observer()
+                    .template pre_process_transition<typename Row::Evt,
+                                                     typename Row::Action,
+                                                     typename Row::Guard>(
+                        sm);
+            }
+            const auto result = process_impl(sm, event);
+            if constexpr (!std::is_same_v<typename StateMachine::observer_t,
+                                          no_observer>)
+            {
+                sm.get_observer()
+                    .template post_process_transition<typename Row::Evt,
+                                                      typename Row::Action,
+                                                      typename Row::Guard>(
+                        sm, result);
+            }
+            return result;
+        }
+        
+        template <typename Event>
+        static process_result process_impl(StateMachine& sm,
+                                           const Event& event)
         {
             auto& source = sm;
             auto& target = source;
