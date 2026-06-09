@@ -88,6 +88,21 @@ struct MyStateMachineConfig : state_machine_config
 
 The state machine configuration is designed to be shared in hierarchical state machines.
 
+
+=== Root state machine
+
+The setting `root_sm` defines the type of the root state machine in hierarchical state machines. The root sm is the uppermost state machine.
+
+If `using root_sm = MyRootSm;` is defined in the config, the following API becomes available to access it from any (sub-)machine:
+
+```cpp
+MyRootSm& state_machine::get_root_sm();
+```
+
+It is highly recommended to always configure the `root_sm` in hierarchical state machines, even if access to it is not required.
+This reduces compilation time and memory footprint, because it enables the back-end to instantiate the full set of methods and members only for the root and it can omit them for submachines.
+
+
 === Context
 
 The setting `context` sets up a context member in the state machine for dependency injection.
@@ -98,20 +113,8 @@ If `using context = MyContext;` is defined in the config, the following API beco
 MyContext& state_machine::get_context();
 ```
 
-If a context is configured, a reference to a context instance must be passed as the first argument to the state_machine constructor.
-
-=== Root state machine
-
-The setting `root_sm` defines the type of the root state machine of hierarchical state machines. The root sm is the uppermost state machine.
-
-If `using root_sm = MyRootSm;` is defined in the config, the following API becomes available to access it from any (sub-)machine:
-
-```cpp
-MyRootSm& state_machine::get_root_sm();
-```
-
-It is highly recommended to always configure the `root_sm` in hierarchical state machines, even if access to it is not required.
-This reduces compilation time and memory footprint, because it enables the back-end to instantiate the full set of methods and members only for the root and it can omit them for submachines.
+If a context is configured, a reference to an instance of it must be passed as the first argument to the state_machine constructor.
+In hierarchical state machines the root state machine has to be set as well.
 
 
 === `Fsm` parameter of actions and guards
@@ -294,11 +297,6 @@ You can also defer events in transitions by using the `front::Defer` action. Whi
 
 The state machine also contains a xref:reference:boost/msm/backmp11/state_machine/defer_event.adoc[`void state_machine::defer_event(const Event&)`] method, which defers the processing to the next time `process_event(...)` or `process_event_pool(...)` is called.
 
-== Handling exceptions
-
-The back-end is exception-neutral; exceptions thrown during processing are propagated to the caller.
-It provides a _basic exception guarantee_: The processing aborts mid-execution, but the state machine remains in a valid state. If the processing step involves a state switch, the active state switches to the target state as soon as the source state's exit action has completed. If you need to know exact details about the aborted state machine activities during event processing, see the xref:#_run_to_completion[run-to-completion algorithm].
-
 
 == Check for active states
 
@@ -362,6 +360,11 @@ my_state_machine.visit
     ([](auto &state) {/*...*/});
 
 ```
+
+== Exceptions
+
+The back-end is exception-neutral; exceptions thrown during processing are propagated to the caller.
+It provides a _basic exception guarantee_: The processing aborts mid-execution, but the state machine remains in a valid state. If the processing step involves a state switch, the active state switches to the target state as soon as the source state's exit action has completed. If you need to know exact details about the aborted state machine activities during event processing, see the xref:#_run_to_completion[run-to-completion algorithm].
 
 
 == Reflection and serialization
@@ -593,7 +596,7 @@ Futhermore, the back-end forwards Kleene events without converting them to `std:
 
 There were some caveats with one constructor that was used for different use cases: On the one hand, some arguments were immediately forwarded to the front-end's constructor, on the other hand, the stream operator was used to identify other arguments in the constructor as states, to copy them into the state machine. Besides the syntax of the latter being rather unusual, when doing both at once, the syntax becomes too difficult to understand; even more so if states within hierarchical submachines are initialized in this fashion.
 
-To keep the API of the constructor simpler and less ambiguous, it only supports forwarding arguments to the front-end.
+To keep the API of the constructor simpler and less ambiguous, it only supports arguments related to the `state_machine` configuration. The state machine's front-end must be default-constructible.
 The `set_states(...)` API has also been removed. If setting a state is required, this can still be done (in a more verbose, but also more direct and explicit way) by getting a reference to the desired state via `get_state<State>()` and then assigning a new state object to it.
 
 

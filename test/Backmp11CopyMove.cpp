@@ -36,10 +36,22 @@ struct EnterSubmachine{};
 // States.
 struct MyState : public test::StateBase
 {
+    MyState() = default;
+
+    MyState(const MyState&)
+    {
+        copied_to_counter += 1;
+    }
+
     MyState& operator=(const MyState&)
     {
         copied_to_counter += 1;
         return *this;
+    }
+
+    MyState(MyState&&)
+    {
+        moved_to_counter += 1;
     }
 
     MyState& operator=(MyState&&)
@@ -50,6 +62,11 @@ struct MyState : public test::StateBase
 
     size_t copied_to_counter{};
     size_t moved_to_counter{};
+};
+
+struct Context
+{
+    int foo{};
 };
 
 template <typename Config = default_state_machine_config>
@@ -63,6 +80,7 @@ using StateMachine = state_machine<StateMachine_, ConfigWithRootSm>;
 struct ConfigWithRootSm : Config
 {
     using root_sm = StateMachine;
+    using context = Context;
 };
 
 struct Submachine_ : public test::StateMachineBase_<Submachine_>
@@ -89,7 +107,8 @@ using TestMachines = mp11::mp_list<
 BOOST_AUTO_TEST_CASE_TEMPLATE(copy_operators, StateMachine, TestMachines)
 {
     using TestMachine = typename StateMachine::StateMachine;
-    TestMachine test_machine;
+    Context context;
+    TestMachine test_machine{context};
 
     test_machine.start();
 
@@ -107,7 +126,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(copy_operators, StateMachine, TestMachines)
     }
 
     {
-        TestMachine other_test_machine;
+        TestMachine other_test_machine{context};
         other_test_machine = test_machine;
         auto& other_submachine = other_test_machine.template get_state<typename StateMachine::Submachine>();
         BOOST_REQUIRE(other_test_machine.template is_state_active<typename StateMachine::Submachine>());
@@ -123,7 +142,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(copy_operators, StateMachine, TestMachines)
 BOOST_AUTO_TEST_CASE_TEMPLATE(move_operators, StateMachine, TestMachines)
 {
     using TestMachine = typename StateMachine::StateMachine;
-    TestMachine test_machine;
+    Context context;
+    TestMachine test_machine{context};
 
     test_machine.start();
 
@@ -141,7 +161,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(move_operators, StateMachine, TestMachines)
     }
 
     {
-        TestMachine other_test_machine;
+        TestMachine other_test_machine{context};
         other_test_machine = std::move(test_machine);
         auto& other_submachine = other_test_machine.template get_state<typename StateMachine::Submachine>();
         BOOST_REQUIRE(other_test_machine.template is_state_active<typename StateMachine::Submachine>());
@@ -157,14 +177,15 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(move_operators, StateMachine, TestMachines)
 BOOST_AUTO_TEST_CASE_TEMPLATE(copy_event_pool, StateMachine, TestMachines)
 {
     using TestMachine = typename StateMachine::StateMachine;
-    TestMachine test_machine;
+    Context context;
+    TestMachine test_machine{context};
 
     test_machine.start();
 
     test_machine.enqueue_event(EnterSubmachine{});
 
     {
-        TestMachine other_test_machine;
+        TestMachine other_test_machine{context};
         other_test_machine = test_machine;
         BOOST_REQUIRE(other_test_machine.process_event_pool() == 1);
         BOOST_REQUIRE(other_test_machine.template is_state_active<typename StateMachine::Submachine>());
@@ -179,7 +200,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(copy_event_pool, StateMachine, TestMachines)
 BOOST_AUTO_TEST_CASE_TEMPLATE(move_event_pool, StateMachine, TestMachines)
 {
     using TestMachine = typename StateMachine::StateMachine;
-    TestMachine test_machine;
+    Context context;
+    TestMachine test_machine{context};
 
     test_machine.start();
 

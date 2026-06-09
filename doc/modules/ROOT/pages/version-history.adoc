@@ -4,16 +4,17 @@
 
 == Boost 1.92
 
-* **Breaking changes (`backmp11`)**:
-** Make enqueuing events explicit (https://github.com/boostorg/msm/issues/178[#178])
-** The APIs `process_queued_events()` and `process_single_queued_event()` are removed, use `process_event_pool(...)` instead
-** The default active state switch policy is set to "after source exit" in compliance to the UML specification. The other options are not UML-compliant and will be removed in version 1.93 (https://github.com/boostorg/msm/issues/222[#222])
 * New features (`backmp11`):
 ** Forward Kleene events to actions and guards without conversion (https://github.com/boostorg/msm/issues/229[#229])
 ** Ensure basic exception guarantee and propagate exceptions to the caller (https://github.com/boostorg/msm/issues/221[#221])
 ** Provide a reflection API and serialization support for Boost.Serialization, Boost.JSON and nlohmann/json (https://github.com/boostorg/msm/issues/197[#197])
 * Bug fixes (`backmp11`):
 ** State machine processes events although it is not running (https://github.com/boostorg/msm/issues/198[#198])
+* **Breaking changes (`backmp11`)**:
+** Events in `process_event(...)` are not enqueued automatically anymore to reduce memory footprint, use `enqueue_event(...)` in actions (https://github.com/boostorg/msm/issues/178[#178])
+** The back-end does not forward constructor arguments to the front-end anymore, it must be default-constructible. To use custom constructors, define them in the back-end (https://github.com/boostorg/msm/issues/232[#232])
+** The APIs `process_queued_events()` and `process_single_queued_event()` are removed, use `process_event_pool(...)` instead
+** The default active state switch policy is set to "after source exit" in compliance to the UML specification. The other options are not UML-compliant and will be removed in version 1.93 (https://github.com/boostorg/msm/issues/222[#222])
 * Documentation:
 ** API reference is now generated from source with MrDocs
 

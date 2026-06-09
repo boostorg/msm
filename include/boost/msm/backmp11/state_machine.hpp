@@ -80,14 +80,14 @@ class state_machine
         "FrontEnd must be a composite state");
 
   public:
-    /// Type of the configuration (same as Config, see @ref state_machine_config).
-    using config_t = typename state_machine_base::config_t;
-    /// Type of the root machine (see @ref state_machine_config::root_sm).
-    using root_sm_t = typename state_machine_base::root_sm_t;
-    /// Type of the context (see @ref state_machine_config::context).
-    using context_t = typename state_machine_base::context_t;
     /// Type of the front-end (same as FrontEnd).
     using front_end_t = FrontEnd;
+    /// Type of the configuration (same as Config, see @ref state_machine_config).
+    using config_t = typename state_machine_base::config_t;
+    /// Type of the context (see @ref state_machine_config::context).
+    using context_t = typename state_machine_base::context_t;
+    /// Type of the root machine (see @ref state_machine_config::root_sm).
+    using root_sm_t = typename state_machine_base::root_sm_t;
     /// Type of the derived machine (corresponds to Derived).
     using derived_t = mp11::mp_if_c<std::is_same_v<Derived, no_derived>,
                                     state_machine<FrontEnd, Config, Derived>, Derived>;
@@ -225,13 +225,8 @@ class state_machine
     using history_impl = detail::history_impl<typename front_end_t::history,
                                               initial_state_ids>;
 
-    struct front_end_init_tag {};
-
-    template <typename... Args>
-    state_machine(front_end_init_tag, Args&&... args)
-        : front_end_t(std::forward<Args>(args)...)
+    void init()
     {
-        // Same logic as default constructor
         static_assert(
             std::is_base_of_v<state_machine, derived_t>,
             "Derived must inherit from state_machine");
@@ -242,70 +237,48 @@ class state_machine
             using visitor_t = detail::init_state_visitor<derived_t>;
             visitor_t visitor{self()};
             detail::visit_if<visit_mode::all_recursive,
-                     visitor_t::template predicate>(self(), visitor);
+                             visitor_t::template predicate>(self(), visitor);
         }
     }
 
   public:
-    state_machine() : state_machine(front_end_init_tag{})
-    {
-    }
-
     /**
-     * @brief Constructs and forwards further constructor arguments to the
-     * front-end.
+     * @brief Constructs and forwards constructor arguments to the back-end.
      *
-     * @param arg Constructor argument for the front-end.
-     * @param args Constructor arguments for the front-end.
+     * Requires constructor arguments as configured:
+     * - Context& (if context = Context is set)
      */
-    template <typename Arg,
-              typename = std::enable_if_t<!mp11::mp_contains<
-                  // front_end_init_tag & context_t are required to work around
-                  // gcc9 overload detection issue.
-                  mp11::mp_list<state_machine, front_end_init_tag, context_t>,
-                  std::decay_t<Arg>>::value>,
-              typename... Args>
-    state_machine(Arg&& arg, Args&&... args)
-        : state_machine(front_end_init_tag{}, std::forward<Arg>(arg),
-                        std::forward<Args>(args)...)
+    template <typename... Args>
+    state_machine(Args&&... args)
+        : state_machine_base(std::forward<Args>(args)...)
     {
-    }
-
-    /**
-     * @brief Constructs with a context and forwards further constructor
-     * arguments to the front-end.
-     *
-     * @param context The context.
-     * @param args Constructor arguments for the front-end.
-     */
-    template <bool C = state_machine_base::has_context_member,
-              typename = std::enable_if_t<C>,
-              typename... Args>
-    state_machine(context_t& context, Args&&... args)
-        : state_machine(front_end_init_tag{}, std::forward<Args>(args)...)
-    {
-        if constexpr (!std::is_same_v<context_t, no_context>)
-        {
-            static_assert(
-                std::is_constructible_v<derived_t, context_t&>,
-                "Derived must inherit the base class constructors");
-        }
-        this->m_context = &context;
+        init();
     }
 
     // Copy constructor.
-    state_machine(state_machine const& rhs) : state_machine()
+    state_machine(state_machine const& rhs)
+        : state_machine_base(rhs), m_states(rhs.m_states),
+          m_active_state_ids(rhs.m_active_state_ids)
     {
-        *this = rhs;
+        init();
+    }
+
+    state_machine(state_machine& rhs)
+        : state_machine_base(rhs), m_states(rhs.m_states),
+          m_active_state_ids(rhs.m_active_state_ids)
+    {
+        init();
     }
 
     // Copy assignment operator.
     state_machine& operator=(state_machine const& rhs) = default;
 
     // Move constructor.
-    state_machine(state_machine&& rhs) : state_machine()
+    state_machine(state_machine&& rhs)
+        : state_machine_base(std::move(rhs)), m_states(std::move(rhs.m_states)),
+          m_active_state_ids(rhs.m_active_state_ids)
     {
-        *this = std::move(rhs);
+        init();
     }
 
     // Move assignment operator.
