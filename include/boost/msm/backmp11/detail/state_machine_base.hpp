@@ -38,6 +38,10 @@ class non_propagating
     {
     }
 
+    non_propagating(const non_propagating&)
+    {
+    }
+
     non_propagating& operator=(const non_propagating&)
     {
         return *this;
@@ -106,6 +110,16 @@ class context_member
 {
   protected:
     static constexpr bool has_context_member = true;
+
+    context_member(Context& context) noexcept : m_context(&context) {}
+
+    context_member(const context_member&) noexcept = default;
+    
+    context_member& operator=(const context_member&) noexcept = default;
+
+    context_member(context_member&&) noexcept = default;
+    
+    context_member& operator=(context_member&&) noexcept = default;
 
   private:
     template <typename, typename, typename>
@@ -215,6 +229,11 @@ class state_machine_base
     }
 
   protected:
+    using context_member =
+        detail::context_member<typename Config::context, NestingRole>;
+
+    using context_member::context_member;
+
     machine_state get_machine_state() const
     {
         return m_machine_state;

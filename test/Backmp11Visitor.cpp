@@ -42,7 +42,7 @@ struct ExitSubFsm {};
 // States.
 struct StateBase
 {
-    size_t visits;
+    size_t visits{};
 };
 
 struct DefaultState : public state<StateBase> {};
@@ -52,7 +52,7 @@ struct MachineBase_ : public state_machine_def<MachineBase_<T>>
 {
     using initial_state = DefaultState;
 
-    size_t visits;
+    size_t visits{};
 };
 
 template<typename Config = default_state_machine_config>
