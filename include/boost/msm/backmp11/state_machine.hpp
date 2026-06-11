@@ -691,7 +691,6 @@ class state_machine
       private:
         std::optional<process_result> try_process_impl(derived_t& sm)
         {
-            mark_for_deletion();
             return sm.template process_completion_transition<
                 completion_transition>(m_region_id);
         }

@@ -40,25 +40,21 @@ class event_occurrence
     // were not given and the event has not been dispatched.
     std::optional<process_result> try_process(void* processor, uint16_t seq_cnt)
     {
-        return m_process_fn(*this, processor, seq_cnt);
+        const auto result = m_process_fn(*this, processor, seq_cnt);
+        if (result)
+        {
+            m_process_fn = nullptr;
+        }
+        return result;
     }
 
-    void mark_for_deletion()
+    bool is_processed() const
     {
-        m_marked_for_deletion = true;
-    }
-
-    bool marked_for_deletion() const
-    {
-        return m_marked_for_deletion;
+        return m_process_fn == nullptr;
     }
 
   private:
     process_fn_t m_process_fn{};
-    // Flag set when this event has been processed and can be erased.
-    // Deletion is deferred to allow the use of std::deque,
-    // which provides better cache locality and lower per-element overhead.
-    bool m_marked_for_deletion{};
 };
 
 template <typename Event>
@@ -93,7 +89,6 @@ class deferred_event : public event_occurrence
         {
             return std::nullopt;
         }
-        mark_for_deletion();
         return sm.process_event_observed(m_event, process_info::event_pool);
     }
 
@@ -138,8 +133,7 @@ class event_pool_processor
         while (it != m_event_pool.events.end())
         {
             event_occurrence& event = **it;
-            // The event was already processed.
-            if (event.marked_for_deletion())
+            if (event.is_processed())
             {
                 it = m_event_pool.events.erase(it);
                 continue;
