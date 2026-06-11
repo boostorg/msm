@@ -174,19 +174,22 @@ When a transition defined in SM1 causes SM2 and SM3 to exit:
 
 === Event pool
 
-The setting `event_pool_container` defines the container type of the state machine's event pool. It requires an event pool to handle deferred events, enqueued events, and completion transitions. The default event pool container is a `std::deque<T>`.
+The setting `event_pool_container` defines the container type of the state machine's event pool. It requires an event pool to handle event enqueueing, deferral, and completion transitions. The default event pool container is a `std::deque<T>`.
 
-You can explicitly request a state machine to process events from its event pool with xref:reference:boost/msm/backmp11/state_machine/process_event_pool.adoc[`size_t process_even_pool(size_t max_events = SIZE_MAX)`].
-The method returns the number of events it successfully processed and removed from the event pool.
+The event pool container can be customized with `using event_pool_container = MyEventPoolContainer<T>;`. It has to support push without iterator invalidation, specifically the following API calls:
 
-You can configure a custom event pool container. It has to support push at both ends as well as removal from the front without iterator invalidation, specifically the following API calls:
-
-- `push_back(const T&)`
-- `push_front(const T&)`
+- `push_back(const T&)` (for event enqueueing and deferral)
+- `push_front(const T&)` (for completion transitions)
 - `begin()`
 - `end()`
 - `erase(iterator)`
 - `clear()`
+
+[NOTE]
+====
+By replacing the default `std::deque` with a fixed-capacity container, the state machine can operate entirely without heap allocation.
+See the xref:backmp11-back-end/examples.adoc#_heapless_state_machine[heapless state machine example] for a demo using `boost::container::static_vector`.
+====
 
 You can deactivate the event pool with `using event_pool_container = no_event_pool_container<T>;`.
 
@@ -290,7 +293,8 @@ Calling `start(...)` on an active or `stop(...)` on an inactive state machine ha
 
 Use xref:reference:boost/msm/backmp11/state_machine/process_event.adoc[`process_result state_machine::process_event(const Event&)`] to start processing an event while the state machine is idle.
 
-You can enqueue an event for subsequent processing in an action with xref:reference:boost/msm/backmp11/state_machine/enqueue_event.adoc[`void state_machine::enqueue_event(const Event&)`]. The enqueued event will be processed immediately after the current event has finished processing.
+You can enqueue an event to the event pool for subsequent processing in an action with xref:reference:boost/msm/backmp11/state_machine/enqueue_event.adoc[`void state_machine::enqueue_event(const Event&)`]. The enqueued event will be processed immediately after the current event has finished processing.
+If an event is enqueued while the state machine is idle, you can explicitly request the state machine to process events from its event pool with xref:reference:boost/msm/backmp11/state_machine/process_event_pool.adoc[`size_t process_event_pool(size_t max_events = SIZE_MAX)`].
 
 The back-end supports event deferral with the front-end's `deferred_events` state property. Deferred events are evaluated in the same order they have been deferred, ensuring FIFO processing semantics. They are stored in the event pool of the state machine that was requested to process the event. In hierarchical state machines, this is usually the root state machine, in which case all submachines are able to receive the event upon dispatch. Event deferral in orthogonal regions behaves as described in the UML standard: As long as one active region decides to defer an event, it remains deferred for all regions.
 
