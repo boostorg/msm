@@ -12,12 +12,24 @@
 #ifndef BOOST_MSM_BACKMP11_COMMON_TYPES_HPP
 #define BOOST_MSM_BACKMP11_COMMON_TYPES_HPP
 
+#include <cstdint>
 #include <type_traits>
 
 #include <boost/msm/back/common_types.hpp>
 
 namespace boost::msm::backmp11
 {
+
+/// Describes the state of the state machine.
+enum class machine_state : uint8_t
+{
+    /// Stopped / not started.
+    stopped = 0,
+    /// Ready to process an event.
+    idle,
+    /// Processing an event.
+    processing
+};
 
 /// Return type of @ref state_machine::process_event calls.
 using process_result = back::HandledEnum;

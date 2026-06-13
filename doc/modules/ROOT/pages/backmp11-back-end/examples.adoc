@@ -1,5 +1,11 @@
 = Examples
 
+== xref:attachment$backmp11/BackAdapter.cpp[`back` adapter]
+
+This example contains a state machine implementation with an API adapter that adheres to the `back::state_machine` interface.
+It is helpful for utilizing `backmp11` in a legacy code base.
+
+
 == xref:attachment$backmp11/HeaplessStateMachine.cpp[Heapless state machine]
 
 This example demonstrates a state machine configured for heapless execution.

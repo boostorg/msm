@@ -10,7 +10,7 @@
 // http://www.boost.org/LICENSE_1_0.txt)
 
 #include "boost/msm/backmp11/state_machine.hpp"
-#include "boost/msm/backmp11/favor_compile_time.hpp"
+#include "boost/msm/backmp11/favor_compile_time.hpp" // IWYU pragma: keep
 
 namespace boost::msm::backmp11
 {

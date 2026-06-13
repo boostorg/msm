@@ -310,7 +310,7 @@ class state_machine
             BOOST_ASSERT_MSG(&(this->get_root_sm()),
             "Root sm must be passed as Derived and configured as root_sm");
         }
-        if (this->m_machine_state == detail::machine_state::stopped)
+        if (this->m_machine_state == machine_state::stopped)
         {
             on_entry(initial_event, get_fsm_argument());
         }
@@ -334,7 +334,7 @@ class state_machine
     template <class Event>
     void stop(Event const& final_event)
     {
-        if (this->m_machine_state != detail::machine_state::stopped)
+        if (this->m_machine_state != machine_state::stopped)
         {
             on_exit(final_event, get_fsm_argument());
         }
@@ -379,8 +379,7 @@ class state_machine
     void defer_event(Event const& event)
     {
         do_defer_event(compile_policy_impl::normalize_event(event),
-                       this->m_machine_state ==
-                           detail::machine_state::processing);
+                       this->m_machine_state == machine_state::processing);
     }
 
     /// Returns the active state ids of the machine.
@@ -546,7 +545,7 @@ class state_machine
     template <class Event>
     process_result process_event_impl(Event const& event, detail::process_info info)
     {
-        if (this->m_machine_state != detail::machine_state::idle)
+        if (this->m_machine_state != machine_state::idle)
         {
             return process_result::HANDLED_FALSE;
         }
@@ -882,7 +881,7 @@ class state_machine
             // ... then call our own exit.
             (static_cast<front_end_t*>(this))->on_exit(event, fsm);
         }
-        this->m_machine_state = detail::machine_state::stopped;
+        this->m_machine_state = machine_state::stopped;
     }
 
     derived_t& self()

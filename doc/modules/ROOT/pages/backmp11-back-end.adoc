@@ -459,7 +459,7 @@ You can use the reflection API for introspection use cases; the most prominent i
 - Boost.JSON
 - nlohmann/json
 
-Serializing a state machine to JSON provides a neat way to inspect it in a human-readable format, as demonstrated with the `DimSwitch` state machine in the https://github.com/boostorg/msm/blob/develop/test/Backmp11Adapter.hpp[backmp11 serialization test]:
+Serializing a state machine to JSON provides a neat way to inspect it in a human-readable format, as demonstrated with the `DimSwitch` state machine in the https://github.com/boostorg/msm/blob/develop/test/Backmp11Serialization.hpp[backmp11 serialization test]:
 
 ```json
 {
@@ -481,7 +481,7 @@ Serializing a state machine to JSON provides a neat way to inspect it in a human
 
 For each serialization library you can find a corresponding header with serializer code under `boost/msm/backmp11/serialization`. The serializer expects all objects with non-static members to be serializable, which can be achieved by implementing either backmp11's `reflect(...)` API or library-specific serialization methods. It is recommended to implement `backmp11` back-end's reflection API, because this mechanism is generic and supports all serialization libraries.
 
-For serialization with Boost.JSON and nlohmann/json, you only need to include the corresponding header. For Boost.Serialization, you additionally need to provide a `serialize` method for the (root) state machine. The https://github.com/boostorg/msm/blob/develop/test/Backmp11Adapter.hpp[backmp11 serialization test] demonstrates how to use the serialization libraries.
+For serialization with Boost.JSON and nlohmann/json, you only need to include the corresponding header. For Boost.Serialization, you additionally need to provide a `serialize` method for the (root) state machine. The https://github.com/boostorg/msm/blob/develop/test/Backmp11Serialization.hpp[backmp11 serialization test] demonstrates how to use the serialization libraries.
 
 
 == Run to completion
@@ -527,10 +527,10 @@ The following sections provide further details about the differences between `ba
 
 === Public API of `state_machine`
 
-The following adapter pseudo-code illustrates the differences from the `state_machine` API of `back`.
+The following adapter pseudo-code illustrates the differences from the `back::state_machine` API (see xref:backmp11-back-end/examples.adoc#_back_adapter[`full code example`]).
 
 ```cpp
-class state_machine_adapter
+class back_adapter
 {
     template <typename Event>
     back::HandledEnum process_event(const Event& event)
@@ -603,9 +603,6 @@ class state_machine_adapter
     // auto get_state_by_id(int id) {...}
 };
 ```
-
-A working code example of such an adapter is available in https://github.com/boostorg/msm/blob/develop/test/Backmp11Adapter.hpp[the tests].
-It can be copied and adapted if needed, though this class is internal to the tests and not planned to be supported officially.
 
 
 === Kleene events
