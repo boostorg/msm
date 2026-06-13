@@ -179,7 +179,7 @@ class boost_json_deserializer
 
 } // namespace boost::msm::backmp11::serialization
 
-namespace boost::msm::backmp11::detail
+namespace boost::msm::backmp11
 {
 
 inline void tag_invoke(const boost::json::value_from_tag&, boost::json::value& json,
@@ -195,7 +195,7 @@ inline machine_state tag_invoke(const boost::json::value_to_tag<machine_state>&,
 }
 
 template <typename StateMachine,
-          typename = std::enable_if_t<is_state_machine_v<StateMachine>>>
+          typename = std::enable_if_t<detail::is_state_machine_v<StateMachine>>>
 void tag_invoke(const boost::json::value_from_tag&, boost::json::value& json,
                 const StateMachine& sm)
 {
@@ -203,7 +203,7 @@ void tag_invoke(const boost::json::value_from_tag&, boost::json::value& json,
 }
 
 template <typename StateMachine,
-          typename = std::enable_if_t<is_state_machine_v<StateMachine>>>
+          typename = std::enable_if_t<detail::is_state_machine_v<StateMachine>>>
 StateMachine tag_invoke(const boost::json::value_to_tag<StateMachine>&,
                         const boost::json::value& json)
 {
