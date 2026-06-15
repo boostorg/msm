@@ -36,6 +36,38 @@ Stopping state machine...
 ```
 
 
+== Serialization
+
+These examples demonstrate how to implement `reflect(...)` methods to serialize a state machine.
+
+A serialization to JSON is particularly useful for inspecting a state machine's overall state in a human-readable format:
+
+```json
+{
+    "active_state_ids": [
+        1 // On
+    ],
+    "front_end": {
+        "brightness": 75
+    },
+    "machine_state": 1, // idle
+    "states": {
+        "1": {
+            "times_pressed": 1
+        }
+    }
+}
+```
+
+=== xref:attachment$backmp11/serializer/DimSwitch.hpp[`DimSwitch` state machine] (used by all examples)
+
+=== xref:attachment$backmp11/serializer/BoostSerialization.cpp[Boost.Serialization]
+
+=== xref:attachment$backmp11/serializer/BoostJson.cpp[Boost.Json]
+
+=== xref:attachment$backmp11/serializer/NlohmannJson.cpp[nlohmann/json]
+
+
 == xref:attachment$backmp11/StateMachineInterface.cpp[State machine interface]
 
 This example demonstrates how to establish a generic state machine interface with the `favor_compile_time` policy.

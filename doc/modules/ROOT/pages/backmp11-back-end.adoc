@@ -461,29 +461,9 @@ You can use the reflection API for introspection use cases; the most prominent i
 - Boost.JSON
 - nlohmann/json
 
-Serializing a state machine to JSON provides a neat way to inspect it in a human-readable format, as demonstrated with the `DimSwitch` state machine in the https://github.com/boostorg/msm/blob/develop/test/Backmp11Serialization.hpp[backmp11 serialization test]:
-
-```json
-{
-    "active_state_ids": [
-        1 // On
-    ],
-    "front_end": {
-        "brightness": 75
-    },
-    "machine_state": 1, // idle
-    "states": {
-        "1": {
-            "times_pressed": 1
-        }
-    }
-}
-```
-
-
 For each serialization library you can find a corresponding header with serializer code under `boost/msm/backmp11/serialization`. The serializer expects all objects with non-static members to be serializable, which can be achieved by implementing either backmp11's `reflect(...)` API or library-specific serialization methods. It is recommended to implement `backmp11` back-end's reflection API, because this mechanism is generic and supports all serialization libraries.
 
-For serialization with Boost.JSON and nlohmann/json, you only need to include the corresponding header. For Boost.Serialization, you additionally need to provide a `serialize` method for the (root) state machine. The https://github.com/boostorg/msm/blob/develop/test/Backmp11Serialization.hpp[backmp11 serialization test] demonstrates how to use the serialization libraries.
+Serializing a state machine to JSON provides a neat way to inspect it in a human-readable format. For serialization with Boost.JSON and nlohmann/json, you only need to include the corresponding header. For Boost.Serialization, you additionally need to provide a free `serialize(...)` method for the (root) state machine or implement a `serialize(...)` member in the back-end. Usage of all libraries is demonstrated in the xref:backmp11-back-end/examples.adoc#_serialization[`serialization examples`].
 
 
 == Run to completion

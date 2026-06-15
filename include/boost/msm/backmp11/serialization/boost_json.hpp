@@ -182,16 +182,17 @@ class boost_json_deserializer
 namespace boost::msm::backmp11
 {
 
-inline void tag_invoke(const boost::json::value_from_tag&, boost::json::value& json,
-                const machine_state& state)
+inline void tag_invoke(const boost::json::value_from_tag&,
+                       boost::json::value& json, const machine_state& state)
 {
     json = static_cast<std::underlying_type_t<machine_state>>(state);
 }
 
 inline machine_state tag_invoke(const boost::json::value_to_tag<machine_state>&,
-                        const boost::json::value& json)
+                                const boost::json::value& json)
 {
-    return static_cast<machine_state>(json.as_uint64());
+    return static_cast<machine_state>(
+        json.to_number<std::underlying_type_t<machine_state>>());
 }
 
 template <typename StateMachine,
