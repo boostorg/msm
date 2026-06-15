@@ -37,10 +37,13 @@
     }                                                                          \
     } // boost::msm::backmp11::detail
 
-namespace boost:: msm::backmp11::detail
+namespace boost:: msm::backmp11
 {
 
 using any_event = std::any;
+
+namespace detail
+{
 
 template <>
 struct compile_policy_impl<favor_compile_time>
@@ -539,6 +542,7 @@ compile_policy_impl<favor_compile_time>::dispatch_table<StateMachine, any_event>
 
 #endif
 
+} // namespace detail
 } // namespace boost::msm::backmp11::detail
 
 #endif //BOOST_MSM_BACKMP11_FAVOR_COMPILE_TIME_HPP

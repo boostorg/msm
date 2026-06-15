@@ -34,3 +34,10 @@ MyStateMachine processing event SmInternalTransitionEvent
 MyStateMachine processed transition "MyStateMachine + SmInternalTransitionEvent / MyAction" (handled)
 Stopping state machine...
 ```
+
+
+== xref:attachment$backmp11/StateMachineInterface.cpp[State machine interface]
+
+This example demonstrates how to establish a generic state machine interface with the `favor_compile_time` policy.
+
+Hiding a state machine behind an interface enables full encapsulation of its implementation — useful for improving compilation times, unit testing, and concealing proprietary logic when distributing pre-compiled libraries.

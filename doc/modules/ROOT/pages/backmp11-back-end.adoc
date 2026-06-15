@@ -237,11 +237,13 @@ Like its counterpart in `back`, it does not support event hierarchies and Kleene
 
 Events are wrapped into a `std::any` when they enter event processing. The dispatch table is stored in a hash map, with the type index of each event as the key and an array of function pointers to the matching transitions as the value.
 
-With this policy, you can compile a state machine across multiple translation units (TUs) with the help of a preprocessor macro.
+With this policy, you can hide a state machine implementation behind an interface. See the xref:backmp11-back-end/examples.adoc#_state_machine_interface[`state machine interface example`].
+
+You can also compile a state machine across multiple translation units with the help of a preprocessor macro.
 Since the back-end should compile very quickly for most state machines, this is an opt-in feature:
 
 - define `BOOST_MSM_BACKMP11_MANUAL_GENERATION` before including `msm/backmp11/favor_compile_time.hpp`
-- then generate your state machine back-end(s) with the macro `BOOST_MSM_BACKMP11_GENERATE_STATE_MACHINE(<sm_type>)`
+- then generate the state machine back-end(s) with the macro `BOOST_MSM_BACKMP11_GENERATE_STATE_MACHINE(<sm_type>)`
 
 You can find an example for this in the https://github.com/boostorg/msm/blob/develop/test/Backmp11Visitor.cpp[visitor test].
 
