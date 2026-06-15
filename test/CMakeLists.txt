@@ -92,6 +92,7 @@ add_executable(boost_msm_cxx17_tests
     Backmp11Observer.cpp
     Backmp11RootSm.cpp
     Backmp11Serialization.cpp
+    Backmp11StateMachineInterface.cpp
     Backmp11Transitions.cpp
     Backmp11Visitor.cpp
     main.cpp
