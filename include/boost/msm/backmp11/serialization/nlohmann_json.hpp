@@ -47,6 +47,11 @@ class nlohmann_json_serializer
         m_json.pop();
     }
 
+    void visit_member(const char* /*key*/, const machine_state& state)
+    {
+        top()["stopped"] = (state == machine_state::stopped);
+    }
+
     template <typename Member>
     void visit_member(const char* key, Member&& member)
     {
@@ -104,6 +109,13 @@ class nlohmann_json_deserializer
         m_json.push(&json_state);
         reflect();
         m_json.pop();
+    }
+
+    void visit_member(const char* /*key*/, machine_state& state)
+    {
+        state = top().at("stopped").get<bool>()
+            ? machine_state::stopped
+            : machine_state::idle;
     }
 
     template <typename Member>

@@ -66,7 +66,7 @@ BOOST_AUTO_TEST_CASE(boost_json)
     BOOST_REQUIRE(dim_switch.is_state_active<Off>());
 
     BOOST_REQUIRE(to_boost_json_string(dim_switch) == \
-R"({"front_end":{"brightness":0},"states":{"1":{"times_pressed":0}},"active_state_ids":[0],"machine_state":1})");
+R"({"front_end":{"brightness":0},"states":{"1":{"times_pressed":0}},"active_state_ids":[0],"stopped":false})");
 
     // Turn On (state id 1) and set brightness to 75.
     dim_switch.process_event(TurnOn{});
@@ -76,7 +76,7 @@ R"({"front_end":{"brightness":0},"states":{"1":{"times_pressed":0}},"active_stat
     BOOST_REQUIRE(dim_switch.brightness = 75);
 
     BOOST_REQUIRE(to_boost_json_string(dim_switch) == \
-R"({"front_end":{"brightness":75},"states":{"1":{"times_pressed":1}},"active_state_ids":[1],"machine_state":1})");
+R"({"front_end":{"brightness":75},"states":{"1":{"times_pressed":1}},"active_state_ids":[1],"stopped":false})");
 
     // Deserialize the json into a new state machine.
     const auto json = boost::json::parse(to_boost_json_string(dim_switch));
@@ -114,12 +114,12 @@ R"({
     "front_end": {
         "brightness": 0
     },
-    "machine_state": 1,
     "states": {
         "1": {
             "times_pressed": 0
         }
-    }
+    },
+    "stopped": false
 })");
 
     // Turn On (state id 1) and set brightness to 75.
@@ -137,12 +137,12 @@ R"({
     "front_end": {
         "brightness": 75
     },
-    "machine_state": 1,
     "states": {
         "1": {
             "times_pressed": 1
         }
-    }
+    },
+    "stopped": false
 })");
     
     // Deserialize the json into a new state machine.
