@@ -26,13 +26,26 @@ namespace mp11 = boost::mp11;
 namespace
 {
 
+static constexpr size_t max_event_size = 32;
+
+struct MyConfig : back::state_machine_config
+{
+    // Use a static vector as event pool container.
+    // This container is sufficient for enqueueing and deferring events,
+    // but it does not support completion transitions.
+    // If needed, use a heapless deque implementation (e.g. etl::deque).
+    template <typename T>
+    using static_vector = boost::container::static_vector<T, 10>;
+    using event_pool =
+        back::event_pool</*Container=*/static_vector,
+                         /*InlineCapacity=*/max_event_size>;
+};
+
 // Events.
 struct Greet
 {
     // A heapless event must be copy constructible and nothrow move constructible.
-    // The maximum size depends on alignment requirements and the target system,
-    // 32 bytes should always work.
-    alignas(void*) std::array<char, 32> message{};
+    std::array<char, max_event_size> message{};
 };
 
 // Actions.
@@ -63,16 +76,6 @@ struct MyStateMachine_ : front::state_machine_def<MyStateMachine_>
     using transition_table = mp11::mp_list<
         Row<MyState, Greet, none, PrintMessage>
     >;
-};
-
-struct MyConfig : back::state_machine_config
-{
-    // Use a static vector as event pool container.
-    // This container is sufficient for enqueueing and deferring events,
-    // but it does not support completion transitions.
-    // If needed, use a heapless deque implementation (e.g. etl::deque).
-    template <typename T>
-    using event_pool_container = boost::container::static_vector<T, 10>;
 };
 
 using MyStateMachine = back::state_machine<MyStateMachine_, MyConfig>;

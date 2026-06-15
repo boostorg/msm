@@ -10,7 +10,7 @@ It is helpful for utilizing `backmp11` in a legacy code base.
 
 This example demonstrates a state machine configured for heapless execution.
 
-It uses `boost::container::static_vector` as the event pool container — a fixed-capacity replacement for the default `std::deque` container. Note that this container type does not support completion events; use a heapless deque (e.g. `etl::deque`) if those are required.
+It uses `boost::container::static_vector` as the event pool container — a fixed-capacity replacement for the default `std::deque` container. Note that this container type does not support completion transitions; use a heapless deque (e.g. `etl::deque`) if those are required.
 
 
 == xref:attachment$backmp11/Logger.cpp[Logger]

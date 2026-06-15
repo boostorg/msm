@@ -81,6 +81,7 @@ struct back_config_adapter : boost::msm::backmp11::state_machine_config
     template <typename T>
     using event_pool_container =
         typename QueueContainerPolicy::template In<T>::type;
+    using event_pool = boost::msm::backmp11::event_pool<event_pool_container>;
 };
 
 template <class A1, class A2, class A3, class A4>

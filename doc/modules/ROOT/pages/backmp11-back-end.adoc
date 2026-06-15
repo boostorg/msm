@@ -63,9 +63,8 @@ struct default_state_machine_config
     using context = no_context;
     // Optimizes for runtime speed or compile time.
     using compile_policy = favor_runtime_speed;
-    // Configures the container type of the event pool.
-    template <typename T>
-    using event_pool_container = std::deque<T>;
+    // Configures the event pool.
+    using event_pool = backmp11::event_pool<std::deque>;
     // Type of the Fsm parameter passed in actions and guards.
     using fsm_parameter = local_transition_owner;
     // Sets up an observer for monitoring state machine activities.
@@ -174,12 +173,22 @@ When a transition defined in SM1 causes SM2 and SM3 to exit:
 
 === Event pool
 
-The setting `event_pool_container` defines the container type of the state machine's event pool. It requires an event pool to handle event enqueueing, deferral, and completion transitions. The default event pool container is a `std::deque<T>`.
+The setting `event_pool` configures the container and inline storage the back-end uses to hold work that cannot be processed immediately: enqueued events, deferred events, and completion transitions.
 
-The event pool container can be customized with `using event_pool_container = MyEventPoolContainer<T>;`. It has to support push without iterator invalidation, specifically the following API calls:
+```cpp
+template <template <typename> typename Container,
+          size_t InlineCapacity = 32,
+          size_t InlineAlign = alignof(std::max_align_t)>
+struct event_pool;
+```
 
-- `push_back(const T&)` (for event enqueueing and deferral)
-- `push_front(const T&)` (for completion transitions)
+The default configuration uses `std::deque`. Each pooled event occupies a type-erased slot in the container.
+To avoid a heap allocation per slot, the back-end uses a small-object optimization: events that fit within `InlineCapacity` bytes and `InlineAlign` alignment are stored directly in the slot. Events exceeding either limit fall back to heap allocation.
+
+The container must not invalidate existing iterators when `push_back` or `push_front` is called. The required interface is:
+
+- `push_back(const T&)` — for event enqueueing and deferral
+- `push_front(const T&)` — for completion transitions
 - `begin()`
 - `end()`
 - `erase(iterator)`
@@ -187,11 +196,18 @@ The event pool container can be customized with `using event_pool_container = My
 
 [NOTE]
 ====
-By replacing the default `std::deque` with a fixed-capacity container, the state machine can operate entirely without heap allocation.
+By replacing `std::deque` with a fixed-capacity container and setting `InlineCapacity` and `InlineAlign` to cover all event types, the state machine can operate entirely without heap allocation.
 See the xref:backmp11-back-end/examples.adoc#_heapless_state_machine[heapless state machine example] for a demo using `boost::container::static_vector`.
 ====
 
-You can deactivate the event pool with `using event_pool_container = no_event_pool_container<T>;`.
+Use `no_event_pool` to disable the event pool if the state machine does not require event enqueueing, deferral, and completion transitions:
+
+```cpp
+struct MyConfig : state_machine_config
+{
+    using event_pool = no_event_pool;
+};
+```
 
 
 === Compile policy

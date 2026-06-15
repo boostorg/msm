@@ -187,8 +187,7 @@ class observer_member<no_observer, nesting_role::unknown>
 
 template <typename Config, nesting_role NestingRole>
 class state_machine_base
-    : public event_pool_processor<Config::template event_pool_container,
-                                  basic_polymorphic<event_occurrence>>,
+    : public event_pool_processor<typename Config::event_pool>,
       public context_member<typename Config::context, NestingRole>,
       public observer_member<typename Config::observer, NestingRole>
 {
@@ -331,8 +330,7 @@ class state_machine_base
     friend struct transition_table_impl;
 
     using event_pool_processor =
-        detail::event_pool_processor<Config::template event_pool_container,
-                                     basic_polymorphic<event_occurrence>>;
+        detail::event_pool_processor<typename Config::event_pool>;
     using root_sm_base =
         state_machine_base<Config, get_root_nesting_role(NestingRole)>;
 
