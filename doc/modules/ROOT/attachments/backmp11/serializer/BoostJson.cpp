@@ -50,13 +50,13 @@ std::string to_boost_json_string(const DimSwitch& dim_switch)
     // The initial state is Off (state id 0).
     dim_switch.start();
     // Prints:
-    // {"front_end":{"brightness":0},"states":{"1":{"times_pressed":0}},"active_state_ids":[0],"machine_state":1}
+    // {"front_end":{"brightness":0},"states":{"1":{"times_pressed":0}},"active_state_ids":[0],"stopped":false}
     std::cout << to_boost_json_string(dim_switch) << std::endl;
 
     // Turn On (state id 1) and set brightness to 75.
     dim_switch.process_event(TurnOn{});
     // Prints:
-    // {"front_end":{"brightness":75},"states":{"1":{"times_pressed":1}},"active_state_ids":[1],"machine_state":1}
+    // {"front_end":{"brightness":75},"states":{"1":{"times_pressed":1}},"active_state_ids":[1],"stopped":false}
     std::cout << to_boost_json_string(dim_switch) << std::endl;
 
     // Deserialize the json into a new state machine.
@@ -64,7 +64,7 @@ std::string to_boost_json_string(const DimSwitch& dim_switch)
     const auto dim_switch_2 = boost::json::value_to<DimSwitch>(json);
 
     // Prints:
-    // {"front_end":{"brightness":75},"states":{"1":{"times_pressed":1}},"active_state_ids":[1],"machine_state":1}
+    // {"front_end":{"brightness":75},"states":{"1":{"times_pressed":1}},"active_state_ids":[1],"stopped":false}
     std::cout << to_boost_json_string(dim_switch_2) << std::endl;
 }
 

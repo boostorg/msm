@@ -50,12 +50,12 @@ A serialization to JSON is particularly useful for inspecting a state machine's 
     "front_end": {
         "brightness": 75
     },
-    "machine_state": 1, // idle
     "states": {
         "1": {
             "times_pressed": 1
         }
-    }
+    },
+    "stopped": false
 }
 ```
 
