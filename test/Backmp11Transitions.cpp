@@ -92,8 +92,7 @@ struct StateMachine_;
 struct default_config : state_machine_config
 {
     // using root_sm = StateMachine;
-    template <typename T>
-    using event_pool_container = no_event_pool_container<T>;
+    using event_pool = no_event_pool;
 };
 struct favor_compile_time_config : default_config
 {

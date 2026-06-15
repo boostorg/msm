@@ -17,6 +17,7 @@
 
 #include <boost/config.hpp>
 
+#include <boost/msm/backmp11/detail/basic_polymorphic.hpp>
 #include <boost/msm/backmp11/detail/common.hpp>
 #include <boost/msm/backmp11/state_machine_config.hpp>
 
@@ -97,15 +98,23 @@ class deferred_event : public event_occurrence
     Event m_event;
 };
 
-template <template <typename> typename EventPoolContainer,
-          typename ProcessableEvent,
+template <typename Config,
           typename = void>
 class event_pool_processor
 {
+    struct alignas(Config::inline_align) dummy_event
+    {
+        char data[Config::inline_capacity];
+    };
+    using deferred_dummy = deferred_event<dummy_event>;
+
   protected:
     static constexpr bool has_event_pool = true;
-    using processable_event = ProcessableEvent;
-    using event_pool_container_t = EventPoolContainer<processable_event>;
+    using processable_event =
+        basic_polymorphic<event_occurrence, sizeof(deferred_dummy),
+                          alignof(deferred_dummy)>;
+    using event_pool_container_t =
+        typename Config::template container_t<processable_event>;
 
     struct event_pool_t
     {
@@ -178,13 +187,10 @@ class event_pool_processor
     event_pool_t m_event_pool;
 };
 
-template <template <typename> typename EventPoolContainer,
-          typename ProcessableEvent>
+template <typename Config>
 class event_pool_processor<
-    EventPoolContainer,
-    ProcessableEvent,
-    std::enable_if_t<std::is_same_v<EventPoolContainer<ProcessableEvent>,
-                                    no_event_pool_container<ProcessableEvent>>>>
+    Config,
+    std::enable_if_t<std::is_same_v<Config, no_event_pool>>>
 {
   protected:
     static constexpr bool has_event_pool = false;

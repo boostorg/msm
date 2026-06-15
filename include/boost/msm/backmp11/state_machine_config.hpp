@@ -87,9 +87,27 @@ struct no_root_sm {};
 /// (see @ref state_machine_config::fsm_parameter).
 struct local_transition_owner {};
 
-/// Deactivates the event pool (see @ref state_machine_config::event_pool_container).
-template <typename T>
-struct no_event_pool_container {};
+/**
+ * @brief Defines the container type and inline storage for the event pool (see
+ * @ref state_machine_config::event_pool).
+ *
+ * @tparam Container Type of the container to use.
+ * @tparam InlineCapacity Max inline storage per event.
+ * @tparam InlineAlign Inline storage alignment.
+ */
+template <template <typename...> typename Container,
+          size_t InlineCapacity = 32,
+          size_t InlineAlign = alignof(std::max_align_t)>
+struct event_pool
+{
+    template <typename T>
+    using container_t = Container<T>;
+    static constexpr size_t inline_capacity = InlineCapacity;
+    static constexpr size_t inline_align = InlineAlign;
+};
+
+/// Deactivates the event pool (see @ref state_machine_config::event_pool).
+struct no_event_pool {};
 
 /// No observer is configured (see @ref state_machine_config::observer).
 struct no_observer {};
@@ -111,14 +129,13 @@ struct default_state_machine_config
      */
     using compile_policy = favor_runtime_speed;
     /**
-     * @brief Configures the container type of the event pool. Defaults to
-     * `std::deque`.
+     * @brief Configures the event pool.
+     * Defaults to `std::deque` and 32 bytes inline storage capacity per event.
      *
-     * The event pool is required to handle deferred events, enqueued events,
+     * The event pool is required to handle enqueued events, deferred events,
      * and completion transitions.
      */
-    template <typename T>
-    using event_pool_container = std::deque<T>;
+    using event_pool = backmp11::event_pool<std::deque>;
     /// Type of the Fsm parameter passed in actions and guards.
     /// Defaults to @ref local_transition_owner.
     using fsm_parameter = local_transition_owner;
