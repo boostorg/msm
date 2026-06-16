@@ -70,6 +70,7 @@ std::string to_nlohmann_json_string(const DimSwitch& dim_switch)
 
     // Turn On (state id 1) and set brightness to 75.
     dim_switch.process_event(TurnOn{});
+    dim_switch.process_event(Dim{75});
     // Prints:
     // {
     //     "active_state_ids": [

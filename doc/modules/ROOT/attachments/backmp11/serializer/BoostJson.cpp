@@ -55,6 +55,7 @@ std::string to_boost_json_string(const DimSwitch& dim_switch)
 
     // Turn On (state id 1) and set brightness to 75.
     dim_switch.process_event(TurnOn{});
+    dim_switch.process_event(Dim{75});
     // Prints:
     // {"front_end":{"brightness":75},"states":{"1":{"times_pressed":1}},"active_state_ids":[1],"stopped":false}
     std::cout << to_boost_json_string(dim_switch) << std::endl;
