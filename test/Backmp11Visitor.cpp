@@ -14,12 +14,16 @@
 #endif
 #include <boost/test/unit_test.hpp>
 
+#include "attachments/backmp11/Visitor.cpp"
+
 // back-end
 // Generate the favor_compile_time SM manually.
 #define BOOST_MSM_BACKMP11_MANUAL_GENERATION
 #include "Backmp11.hpp"
 // front-end
 #include "FrontCommon.hpp"
+
+#include "Utils.hpp"
 
 namespace msm = boost::msm;
 namespace mp11 = boost::mp11;
@@ -317,6 +321,28 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(no_copy_no_move, TestMachine, TestMachines)
 
         upper_machine_c.template visit<mode>([](auto&) {});
     });
+}
+
+BOOST_AUTO_TEST_CASE(visitor_example_test)
+{
+    static_assert(is_song<Song<songs[0]>>::value);
+
+    Jukebox jukebox;
+    jukebox.start();
+
+    for (size_t i = 0; i < 3; i++)
+    {
+        jukebox.process_event(Play{songs[i]});
+        jukebox.process_event(Stop{});
+    }
+    Playing& playing = jukebox.get_state<Playing>();
+    ASSERT_ONE_AND_RESET(playing.get_state<Song<songs[0]>>().times_played);
+    ASSERT_ONE_AND_RESET(playing.get_state<Song<songs[1]>>().times_played);
+    ASSERT_ONE_AND_RESET(playing.get_state<Song<songs[2]>>().times_played);
+
+    jukebox.process_event(Play{songs[0]});
+    BOOST_REQUIRE(jukebox.is_state_active<Song<songs[0]>>());
+    ASSERT_ONE_AND_RESET(playing.get_state<Song<songs[0]>>().times_played);    
 }
 
 } // namespace
