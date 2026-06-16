@@ -136,7 +136,7 @@ struct compile_policy_impl<
                 using table = dispatch_impl<typename Policy::dispatch_strategy>;
                 return table::dispatch(sm, region_id, event);
             }
-            return process_result::HANDLED_FALSE;
+            return process_result::discarded;
         }
 
         // Dispatch an event to the SM's internal table.
@@ -147,7 +147,7 @@ struct compile_policy_impl<
             {
                 return internal_dispatch_impl::transition::process(sm, event);
             }
-            return process_result::HANDLED_FALSE;
+            return process_result::discarded;
         }
 
       private:
@@ -330,7 +330,7 @@ struct compile_policy_impl<
                                            const Event& event)
             {
                 const auto state_id = sm.m_active_state_ids[region_id];
-                process_result result = process_result::HANDLED_FALSE;
+                process_result result = process_result::discarded;
                 mp11::mp_for_each<typename base::merged_transitions>(
                     [&sm, region_id, &event, state_id, &result](auto transition)
                     {
@@ -367,7 +367,7 @@ struct compile_policy_impl<
                 {
                     return cell(sm, region_id, event);
                 }
-                return process_result::HANDLED_FALSE;
+                return process_result::discarded;
             }
 
           private:
@@ -410,17 +410,17 @@ struct compile_policy_impl<
 
                 static process_result process(StateMachine& sm, Event const& evt)
                 {
-                    process_result result = process_result::HANDLED_FALSE;
+                    process_result result = process_result::discarded;
                     mp_for_each_until<Transitions>(
                         [&result, &sm, &evt](auto transition)
                         {
                             using Transition = decltype(transition);
                             result |= Transition::process(sm, evt);
-                            if (result & handled_true_or_deferred)
+                            if (any(result & consumed_or_deferred))
                             {
                                 // If a guard rejected previously,
                                 // ensure this bit is not present.
-                                result &= handled_true_or_deferred;
+                                result &= consumed_or_deferred;
                                 return true;
                             }
                             return false;

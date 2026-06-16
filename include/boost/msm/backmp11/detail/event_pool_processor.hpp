@@ -158,7 +158,7 @@ class event_pool_processor
             }
 
             // Consider anything except "only deferred" to be a processed event.
-            if (*result != process_result::HANDLED_DEFERRED)
+            if (*result != process_result::deferred)
             {
                 processed_events++;
                 if (processed_events == max_events)
@@ -175,7 +175,7 @@ class event_pool_processor
             // (required to prevent infinitely processing the same event,
             // if it was handled and at the same time action-deferred
             // in orthogonal regions).
-            if (!(*result & process_result::HANDLED_DEFERRED))
+            if (!(any(*result & process_result::deferred)))
             {
                 m_event_pool.cur_seq_cnt += 1;
             }

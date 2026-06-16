@@ -12,45 +12,7 @@
 #ifndef BOOST_MSM_BACKMP11_DETAIL_COMMON_HPP
 #define BOOST_MSM_BACKMP11_DETAIL_COMMON_HPP
 
-#include <cstdint>
-
 #include <boost/msm/backmp11/common_types.hpp>
-
-namespace boost::msm::back
-{
-
-// Bitwise operations for process_result.
-// Defined in this header instead of back because type_traits are C++11.
-// Defined in the back namespace because the operations have to be in the
-// same namespace as HandledEnum.
-
-constexpr HandledEnum operator|(HandledEnum lhs, HandledEnum rhs)
-{
-    return static_cast<HandledEnum>(
-        static_cast<std::underlying_type_t<HandledEnum>>(lhs) |
-        static_cast<std::underlying_type_t<HandledEnum>>(rhs));
-}
-
-constexpr HandledEnum& operator|=(HandledEnum& lhs, HandledEnum rhs)
-{
-    lhs = lhs | rhs;
-    return lhs;
-}
-
-constexpr HandledEnum operator&(HandledEnum lhs, HandledEnum rhs)
-{
-    return static_cast<HandledEnum>(
-        static_cast<std::underlying_type_t<HandledEnum>>(lhs) &
-        static_cast<std::underlying_type_t<HandledEnum>>(rhs));
-}
-
-constexpr HandledEnum& operator&=(HandledEnum& lhs, HandledEnum rhs)
-{
-    lhs = lhs & rhs;
-    return lhs;
-}
-
-} // namespace boost::msm::back
 
 namespace boost::msm::backmp11::detail
 {
@@ -81,11 +43,14 @@ enum class process_info
     event_pool
 };
 
-using process_result = back::HandledEnum;
-
 // Bitmask for process result checks.
-static constexpr process_result handled_true_or_deferred =
-    process_result::HANDLED_TRUE | process_result::HANDLED_DEFERRED;
+constexpr process_result consumed_or_deferred =
+    process_result::consumed | process_result::deferred;
+
+constexpr bool any(process_result result)
+{
+    return result != process_result::discarded;
+}
 
 template <typename Policy, typename = void>
 struct compile_policy_impl;

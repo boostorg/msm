@@ -128,14 +128,14 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(observer, StateMachine, TestMachines)
     Observer& observer = test_machine.get_observer();
 
     test_machine.start();
-    observer.assert_and_pop_msg("MyStateMachine processed transition \"none + starting -> MyState\" (handled)");
+    observer.assert_and_pop_msg("MyStateMachine processed transition \"none + starting -> MyState\" (consumed)");
     ASSERT_AND_RESET(observer.pre_process_transition_counter, 1);
     ASSERT_AND_RESET(observer.post_process_transition_counter, 1);
 
     test_machine.process_event(TransitionEvent{});
     observer.assert_and_pop_msg("MyStateMachine processing event TransitionEvent");
     observer.assert_and_pop_msg("MyStateMachine processed transition \"MyState + TransitionEvent [ NotMyGuard ] / MyAction -> MyOtherState\" (rejected)");
-    observer.assert_and_pop_msg("MyStateMachine processed transition \"MyState + TransitionEvent [ MyGuard ] / MyAction -> MyOtherState\" (handled)");
+    observer.assert_and_pop_msg("MyStateMachine processed transition \"MyState + TransitionEvent [ MyGuard ] / MyAction -> MyOtherState\" (consumed)");
     ASSERT_AND_RESET(observer.pre_process_event_counter, 1);
     ASSERT_AND_RESET(observer.pre_process_transition_counter, 2);
     ASSERT_AND_RESET(observer.post_process_transition_counter, 2);
@@ -143,7 +143,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(observer, StateMachine, TestMachines)
 
     test_machine.process_event(TransitionEvent{});
     observer.assert_and_pop_msg("MyStateMachine processing event TransitionEvent");
-    observer.assert_and_pop_msg("MyStateMachine processed transition \"MyOtherState + TransitionEvent -> MyState\" (handled)");
+    observer.assert_and_pop_msg("MyStateMachine processed transition \"MyOtherState + TransitionEvent -> MyState\" (consumed)");
     ASSERT_AND_RESET(observer.pre_process_event_counter, 1);
     ASSERT_AND_RESET(observer.pre_process_transition_counter, 1);
     ASSERT_AND_RESET(observer.post_process_transition_counter, 1);
@@ -151,7 +151,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(observer, StateMachine, TestMachines)
 
     test_machine.process_event(InternalTransitionEvent{});
     observer.assert_and_pop_msg("MyStateMachine processing event InternalTransitionEvent");
-    observer.assert_and_pop_msg("MyStateMachine processed transition \"MyState + InternalTransitionEvent / MyAction\" (handled)");
+    observer.assert_and_pop_msg("MyStateMachine processed transition \"MyState + InternalTransitionEvent / MyAction\" (consumed)");
     ASSERT_AND_RESET(observer.pre_process_event_counter, 1);
     ASSERT_AND_RESET(observer.pre_process_transition_counter, 1);
     ASSERT_AND_RESET(observer.post_process_transition_counter, 1);
@@ -159,7 +159,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(observer, StateMachine, TestMachines)
 
     test_machine.process_event(SmInternalTransitionEvent{});
     observer.assert_and_pop_msg("MyStateMachine processing event SmInternalTransitionEvent");
-    observer.assert_and_pop_msg("MyStateMachine processed transition \"MyStateMachine + SmInternalTransitionEvent / MyAction\" (handled)");
+    observer.assert_and_pop_msg("MyStateMachine processed transition \"MyStateMachine + SmInternalTransitionEvent / MyAction\" (consumed)");
     ASSERT_AND_RESET(observer.pre_process_event_counter, 1);
     ASSERT_AND_RESET(observer.pre_process_transition_counter, 1);
     ASSERT_AND_RESET(observer.post_process_transition_counter, 1);
@@ -197,14 +197,14 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(observer_ref, StateMachine, TestMachines)
     StateMachine test_machine{observer};
 
     test_machine.start();
-    observer.assert_and_pop_msg("MyStateMachine processed transition \"none + starting -> MyState\" (handled)");
+    observer.assert_and_pop_msg("MyStateMachine processed transition \"none + starting -> MyState\" (consumed)");
     ASSERT_AND_RESET(observer.pre_process_transition_counter, 1);
     ASSERT_AND_RESET(observer.post_process_transition_counter, 1);
 
     test_machine.process_event(TransitionEvent{});
     observer.assert_and_pop_msg("MyStateMachine processing event TransitionEvent");
     observer.assert_and_pop_msg("MyStateMachine processed transition \"MyState + TransitionEvent [ NotMyGuard ] / MyAction -> MyOtherState\" (rejected)");
-    observer.assert_and_pop_msg("MyStateMachine processed transition \"MyState + TransitionEvent [ MyGuard ] / MyAction -> MyOtherState\" (handled)");
+    observer.assert_and_pop_msg("MyStateMachine processed transition \"MyState + TransitionEvent [ MyGuard ] / MyAction -> MyOtherState\" (consumed)");
     ASSERT_AND_RESET(observer.pre_process_event_counter, 1);
     ASSERT_AND_RESET(observer.pre_process_transition_counter, 2);
     ASSERT_AND_RESET(observer.post_process_transition_counter, 2);
@@ -212,7 +212,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(observer_ref, StateMachine, TestMachines)
 
     test_machine.process_event(TransitionEvent{});
     observer.assert_and_pop_msg("MyStateMachine processing event TransitionEvent");
-    observer.assert_and_pop_msg("MyStateMachine processed transition \"MyOtherState + TransitionEvent -> MyState\" (handled)");
+    observer.assert_and_pop_msg("MyStateMachine processed transition \"MyOtherState + TransitionEvent -> MyState\" (consumed)");
     ASSERT_AND_RESET(observer.pre_process_event_counter, 1);
     ASSERT_AND_RESET(observer.pre_process_transition_counter, 1);
     ASSERT_AND_RESET(observer.post_process_transition_counter, 1);
@@ -220,7 +220,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(observer_ref, StateMachine, TestMachines)
 
     test_machine.process_event(InternalTransitionEvent{});
     observer.assert_and_pop_msg("MyStateMachine processing event InternalTransitionEvent");
-    observer.assert_and_pop_msg("MyStateMachine processed transition \"MyState + InternalTransitionEvent / MyAction\" (handled)");
+    observer.assert_and_pop_msg("MyStateMachine processed transition \"MyState + InternalTransitionEvent / MyAction\" (consumed)");
     ASSERT_AND_RESET(observer.pre_process_event_counter, 1);
     ASSERT_AND_RESET(observer.pre_process_transition_counter, 1);
     ASSERT_AND_RESET(observer.post_process_transition_counter, 1);
@@ -228,7 +228,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(observer_ref, StateMachine, TestMachines)
 
     test_machine.process_event(SmInternalTransitionEvent{});
     observer.assert_and_pop_msg("MyStateMachine processing event SmInternalTransitionEvent");
-    observer.assert_and_pop_msg("MyStateMachine processed transition \"MyStateMachine + SmInternalTransitionEvent / MyAction\" (handled)");
+    observer.assert_and_pop_msg("MyStateMachine processed transition \"MyStateMachine + SmInternalTransitionEvent / MyAction\" (consumed)");
     ASSERT_AND_RESET(observer.pre_process_event_counter, 1);
     ASSERT_AND_RESET(observer.pre_process_transition_counter, 1);
     ASSERT_AND_RESET(observer.post_process_transition_counter, 1);
