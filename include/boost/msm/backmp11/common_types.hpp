@@ -15,8 +15,6 @@
 #include <cstdint>
 #include <type_traits>
 
-#include <boost/msm/back/common_types.hpp>
-
 namespace boost::msm::backmp11
 {
 
@@ -32,7 +30,52 @@ enum class machine_state : uint8_t
 };
 
 /// Return type of @ref state_machine::process_event calls.
-using process_result = back::HandledEnum;
+enum class process_result : uint8_t
+{
+    /// No matching transition found, or the state machine was not ready.
+    ///
+    /// The state machine is not ready when stopped or
+    /// already processing another event.
+    discarded = 0,
+    /// The event triggered at least one transition.
+    consumed = 1,
+    /// All matching guards evaluated to false, no transition fired.
+    rejected = 2,
+    /// The event will be re-evaluated after the next transition.
+    deferred = 4,
+
+    /// Deprecated enum values.
+    HANDLED_FALSE [[deprecated("Use discarded")]] = 0,
+    HANDLED_TRUE [[deprecated("Use accepted")]] = 1,
+    HANDLED_GUARD_REJECT [[deprecated("Use rejected")]] = 2,
+    HANDLED_DEFERRED [[deprecated("Use deferred")]] = 4
+};
+
+constexpr process_result operator|(process_result lhs, process_result rhs)
+{
+    return static_cast<process_result>(
+        static_cast<std::underlying_type_t<process_result>>(lhs) |
+        static_cast<std::underlying_type_t<process_result>>(rhs));
+}
+
+constexpr process_result& operator|=(process_result& lhs, process_result rhs)
+{
+    lhs = lhs | rhs;
+    return lhs;
+}
+
+constexpr process_result operator&(process_result lhs, process_result rhs)
+{
+    return static_cast<process_result>(
+        static_cast<std::underlying_type_t<process_result>>(lhs) &
+        static_cast<std::underlying_type_t<process_result>>(rhs));
+}
+
+constexpr process_result& operator&=(process_result& lhs, process_result rhs)
+{
+    lhs = lhs & rhs;
+    return lhs;
+}
 
 /// Default event when starting a state machine (see @ref state_machine::start).
 struct starting {};

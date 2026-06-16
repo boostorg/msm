@@ -128,16 +128,15 @@ class Logger : public back::default_observer
 
     static std::string to_string(process_result result)
     {
-        using Enum = boost::msm::back::HandledEnum;
         switch (result)
         {
-            case Enum::HANDLED_FALSE:
+            case process_result::discarded:
                 return "discarded";
-            case Enum::HANDLED_TRUE:
-                return "handled";
-            case Enum::HANDLED_GUARD_REJECT:
+            case process_result::consumed:
+                return "consumed";
+            case process_result::rejected:
                 return "rejected";
-            case Enum::HANDLED_DEFERRED:
+            case process_result::deferred:
                 return "deferred";
             default:
                 return {};

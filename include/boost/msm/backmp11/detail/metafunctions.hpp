@@ -316,6 +316,10 @@ struct is_state_blocking_impl
 template<typename T>
 using is_state_blocking = typename is_state_blocking_impl<T>::type;
 
+// Helper to print types within metafunctions for debugging.
+template <typename... Ts>
+struct [[deprecated]] print_types {};
+
 } // boost::msm::backmp11::detail
 
 #endif // BOOST_MSM_BACKMP11_DETAIL_METAFUNCTIONS_HPP

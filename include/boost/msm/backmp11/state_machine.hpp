@@ -547,7 +547,7 @@ class state_machine
     {
         if (this->m_machine_state != machine_state::idle)
         {
-            return process_result::HANDLED_FALSE;
+            return process_result::discarded;
         }
 
         // If the state machine has terminate or interrupt flags, check them.
@@ -556,7 +556,7 @@ class state_machine
             // If the state machine is terminated, discard the event.
             if (is_flag_active<TerminateFlag>())
             {
-                return process_result::HANDLED_TRUE;
+                return process_result::consumed;
             }
 
             // If the state machine is interrupted, discard the event
@@ -564,7 +564,7 @@ class state_machine
             if (is_flag_active<InterruptedFlag>() &&
                 !is_end_interrupt_event(event))
             {
-                return process_result::HANDLED_TRUE;
+                return process_result::consumed;
             }
         }
 
@@ -579,7 +579,7 @@ class state_machine
                 if (info != detail::process_info::submachine_call &&
                     compile_policy_impl::try_defer_event(self(), event))
                 {
-                    return process_result::HANDLED_DEFERRED;
+                    return process_result::deferred;
                 }
 
                 // Ensure we consider an event
@@ -615,7 +615,7 @@ class state_machine
         using dispatch_table =
             typename compile_policy_impl::template dispatch_table<derived_t,
                                                                   Event>;
-        process_result result = process_result::HANDLED_FALSE;
+        process_result result = process_result::discarded;
 
         // Dispatch the event to every region.
         for (uint8_t region_id = 0; region_id < nr_regions; region_id++)
@@ -624,7 +624,7 @@ class state_machine
         }
         // Dispatch the event to the SM-internal table if it hasn't been
         // consumed yet.
-        if (!(result & detail::handled_true_or_deferred))
+        if (!detail::any(result & detail::consumed_or_deferred))
         {
             result |= dispatch_table::internal_dispatch(self(), event);
         }
@@ -633,7 +633,8 @@ class state_machine
         // then generate an error on every active state. For events coming
         // from upper machines, do not handle but let the upper sm handle
         // the error.
-        if (!result && !(info == detail::process_info::submachine_call))
+        if (result == process_result::discarded &&
+            !(info == detail::process_info::submachine_call))
         {
             for (const auto state_id : m_active_state_ids)
             {
@@ -707,7 +708,7 @@ class state_machine
             if (is_flag_active<TerminateFlag>() ||
                 is_flag_active<InterruptedFlag>())
             {
-                return process_result::HANDLED_TRUE;
+                return process_result::consumed;
             }
         }
 
@@ -755,7 +756,7 @@ class state_machine
                 m_self.get_observer()
                     .template post_process_transition<front::none, Event, State,
                                                       front::none, front::none>(
-                        m_self, m_region_id, process_result::HANDLED_TRUE);
+                        m_self, m_region_id, process_result::consumed);
             }
         }
 

@@ -181,7 +181,8 @@ class back_adapter : public boost::msm::backmp11::state_machine<
         {
             try
             {
-                return Base::process_event(event);
+                return static_cast<boost::msm::back::HandledEnum>(
+                    Base::process_event(event));
             }
             catch (std::exception& e)
             {

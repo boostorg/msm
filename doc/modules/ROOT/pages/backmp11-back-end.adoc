@@ -307,7 +307,7 @@ Calling `start(...)` on an active or `stop(...)` on an inactive state machine ha
 
 == Handling events
 
-Use xref:reference:boost/msm/backmp11/state_machine/process_event.adoc[`process_result state_machine::process_event(const Event&)`] to start processing an event while the state machine is idle.
+Use xref:reference:boost/msm/backmp11/state_machine/process_event.adoc[`process_result state_machine::process_event(const Event&)`] to trigger processing an event while the state machine is idle. The xref:reference:boost/msm/backmp11/process_result.adoc[`process_result`] enum returns the result of the processing attempt.
 
 You can enqueue an event to the event pool for subsequent processing in an action with xref:reference:boost/msm/backmp11/state_machine/enqueue_event.adoc[`void state_machine::enqueue_event(const Event&)`]. The enqueued event will be processed immediately after the current event has finished processing.
 If an event is enqueued while the state machine is idle, you can explicitly request the state machine to process events from its event pool with xref:reference:boost/msm/backmp11/state_machine/process_event_pool.adoc[`size_t process_event_pool(size_t max_events = SIZE_MAX)`].

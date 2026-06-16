@@ -60,7 +60,7 @@ struct MyAction
         // Attempting to process events while the state machine is processing
         // shall discard the event.
         BOOST_REQUIRE(fsm.process_event(TriggerNoTransition{}) ==
-                      process_result::HANDLED_FALSE);
+                      process_result::discarded);
     }
 };
 
@@ -163,7 +163,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(transitions, StateMachine, TestMachines)
     TestMachine test_machine;
 
     BOOST_REQUIRE(test_machine.process_event(TriggerInternalTransition{}) ==
-                  process_result::HANDLED_FALSE);
+                  process_result::discarded);
     ASSERT_AND_RESET(test_machine.template get_state<MyState>().action_counter, 0);
 
     test_machine.start();

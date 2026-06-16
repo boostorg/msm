@@ -221,10 +221,10 @@ struct compile_policy_impl<favor_compile_time>
             for (const generic_cell cell : m_transition_cells)
             {
                 result |= reinterpret_cast<cell_t>(cell)(sm, region_id, event);
-                if (result & handled_true_or_deferred)
+                if (any(result & consumed_or_deferred))
                 {
                     // If a guard rejected previously, ensure this bit is not present.
-                    return result & handled_true_or_deferred;
+                    return result & consumed_or_deferred;
                 }
             }
             // At this point result can be HANDLED_FALSE or HANDLED_GUARD_REJECT.
@@ -253,14 +253,14 @@ struct compile_policy_impl<favor_compile_time>
         process_result process(StateMachine& sm, any_event const& event) const
         {
             using cell_t = process_result (*)(StateMachine&, any_event const&);
-            process_result result = process_result::HANDLED_FALSE;
+            process_result result = process_result::discarded;
             for (const generic_cell cell : m_transition_cells)
             {
                 result |= reinterpret_cast<cell_t>(cell)(sm, event);
-                if (result & handled_true_or_deferred)
+                if (any(result & consumed_or_deferred))
                 {
                     // If a guard rejected previously, ensure this bit is not present.
-                    return result & handled_true_or_deferred;
+                    return result & consumed_or_deferred;
                 }
             }
             // At this point result can be HANDLED_FALSE or HANDLED_GUARD_REJECT.
@@ -305,7 +305,7 @@ struct compile_policy_impl<favor_compile_time>
                 const dispatch_table& self = instance();
                 return self.m_internal_dispatch_table.dispatch(sm, event);
             }
-            return process_result::HANDLED_FALSE;
+            return process_result::discarded;
         }
 
       private:
@@ -373,11 +373,11 @@ struct compile_policy_impl<favor_compile_time>
             // Dispatch an event.
             process_result dispatch(StateMachine& sm, uint8_t region_id, const any_event& event) const
             {
-                process_result result = process_result::HANDLED_FALSE;
+                process_result result = process_result::discarded;
                 if (m_call_process_event)
                 {
                     result = m_call_process_event(sm, event);
-                    if (result & handled_true_or_deferred)
+                    if (any(result & consumed_or_deferred))
                     {
                         return result;
                     }
@@ -451,7 +451,7 @@ struct compile_policy_impl<favor_compile_time>
             // Dispatch an event.
             process_result dispatch(StateMachine& sm, const any_event& event) const
             {
-                process_result result = process_result::HANDLED_FALSE;
+                process_result result = process_result::discarded;
                 auto it = m_transition_chains.find(event.type());
                 if (it != m_transition_chains.end())
                 {

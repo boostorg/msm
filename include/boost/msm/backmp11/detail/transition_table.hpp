@@ -15,18 +15,33 @@
 #include <boost/assert.hpp>
 
 #include <boost/msm/active_state_switching_policies.hpp>
+#include <boost/msm/back/common_types.hpp>
+#include <boost/msm/row_tags.hpp>
+
 #include <boost/msm/backmp11/detail/common.hpp>
 #include <boost/msm/backmp11/detail/metafunctions.hpp>
 #include <boost/msm/backmp11/state_machine_config.hpp>
-#include <boost/msm/row_tags.hpp>
 
 namespace boost::msm::front
 {
-    struct Defer;
+
+struct Defer;
+
 }
 
 namespace boost::msm::backmp11::detail
 {
+
+// Adapter for the basic front-end.
+constexpr process_result to_process_result(back::HandledEnum value)
+{
+    return static_cast<process_result>(value);
+}
+
+constexpr process_result to_process_result(process_result result)
+{
+    return result;
+}
 
 // Chain of priority tags for SFINAE handling:
 // priority_tag_0 
@@ -114,7 +129,7 @@ struct invoke_action_functor
     {
         invoke_functor<Functor>(priority_tag_0{}, Functor{}, event, fsm, source,
                                 target);
-        return process_result::HANDLED_TRUE;
+        return process_result::consumed;
     }
 };
 template <>
@@ -123,7 +138,7 @@ struct invoke_action_functor<front::none>
     template <typename Event, typename Fsm, typename Source, typename Target>
     static process_result execute(const Event&, Fsm&, Source&, Target&)
     {
-        return process_result::HANDLED_TRUE;
+        return process_result::consumed;
     }
 };
 template <>
@@ -134,7 +149,7 @@ struct invoke_action_functor<front::Defer>
                                   Target&)
     {
         fsm.defer_event(event);
-        return process_result::HANDLED_DEFERRED;
+        return process_result::deferred;
     }
 };
 
@@ -185,12 +200,12 @@ struct transition_table_impl
         }
         else if constexpr (HasAction)
         {
-            return Row::action_call(
-                sm.get_fsm_argument(), event, source, target, sm.m_states);
+            return to_process_result(Row::action_call(
+                sm.get_fsm_argument(), event, source, target, sm.m_states));
         }
         else
         {
-            return process_result::HANDLED_TRUE;
+            return process_result::consumed;
         }
     }
 
@@ -288,7 +303,7 @@ struct transition_table_impl
             if (!call_guard_or_true<Row, HasGuard>(sm, event, source, target))
             {
                 // guard rejected the event, we stay in the current one
-                return process_result::HANDLED_GUARD_REJECT;
+                return process_result::rejected;
             }
             if constexpr (std::is_same_v<active_state_switching,
                                          active_state_switch_before_transition>)
@@ -379,7 +394,7 @@ struct transition_table_impl
 
             if (!call_guard_or_true<Row, HasGuard>(sm, event, source, target))
             {
-                return process_result::HANDLED_GUARD_REJECT;
+                return process_result::rejected;
             }
             return call_action_or_true<Row, HasAction>(sm, event, source, target);
         }
@@ -427,7 +442,7 @@ struct transition_table_impl
 
             if (!call_guard_or_true<Row, HasGuard>(sm, event, source, target))
             {
-                return process_result::HANDLED_GUARD_REJECT;
+                return process_result::rejected;
             }
             return call_action_or_true<Row, HasAction>(sm, event, source, target);
         }
@@ -588,16 +603,16 @@ struct transition_chain
                                   uint8_t region_id,
                                   const Event& evt)
     {
-        process_result result = process_result::HANDLED_FALSE;
+        process_result result = process_result::discarded;
         mp_for_each_until<Transitions>(
             [&result, &sm, region_id, &evt](auto transition)
             {
                 using Transition = decltype(transition);
                 result |= Transition::process(sm, region_id, evt);
-                if (result & handled_true_or_deferred)
+                if (any(result & consumed_or_deferred))
                 {
                     // If a guard rejected previously, ensure this bit is not present.
-                    result &= handled_true_or_deferred;
+                    result &= consumed_or_deferred;
                     return true;
                 }
                 return false;
