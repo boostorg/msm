@@ -261,8 +261,6 @@ Since the back-end should compile very quickly for most state machines, this is 
 - define `BOOST_MSM_BACKMP11_MANUAL_GENERATION` before including `msm/backmp11/favor_compile_time.hpp`
 - then generate the state machine back-end(s) with the macro `BOOST_MSM_BACKMP11_GENERATE_STATE_MACHINE(<sm_type>)`
 
-You can find an example for this in the https://github.com/boostorg/msm/blob/develop/test/Backmp11Visitor.cpp[visitor test].
-
 
 == Extension
 
@@ -358,10 +356,10 @@ If the type of the state appears multiple times in a hierarchical state machine,
 
 Use xref:reference:boost/msm/backmp11/state_machine/visit-0b.adoc[`void state_machine::visit(Visitor&&)`] to visit all currently active states with a visitor functor. In hierarchical state machines, submachines are visited recursively.
 
-```cpp
-template <typename Visitor>
-void state_machine::visit(Visitor&& visitor);
-```
+The visit function can be customized with a xref:reference:boost/msm/backmp11/visit_mode.adoc[`visit_mode`] template parameter:
+
+- only the active states or all states
+- non-recursive or recursive
 
 The visitor functor must support being called with all existing state types of the state machine.
 
@@ -370,40 +368,8 @@ template <typename State>
 void operator()(State& state);
 ```
 
-A state machine can be visited in multiple modes:
+The usage of the visitor is demonstrated in the xref:backmp11-back-end/examples.adoc#_visitor[`visitor example`].
 
-- only the active states or all states
-- non-recursive or recursive
-
-The visit function can be customized with a xref:reference:boost/msm/backmp11/visit_mode.adoc[`visit_mode`] template parameter.
-
-```cpp
-enum class visit_mode
-{
-    /// Visit only active states (mutually exclusive with all_states).
-    active_states = 0b001,
-    /// Visit all states (mutually exclusive with active_states).
-    all_states    = 0b010,
-
-    /// Traversal mode (not set == non-recursive).
-    recursive     = 0b100,
-
-    active_non_recursive = active_states,
-    active_recursive     = active_states | recursive,
-    all_non_recursive    = all_states,
-    all_recursive        = all_states | recursive
-};
-
-// Use the pre-defined constants...
-my_state_machine.visit
-    <visit_mode::all_recursive>
-    ([](auto &state) {/*...*/});
-// ... or assemble a mode
-my_state_machine.visit
-    <visit_mode::all_states | visit_mode::recursive>
-    ([](auto &state) {/*...*/});
-
-```
 
 == Exceptions
 

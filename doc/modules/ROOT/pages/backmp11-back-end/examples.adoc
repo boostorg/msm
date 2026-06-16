@@ -73,3 +73,10 @@ A serialization to JSON is particularly useful for inspecting a state machine's 
 This example demonstrates how to establish a generic state machine interface with the `favor_compile_time` policy.
 
 Hiding a state machine behind an interface enables full encapsulation of its implementation — useful for improving compilation times, unit testing, and concealing proprietary logic when distributing pre-compiled libraries.
+
+
+== xref:attachment$backmp11/Visitor.cpp[Visitor]
+
+This example demonstrates the usage of a visitor. 
+
+A jukebox can play 3 different types of songs. An active state visitor reports which song is currently playing. An all states visitor reports how many times each song has been played.
