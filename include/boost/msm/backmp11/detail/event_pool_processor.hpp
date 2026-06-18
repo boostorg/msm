@@ -41,17 +41,29 @@ class event_occurrence
     // were not given and the event has not been dispatched.
     std::optional<process_result> try_process(void* processor, uint16_t seq_cnt)
     {
-        const auto result = m_process_fn(*this, processor, seq_cnt);
-        if (result)
-        {
-            m_process_fn = nullptr;
-        }
-        return result;
+        return m_process_fn(*this, processor, seq_cnt);
     }
 
     bool is_processed() const
     {
         return m_process_fn == nullptr;
+    }
+
+  protected:
+    template <typename Derived, typename StateMachine>
+    static std::optional<process_result> try_process_thunk(
+        event_occurrence& self, void* processor, uint16_t seq_cnt)
+    {
+        return static_cast<Derived&>(self).try_process(
+            static_cast<StateMachine&>(
+                *static_cast<typename StateMachine::event_pool_processor*>(
+                    processor)),
+            seq_cnt);
+    }
+
+    void mark_processed()
+    {
+        m_process_fn = nullptr;
     }
 
   private:
@@ -64,32 +76,20 @@ class deferred_event : public event_occurrence
   public:
     template <typename StateMachine>
     deferred_event(StateMachine&, const Event& event, uint16_t seq_cnt) noexcept
-        : event_occurrence(&try_process<StateMachine>), m_seq_cnt(seq_cnt),
-          m_event(event)
+        : event_occurrence(&try_process_thunk<deferred_event, StateMachine>),
+          m_seq_cnt(seq_cnt), m_event(event)
     {
     }
 
     template <typename StateMachine>
-    static std::optional<process_result> try_process(event_occurrence& self,
-                                                     void* processor,
-                                                     uint16_t seq_cnt)
-    {
-        return static_cast<deferred_event&>(self)
-            .try_process_impl<StateMachine>(
-                static_cast<StateMachine&>(
-                    *static_cast<typename StateMachine::event_pool_processor*>(
-                        processor)),
-                seq_cnt);
-    }
-
-    template <typename StateMachine>
-    std::optional<process_result> try_process_impl(StateMachine& sm,
-                                                   uint16_t seq_cnt)
+    std::optional<process_result> try_process(StateMachine& sm,
+                                              uint16_t seq_cnt)
     {
         if ((m_seq_cnt == seq_cnt) || sm.is_event_deferred(m_event))
         {
             return std::nullopt;
         }
+        mark_processed();
         return sm.process_event_observed(m_event, process_info::event_pool);
     }
 
