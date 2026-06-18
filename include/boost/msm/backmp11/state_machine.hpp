@@ -216,6 +216,7 @@ class state_machine
     template <typename, typename, template <typename> typename...>
     friend class detail::event_deferral_visitor;
 
+    friend class detail::event_occurrence;
     template <typename Event>
     friend class detail::deferred_event;
 
@@ -785,22 +786,16 @@ class state_machine
 
       public:
         completion_event_occurrence(uint8_t region_id)
-            : event_occurrence(&try_process), m_region_id(region_id)
+            : event_occurrence(
+                  &try_process_thunk<completion_event_occurrence, derived_t>),
+              m_region_id(region_id)
         {
         }
 
-        static std::optional<process_result> try_process(
-            event_occurrence& self, void* processor,
-            uint16_t /*seq_cnt*/)
+        std::optional<process_result> try_process(derived_t& sm,
+                                                  uint16_t /*seq_cnt*/)
         {
-            return static_cast<completion_event_occurrence&>(self)
-                .try_process_impl(static_cast<derived_t&>(
-                    *static_cast<event_pool_processor*>(processor)));
-        }
-
-      private:
-        std::optional<process_result> try_process_impl(derived_t& sm)
-        {
+            mark_processed();
             using completion_event =
                 typename completion_transition::transition_event;
             {
@@ -817,22 +812,15 @@ class state_machine
     class terminate_event : public detail::event_occurrence
     {
       public:
-        terminate_event() noexcept : event_occurrence(&try_process)
+        terminate_event() noexcept
+            : event_occurrence(&try_process_thunk<terminate_event, derived_t>)
         {
         }
 
-        static std::optional<process_result> try_process(event_occurrence& self,
-                                                         void* processor,
-                                                         uint16_t /*seq_cnt*/)
+        std::optional<process_result> try_process(derived_t& sm,
+                                                  uint16_t /*seq_cnt*/)
         {
-            return static_cast<terminate_event&>(self).try_process_impl(
-                static_cast<derived_t&>(
-                    *static_cast<event_pool_processor*>(processor)));
-        }
-
-        template <typename StateMachine>
-        std::optional<process_result> try_process_impl(StateMachine& sm)
-        {
+            mark_processed();
             auto root_sm = *(sm.m_root_sm);
             root_sm->m_machine_state = machine_state::terminated;
             return process_result::consumed;
