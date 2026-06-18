@@ -197,6 +197,13 @@ class state_machine_base
     using context_t = typename Config::context;
     using observer_t = typename Config::observer;
 
+    /// Gets the current state of the state machine.
+    /// See @ref machine_state.
+    machine_state get_machine_state() const
+    {
+        return m_machine_state;
+    }
+
     /// Gets the context of the state machine.
     /// See @ref state_machine_config::context.
     template <bool C = !std::is_same_v<context_t, no_context>,
@@ -307,11 +314,6 @@ class state_machine_base
     state_machine_base(context_t& context, T&& arg)
         : context_member(context), observer_member(std::forward<T>(arg))
     {
-    }
-
-    machine_state get_machine_state() const
-    {
-        return m_machine_state;
     }
 
   private:

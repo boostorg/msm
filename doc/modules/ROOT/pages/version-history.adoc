@@ -9,6 +9,7 @@
 ** Forward Kleene events to actions and guards without conversion (https://github.com/boostorg/msm/issues/229[#229])
 ** Ensure basic exception guarantee and propagate exceptions to the caller (https://github.com/boostorg/msm/issues/221[#221])
 ** Provide a reflection API and serialization support for Boost.Serialization, Boost.JSON and nlohmann/json (https://github.com/boostorg/msm/issues/197[#197])
+** Rework terminate and interrupt state handling and provide a `machine_state` enum (https://github.com/boostorg/msm/issues/244[#244])
 ** Configurable event pool and inline storage (https://github.com/boostorg/msm/issues/239[#239])
 ** API reference and examples are now available
 * Bug fixes (`backmp11`):

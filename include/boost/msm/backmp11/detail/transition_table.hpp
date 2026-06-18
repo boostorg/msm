@@ -337,7 +337,7 @@ struct transition_table_impl
             }
 
             // Give a chance to handle completion transitions.
-            sm.template on_state_entry_completed<next_state_type>(region_id);
+            sm.on_state_entry_completed(target, region_id);
 
             return res;
         }

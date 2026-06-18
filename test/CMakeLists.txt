@@ -88,6 +88,7 @@ add_executable(boost_msm_cxx17_tests
     Backmp11FunctorApi.cpp
     Backmp11Heapless.cpp
     Backmp11History.cpp
+    Backmp11MachineState.cpp
     Backmp11ManyDeferTransitions.cpp
     Backmp11Observer.cpp
     Backmp11RootSm.cpp

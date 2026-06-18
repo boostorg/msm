@@ -21,12 +21,14 @@ namespace boost::msm::backmp11
 /// Describes the state of the state machine.
 enum class machine_state : uint8_t
 {
-    /// Stopped / not started.
+    /// Stopped, or not yet started.
     stopped = 0,
     /// Ready to process an event.
     idle,
     /// Processing an event.
-    processing
+    processing,
+    /// The machine is terminated and can no longer process events.
+    terminated,
 };
 
 /// Return type of @ref state_machine::process_event calls.

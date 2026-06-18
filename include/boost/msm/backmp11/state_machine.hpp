@@ -334,7 +334,7 @@ class state_machine
     template <class Event>
     void stop(Event const& final_event)
     {
-        if (this->m_machine_state != machine_state::stopped)
+        if (this->m_machine_state == machine_state::idle)
         {
             on_exit(final_event, get_fsm_argument());
         }
@@ -550,24 +550,6 @@ class state_machine
             return process_result::discarded;
         }
 
-        // If the state machine has terminate or interrupt flags, check them.
-        if constexpr (mp11::mp_any_of<state_set, detail::is_state_blocking>::value)
-        {
-            // If the state machine is terminated, discard the event.
-            if (is_flag_active<TerminateFlag>())
-            {
-                return process_result::consumed;
-            }
-
-            // If the state machine is interrupted, discard the event
-            // unless it is the end interrupt event.
-            if (is_flag_active<InterruptedFlag>() &&
-                !is_end_interrupt_event(event))
-            {
-                return process_result::consumed;
-            }
-        }
-
         if constexpr (state_machine_base::has_event_pool)
         {
             if (info != detail::process_info::event_pool)
@@ -644,82 +626,6 @@ class state_machine
         return result;
     }
 
-    // MSCV Bug:
-    // Compile error if this class is named completion_event.
-    template <typename State>
-    class completion_event_occurrence : public detail::event_occurrence
-    {
-        // Merge each list of transitions into a chain if needed.
-        template <typename Transitions>
-        struct merge_transitions_impl;
-        template <typename Transition>
-        struct merge_transitions_impl<mp11::mp_list<Transition>>
-        {
-            using type = Transition;
-        };
-        template <typename... Transitions>
-        struct merge_transitions_impl<mp11::mp_list<Transitions...>>
-        {
-            using list = mp11::mp_list<Transitions...>;
-            using completion_event =
-                typename mp11::mp_first<list>::transition_event;
-            using type =
-                detail::transition_chain<derived_t, State, list, completion_event>;
-        };
-        template <typename Transitions>
-        using merge_transitions =
-            typename merge_transitions_impl<Transitions>::type;
-        using completion_transitions =
-            detail::completion_transitions<derived_t, State>;
-        using completion_transition = merge_transitions<completion_transitions>;
-
-      public:
-        completion_event_occurrence(uint8_t region_id)
-            : event_occurrence(&try_process), m_region_id(region_id)
-        {
-        }
-
-        static std::optional<process_result> try_process(
-            event_occurrence& self, void* processor,
-            uint16_t /*seq_cnt*/)
-        {
-            return static_cast<completion_event_occurrence&>(self)
-                .try_process_impl(static_cast<derived_t&>(
-                    *static_cast<event_pool_processor*>(processor)));
-        }
-
-      private:
-        std::optional<process_result> try_process_impl(derived_t& sm)
-        {
-            return sm.template process_completion_transition<
-                completion_transition>(m_region_id);
-        }
-
-        uint8_t m_region_id;
-    };
-
-    template <typename Transition>
-    process_result process_completion_transition(uint8_t region_id)
-    {
-        // If the state machine has terminate or interrupt flags, check them.
-        if constexpr (mp11::mp_any_of<state_set, detail::is_state_blocking>::value)
-        {
-            // If the state machine is interrupted or terminated, do not handle any event.
-            if (is_flag_active<TerminateFlag>() ||
-                is_flag_active<InterruptedFlag>())
-            {
-                return process_result::consumed;
-            }
-        }
-
-        // Process the event.
-        using completion_event = typename Transition::transition_event;
-        {
-            detail::process_guard guard{this->m_machine_state};
-            return Transition::process(self(), region_id, completion_event{});
-        }
-    }
-
     template <class Event>
     void do_defer_event(const Event& event, bool next_rtc_seq)
     {
@@ -750,7 +656,7 @@ class state_machine
                         m_self, m_region_id);
             }
             state.on_entry(m_event, m_self.get_fsm_argument());
-            m_self.template on_state_entry_completed<State>(m_region_id++);
+            m_self.template on_state_entry_completed<State>(state, m_region_id++);
             if constexpr (!std::is_same_v<observer_t, no_observer>)
             {
                 m_self.get_observer()
@@ -848,8 +754,93 @@ class state_machine
         process_event(event);
     }
 
+    // MSCV Bug:
+    // Compile error if this class is named completion_event.
     template <typename State>
-    void on_state_entry_completed(uint8_t region_id)
+    class completion_event_occurrence : public detail::event_occurrence
+    {
+        // Merge each list of transitions into a chain if needed.
+        template <typename Transitions>
+        struct merge_transitions_impl;
+        template <typename Transition>
+        struct merge_transitions_impl<mp11::mp_list<Transition>>
+        {
+            using type = Transition;
+        };
+        template <typename... Transitions>
+        struct merge_transitions_impl<mp11::mp_list<Transitions...>>
+        {
+            using list = mp11::mp_list<Transitions...>;
+            using completion_event =
+                typename mp11::mp_first<list>::transition_event;
+            using type =
+                detail::transition_chain<derived_t, State, list, completion_event>;
+        };
+        template <typename Transitions>
+        using merge_transitions =
+            typename merge_transitions_impl<Transitions>::type;
+        using completion_transitions =
+            detail::completion_transitions<derived_t, State>;
+        using completion_transition = merge_transitions<completion_transitions>;
+
+      public:
+        completion_event_occurrence(uint8_t region_id)
+            : event_occurrence(&try_process), m_region_id(region_id)
+        {
+        }
+
+        static std::optional<process_result> try_process(
+            event_occurrence& self, void* processor,
+            uint16_t /*seq_cnt*/)
+        {
+            return static_cast<completion_event_occurrence&>(self)
+                .try_process_impl(static_cast<derived_t&>(
+                    *static_cast<event_pool_processor*>(processor)));
+        }
+
+      private:
+        std::optional<process_result> try_process_impl(derived_t& sm)
+        {
+            using completion_event =
+                typename completion_transition::transition_event;
+            {
+                detail::process_guard guard{sm.m_machine_state};
+                return completion_transition::process(sm, m_region_id,
+                                                      completion_event{});
+            }
+        }
+
+      private:
+        uint8_t m_region_id;
+    };
+
+    class terminate_event : public detail::event_occurrence
+    {
+      public:
+        terminate_event() noexcept : event_occurrence(&try_process)
+        {
+        }
+
+        static std::optional<process_result> try_process(event_occurrence& self,
+                                                         void* processor,
+                                                         uint16_t /*seq_cnt*/)
+        {
+            return static_cast<terminate_event&>(self).try_process_impl(
+                static_cast<derived_t&>(
+                    *static_cast<event_pool_processor*>(processor)));
+        }
+
+        template <typename StateMachine>
+        std::optional<process_result> try_process_impl(StateMachine& sm)
+        {
+            auto root_sm = *(sm.m_root_sm);
+            root_sm->m_machine_state = machine_state::terminated;
+            return process_result::consumed;
+        }
+    };
+
+    template <typename State>
+    void on_state_entry_completed(const State&, uint8_t region_id)
     {
         // Exclude composite states from completion transitions,
         // these should fire when all their regions reach a final state
@@ -864,6 +855,13 @@ class state_machine
             event_pool.events.push_front(
                 event_pool_processor::processable_event::make(
                     completion_event_occurrence<State>{region_id}));
+        }
+        else if constexpr (mp11::mp_contains<detail::get_flag_list<State>,
+                                             TerminateFlag>::value)
+        {
+            auto& event_pool = this->get_event_pool();
+            event_pool.events.push_front(
+                event_pool_processor::processable_event::make(terminate_event{}));
         }
     }
 

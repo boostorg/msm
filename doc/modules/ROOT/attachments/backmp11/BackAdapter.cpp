@@ -171,6 +171,12 @@ class back_adapter : public boost::msm::backmp11::state_machine<
     template <typename Event>
     boost::msm::back::HandledEnum process_event(const Event& event)
     {
+        if (this->template is_flag_active<boost::msm::InterruptedFlag>() &&
+            !this->is_end_interrupt_event(event))
+        {
+            return boost::msm::back::HANDLED_TRUE;
+        }
+
         if (this->get_machine_state() ==
             boost::msm::backmp11::machine_state::processing)
         {

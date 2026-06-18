@@ -15,8 +15,8 @@ It offers a significant improvement in runtime and memory usage, as can be seen 
 | back                        | 10                 | 844              | 73               | 0.7
 | back_favor_compile_time     | 12                 | 821              | 241              | 1.0
 | back11                      | 26                 | 2675             | 92               | 0.7
-| backmp11                    | 2                  | 236              | 18               | 0.2
-| backmp11_favor_compile_time | 2                  | 226              | 44               | 2.2
+| backmp11                    | 2                  | 236              | 19               | 0.2
+| backmp11_favor_compile_time | 2                  | 225              | 44               | 2.2
 | sml                         | 4                  | 254              | 64               | 0.1
 |=======================================================================================================
 
@@ -28,9 +28,9 @@ It offers a significant improvement in runtime and memory usage, as can be seen 
 |                             | Compile time / sec | Compile RAM / MB | Binary size / kB | Runtime / sec
 | back                        | 32                 | 2160             | 252              | 3.7
 | back_favor_compile_time     | 37                 | 1747             | 974              | 263
-| backmp11                    | 5                  | 362              | 55               | 0.9
-| backmp11_favor_compile_time | 3                  | 266              | 96               | 7.5
-| sml                         | 13                 | 612              | 460              | 2.8
+| backmp11                    | 5                  | 360              | 57               | 0.9
+| backmp11_favor_compile_time | 3                  | 265              | 96               | 7.6
+| sml                         | 13                 | 612              | 431              | 2.8
 |=======================================================================================================
 
 
@@ -173,7 +173,7 @@ When a transition defined in SM1 causes SM2 and SM3 to exit:
 
 === Event pool
 
-The setting `event_pool` configures the container and inline storage the back-end uses to hold work that cannot be processed immediately: enqueued events, deferred events, and completion transitions.
+The setting `event_pool` configures the container and inline storage the back-end uses to hold work that cannot be processed immediately: enqueued events, deferred events, completion transitions, and state machine termination.
 
 ```cpp
 template <template <typename> typename Container,
@@ -200,7 +200,7 @@ By replacing `std::deque` with a fixed-capacity container and setting `InlineCap
 See the xref:backmp11-back-end/examples.adoc#_heapless_state_machine[heapless state machine example] for a demo using `boost::container::static_vector`.
 ====
 
-Use `no_event_pool` to disable the event pool if the state machine does not require event enqueueing, deferral, and completion transitions:
+Use `no_event_pool` to deactivate the event pool if you don't need it. This setting disables all related functionality, improves runtime performance, and reduces the state machine's memory footprint.
 
 ```cpp
 struct MyConfig : state_machine_config
@@ -298,11 +298,13 @@ struct MyStateMachine_ : public msm::front::state_machine_def<MyStateMachine_>
 
 == Start and stop
 
-A newly constructed state machine is inactive and does not process events as long as it is not yet started. The xref:reference:boost/msm/backmp11/state_machine/start-04.adoc[`void state_machine::start()`] method activates the state machine by first calling the state machine front-end's entry action and then the initial state's. By default, the event passed to the entry actions is an empty struct xref:reference:boost/msm/backmp11/starting.adoc[`starting`]. You can pass a custom event with the overload xref:reference:boost/msm/backmp11/state_machine/start-0a.adoc[`void state_machine::start(const auto& initial_event)`].
+A newly constructed state machine does not accept events as long as it is not yet started. Its own state is represented in the xref:reference:boost/msm/backmp11/machine_state.adoc[`machine_state`] enum, which you can query with xref:reference:boost/msm/backmp11/state_machine/get_machine_state.adoc[`machine_state state_machine::get_machine_state()`].
 
-The xref:reference:boost/msm/backmp11/state_machine/stop-03.adoc[`void state_machine::stop()`] method deactivates the state machine by first calling the active state's exit action and then the state machine front-end's. The default event in this case is an empty struct xref:reference:boost/msm/backmp11/stopping.adoc[`stopping`], and a similar overload xref:reference:boost/msm/backmp11/state_machine/stop-05.adoc[`void state_machine::stop(const auto& final_event)`] exists to customize it.
+The xref:reference:boost/msm/backmp11/state_machine/start-04.adoc[`void state_machine::start()`] method activates the state machine with a xref:reference:boost/msm/backmp11/starting.adoc[`starting`] event by first calling the state machine front-end's entry action and then the initial state's. You can pass a custom start event with the overload xref:reference:boost/msm/backmp11/state_machine/start-0a.adoc[`void state_machine::start(const auto& initial_event)`].
 
-Calling `start(...)` on an active or `stop(...)` on an inactive state machine has no effect.
+The xref:reference:boost/msm/backmp11/state_machine/stop-03.adoc[`void state_machine::stop()`] method deactivates the state machine with a xref:reference:boost/msm/backmp11/stopping.adoc[`stopping`] event by first calling the active state's exit action and then the state machine front-end's. A similar overload xref:reference:boost/msm/backmp11/state_machine/stop-05.adoc[`void state_machine::stop(const auto& final_event)`] exists to pass a custom stop event.
+
+Calling `start(...)` on an active or `stop(...)` on an inactive state machine has no effect. Note that a state machine must be ready to process events in order to stop it.
 
 
 == Handling events
@@ -452,20 +454,17 @@ Serializing a state machine to JSON provides a neat way to inspect it in a human
 
 The back-end uses the following run-to-completion algorithm for processing events:
 
-* Return if the state machine is not ready to process the event. It is ready if:
-** it is started and
-** it is not already processing an event and
-** either no terminate state is active, or an interrupt state is active and the event ends the interrupt state
+* Return if the state machine is not ready to process the event. It is ready if it is started and not already processing
 * If an active state defers the event, push it to the end of the event pool and return
 * Dispatch the event to the transition table of every region, in the order defined by the front-end's `initial_state`
-* For each transition matching the active state and the event (in _reverse_ order of the front-end's transition table):
+* _For each transition_ matching the active state and the event (in _reverse_ order of the front-end's transition table):
 ** Execute the transition if there is no guard or it returns true, otherwise skip it
 ** If the transition has a target state, call the source state's exit action and then switch the active state to the target state
 ** If the transition has a transition action, call it
 ** If the transition has a target state, call the target state's entry action
 ** If a completion transition exists for the target state, push its execution to the beginning of the event pool
 ** Consider the event processed and finish the transition execution loop
-* If the event is not yet processed and the state machine has an internal transition table, dispatch it to the internal transition table as well. For each transition matching the event (in _reverse_ order of the front-end's internal transition table):
+* If the event is not yet processed and the state machine has an internal transition table, dispatch it to the internal transition table as well. _For each internal transition_ matching the event (in _reverse_ order of the front-end's internal transition table):
 ** Execute the transition if there is no guard or it returns true, otherwise skip it
 ** If the transition has a transition action, call it
 ** Consider the event processed and finish the transition execution loop
@@ -491,7 +490,7 @@ The following sections provide further details about the differences between `ba
 
 === Public API of `state_machine`
 
-The following adapter pseudo-code illustrates the differences from the `back::state_machine` API (see xref:backmp11-back-end/examples.adoc#_back_adapter[`full code example`]).
+The following adapter pseudo-code illustrates the main differences from the `back::state_machine` API (see xref:backmp11-back-end/examples.adoc#_back_adapter[`full code example`]).
 
 ```cpp
 class back_adapter
@@ -499,29 +498,24 @@ class back_adapter
     template <typename Event>
     back::HandledEnum process_event(const Event& event)
     {
-        if (this->get_machine_state() == detail::machine_state::processing)
+        if (get_machine_state() == machine_state::processing)
         {
-            this->enqueue_event(event);
+            enqueue_event(event);
             return back::HANDLED_DEFERRED;
         }
         else
         {
             try
             {
-                return Base::process_event(event);
+                return static_cast<back::HandledEnum>(
+                    Base::process_event(event));
             }
             catch (std::exception& e)
             {
-                this->exception_caught(event, *this, e);
+                exception_caught(event, *this, e);
                 return back::HANDLED_FALSE;
             }
         }
-    }
-
-    // The new API returns a const std::array<...>&.
-    const uint16_t* current_state() const
-    {
-        return &this->get_active_state_ids()[0];
     }
 
     auto& get_message_queue()
@@ -553,18 +547,6 @@ class back_adapter
     {
         this->get_event_pool().events.clear();
     }
-
-    // No adapter.
-    // Superseded by the visitor API.
-    // void visit_current_states(...) {...}
-
-    // No adapter.
-    // States can be set with `get_state<...>() = ...` or the visitor API.
-    // void set_states(...) {...}
-
-    // No adapter.
-    // Could be implemented with the visitor API.
-    // auto get_state_by_id(int id) {...}
 };
 ```
 
@@ -578,6 +560,13 @@ Futhermore, the back-end forwards Kleene events without converting them to `std:
 
 
 === Removed features
+
+==== Interrupt states
+
+Not supported, because the interrupt state evaluation requires a visitor to determine whether an interrupt state is active. This significantly increases the state machine's compilation time and runtime as soon as an interrupt state is defined. If needed, the interrupt state feature can be resembled with a state machine extension (see xref:backmp11-back-end/examples.adoc#_back_adapter[`back` adapter example]).
+
+In `backmp11`, you can extend the state machine API to implement your own interrupt mechanism and tailor it to your needs. See the xref:backmp11-back-end/examples.adoc#_interruptible_state_machine[`interruptible state machine example`], which allows interruptions from any state and enqueues events for later processing instead of discarding them.
+
 
 ==== Initialization of states in the constructor and the `set_states(...)` method
 

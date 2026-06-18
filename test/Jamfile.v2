@@ -88,6 +88,7 @@ test-suite msm-unit-tests-cxxstd17
     [ run Backmp11FunctorApi.cpp ]
     [ run Backmp11Heapless.cpp ]
     [ run Backmp11History.cpp ]
+    [ run Backmp11MachineState.cpp ]
     [ run Backmp11ManyDeferTransitions.cpp ]
     [ run Backmp11Observer.cpp ]
     [ run Backmp11RootSm.cpp ]
