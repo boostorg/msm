@@ -13,6 +13,14 @@ This example demonstrates a state machine configured for heapless execution.
 It uses `boost::container::static_vector` as the event pool container — a fixed-capacity replacement for the default `std::deque` container. Note that this container type does not support completion transitions; use a heapless deque (e.g. `etl::deque`) if those are required.
 
 
+== xref:attachment$backmp11/InterruptibleStateMachine.cpp[Interruptible state machine]
+
+This example demonstrates a state machine extended with an interrupt mechanism.
+
+The state machine provides a public API to pause and resume its execution. This way it can be interrupted externally as well as internally through an event.
+It can immediately continue from where it was interrupted, since the interruption does not require a state change.
+
+
 == xref:attachment$backmp11/Logger.cpp[Logger]
 
 This example contains an observer implementation for logging state machine activities.
@@ -50,12 +58,12 @@ A serialization to JSON is particularly useful for inspecting a state machine's 
     "front_end": {
         "brightness": 75
     },
+    "machine_state": 1, // idle
     "states": {
         "1": {
             "times_pressed": 1
         }
-    },
-    "stopped": false
+    }
 }
 ```
 

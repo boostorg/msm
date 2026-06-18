@@ -50,11 +50,6 @@ class boost_json_serializer
         m_json.pop();
     }
 
-    void visit_member(const char* /*key*/, const machine_state& state)
-    {
-        top()["stopped"] = (state == machine_state::stopped);
-    }
-
     template <typename Member>
     void visit_member(const char* key, Member&& member)
     {
@@ -139,13 +134,6 @@ class boost_json_deserializer
         m_json.pop();
     }
 
-    void visit_member(const char* /*key*/, machine_state& state)
-    {
-        state = top().at("stopped").as_bool()
-            ? machine_state::stopped
-            : machine_state::idle;
-    }
-
     template <typename Member>
     void visit_member(const char* key, Member&& member)
     {
@@ -197,13 +185,14 @@ namespace boost::msm::backmp11
 inline void tag_invoke(const boost::json::value_from_tag&,
                        boost::json::value& json, const machine_state& state)
 {
-    json = (state == machine_state::stopped);
+    json = static_cast<std::underlying_type_t<machine_state>>(state);
 }
 
 inline machine_state tag_invoke(const boost::json::value_to_tag<machine_state>&,
                                 const boost::json::value& json)
 {
-    return json.as_bool() ? machine_state::stopped : machine_state::idle;
+    return static_cast<machine_state>(
+        json.to_number<std::underlying_type_t<machine_state>>());
 }
 
 template <typename StateMachine,

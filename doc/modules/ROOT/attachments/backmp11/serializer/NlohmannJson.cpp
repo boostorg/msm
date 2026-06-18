@@ -59,12 +59,12 @@ std::string to_nlohmann_json_string(const DimSwitch& dim_switch)
     //     "front_end": {
     //         "brightness": 0
     //     },
+    //     "machine_state": 1,
     //     "states": {
     //         "1": {
     //             "times_pressed": 0
     //         }
-    //     },
-    //     "stopped": false
+    //     }
     // }
     std::cout << to_nlohmann_json_string(dim_switch) << std::endl;
 
@@ -79,12 +79,12 @@ std::string to_nlohmann_json_string(const DimSwitch& dim_switch)
     //     "front_end": {
     //         "brightness": 75
     //     },
+    //     "machine_state": 1,
     //     "states": {
     //         "1": {
     //             "times_pressed": 1
     //         }
-    //     },
-    //     "stopped": false
+    //     }
     // }
     std::cout << to_nlohmann_json_string(dim_switch) << std::endl;
     // Deserialize the json into a new state machine.
@@ -100,12 +100,12 @@ std::string to_nlohmann_json_string(const DimSwitch& dim_switch)
     //     "front_end": {
     //         "brightness": 75
     //     },
+    //     "machine_state": 1,
     //     "states": {
     //         "1": {
     //             "times_pressed": 1
     //         }
-    //     },
-    //     "stopped": false
+    //     }
     // }
     std::cout << to_nlohmann_json_string(dim_switch_2) << std::endl;
 }
