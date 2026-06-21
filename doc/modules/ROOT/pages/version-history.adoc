@@ -20,6 +20,7 @@
 ** The deprecated APIs `process_queued_events()` and `process_single_queued_event()` are removed, use `process_event_pool(...)` instead
 ** The default active state switch policy is set to "after source exit" in compliance to the UML specification. The other options are not UML-compliant and will be removed (https://github.com/boostorg/msm/issues/222[#222])
 ** The back-end uses its own `process_result` type with new enum values instead of aliasing the enum of the `back` namespace. The old enum values are deprecated (https://github.com/boostorg/msm/issues/242[#242]) and will be removed
+* fix(back, back11): Infinite recursion with event deferral in orthogonal regions (regression from 1.78) (https://github.com/boostorg/msm/issues/184[#184])
 
 == Boost 1.91
 

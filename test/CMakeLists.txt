@@ -34,9 +34,10 @@ add_executable(boost_msm_tests
     History.cpp
     KleeneDeferred.cpp
     ManyDeferTransitions.cpp
+    OrthogonalDeferred.cpp
     OrthogonalDeferred2.cpp
     OrthogonalDeferred3.cpp
-    OrthogonalDeferred.cpp
+    OrthogonalDeferred4.cpp
     Serialize.cpp
     SerializeWithHistory.cpp
     SetStates.cpp
