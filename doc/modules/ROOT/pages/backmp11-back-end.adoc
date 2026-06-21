@@ -188,7 +188,7 @@ To avoid a heap allocation per slot, the back-end uses a small-object optimizati
 The container must not invalidate existing iterators when `push_back` or `push_front` is called. The required interface is:
 
 - `push_back(const T&)` — for event enqueueing and deferral
-- `push_front(const T&)` — for completion transitions
+- `push_front(const T&)` — for completion transitions and state machine termination
 - `begin()`
 - `end()`
 - `erase(iterator)`
@@ -565,7 +565,7 @@ Futhermore, the back-end forwards Kleene events without converting them to `std:
 
 Not supported, because the interrupt state evaluation requires a visitor to determine whether an interrupt state is active. This significantly increases the state machine's compilation time and runtime as soon as an interrupt state is defined. If needed, the interrupt state feature can be resembled with a state machine extension (see xref:backmp11-back-end/examples.adoc#_back_adapter[`back` adapter example]).
 
-In `backmp11`, you can extend the state machine API to implement your own interrupt mechanism and tailor it to your needs. See the xref:backmp11-back-end/examples.adoc#_interruptible_state_machine[`interruptible state machine example`], which allows interruptions from any state and enqueues events for later processing instead of discarding them.
+Alternatively, you can extend the state machine API to implement your own interrupt mechanism and tailor it to your needs. See the xref:backmp11-back-end/examples.adoc#_interruptible_state_machine[`interruptible state machine example`], which allows interruptions from any state and enqueues events for later processing instead of discarding them.
 
 
 ==== Initialization of states in the constructor and the `set_states(...)` method

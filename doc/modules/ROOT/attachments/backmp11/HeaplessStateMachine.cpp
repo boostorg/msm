@@ -41,14 +41,14 @@ struct MyConfig : back::state_machine_config
                          /*InlineCapacity=*/max_event_size>;
 };
 
-// Events.
+// Events
 struct Greet
 {
     // A heapless event must be copy constructible and nothrow move constructible.
     std::array<char, max_event_size> message{};
 };
 
-// Actions.
+// Actions
 struct PrintMessage
 {
     template <typename Fsm>
@@ -58,10 +58,10 @@ struct PrintMessage
     }
 };
 
-// States.
+// States
 struct MyState : front::state<> {};
 
-// State machine.
+// State machine
 struct MyStateMachine_ : front::state_machine_def<MyStateMachine_>
 {
     template <typename Fsm>

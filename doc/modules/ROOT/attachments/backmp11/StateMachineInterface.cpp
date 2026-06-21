@@ -27,7 +27,7 @@ namespace mp11 = boost::mp11;
 namespace
 {
 
-// State machine interface.
+// State machine interface
 class state_machine
 {
   public:
@@ -49,7 +49,7 @@ class state_machine
         const back::any_event& event) = 0;
 };
 
-// Implementation of the interface.
+// Implementation of the interface
 struct MyConfig : back::state_machine_config
 {
     // Use favor compile time, we need type erasure on events
@@ -97,10 +97,10 @@ class state_machine_impl
     }
 };
 
-// Events.
+// Events
 struct Greet {};
 
-// Actions.
+// Actions
 struct PrintMessage
 {
     template <typename Fsm, typename Source, typename Target>
@@ -115,7 +115,7 @@ struct PrintMessage
     [[maybe_unused]] static inline bool talk{true};
 };
 
-// States.
+// States
 template <typename Derived>
 struct StateBase : front::state<>
 {
@@ -130,7 +130,7 @@ struct MyState : StateBase<MyState> {};
 
 struct MyOtherState : StateBase<MyOtherState> {};
 
-// State machines.
+// State machines
 
 struct MyStateMachine_ : front::state_machine_def<MyStateMachine_>
 {
