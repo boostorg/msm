@@ -1,6 +1,5 @@
 * xref:index.adoc[Table of Contents]
 ** xref:preface.adoc[Preface]
-** xref:founding-idea.adoc[Founding idea]
 ** xref:uml-short-guide.adoc[UML short guide]
 ** xref:front-tutorial.adoc[`front` tutorial]
 *** xref:front-tutorial/basic-front-end.adoc[Basic front-end]

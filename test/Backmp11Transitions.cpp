@@ -22,6 +22,8 @@
 
 #include "Utils.hpp"
 
+#include "attachments/backmp11/MinimalExample.cpp"
+
 namespace msm = boost::msm;
 namespace mp11 = boost::mp11;
 

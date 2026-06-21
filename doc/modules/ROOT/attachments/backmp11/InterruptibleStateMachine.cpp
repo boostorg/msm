@@ -24,11 +24,11 @@ namespace mp11 = boost::mp11;
 namespace
 {
 
-// Events.
+// Events
 struct InterruptEvent {};
 struct SmInternalEvent {};
 
-// Actions.
+// Actions
 struct Interrupt
 {
     template <typename Fsm>
@@ -52,12 +52,12 @@ struct PrintMessage
     [[maybe_unused]] static inline bool talk{true};
 };
 
-// States.
+// States
 struct MyState : front::state<> {};
 
 struct MyOtherState : front::state<> {};
 
-// State machine.
+// State machine
 struct InterruptibleStateMachine_
     : front::state_machine_def<InterruptibleStateMachine_>
 {

@@ -144,7 +144,7 @@ class Logger : public back::default_observer
     }
 };
 
-// Events.
+// Events
 struct TransitionEvent {};
 struct InternalTransitionEvent {};
 struct SmInternalTransitionEvent {};

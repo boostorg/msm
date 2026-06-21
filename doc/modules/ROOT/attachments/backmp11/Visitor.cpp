@@ -25,7 +25,7 @@ namespace mp11 = boost::mp11;
 namespace
 {
 
-// Events.
+// Events
 struct Play
 {
     std::string_view song;
@@ -33,7 +33,7 @@ struct Play
 
 struct Stop {};
 
-// States.
+// States
 struct Idle : front::state<> {};
 
 template <const char* Name>
@@ -53,7 +53,7 @@ constexpr const char hey_jude[] = "Hey Jude";
 constexpr const char all_you_need_is_love[] = "All You Need Is Love";
 constexpr const char paint_it_black[] = "Paint It Black";
 
-// Guards.
+// Guards
 template <const char* Name>
 struct IsSong
 {
@@ -64,7 +64,7 @@ struct IsSong
     }
 };
 
-// State machine.
+// State machine
 struct Playing_ : front::state_machine_def<Playing_>
 {
     template <typename Fsm>
