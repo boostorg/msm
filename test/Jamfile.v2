@@ -49,6 +49,7 @@ test-suite msm-unit-tests
     [ run OrthogonalDeferred.cpp ]
     [ run OrthogonalDeferred2.cpp ]
     [ run OrthogonalDeferred3.cpp ]
+    [ run OrthogonalDeferred4.cpp ]
     # MSVC 32-bit runs out of memory when compiling this test
     [ run OrthogonalDeferredEuml.cpp : : : <toolset>msvc-14.3,<address-model>32:<build>no ]
     # GCC has a bug in std::type_info::before() that leads to a segfault.
