@@ -8,8 +8,6 @@
 // file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-#include <iostream>
-
 #ifndef BOOST_MSM_NONSTANDALONE_TEST
 #define BOOST_TEST_MODULE transition_skipping_test
 #endif
@@ -30,9 +28,7 @@ template <typename ...T>
 using msm_transition_table = boost::mpl::vector<T...>;
 
 
-
 namespace msmf = boost::msm::front;
-namespace euml = boost::msm::front::euml;
 
 struct evt1 {};
 struct evt2 {};
@@ -122,7 +118,9 @@ struct top_ : public msmf::state_machine_def<top_> {
         msmf::Row < nested, msmf::none, other2, msmf::none, guard_true >,  // <- this transition is not executed with back11
         msmf::Row < nested, msmf::none, other3, msmf::none, guard_false>,
         msmf::Row < nested, msmf::none, other4, msmf::none, guard_false>,
-        msmf::Row < other1, evt3, nested, msmf::none, msmf::none       >
+        msmf::Row < other1, evt3, nested, msmf::none, msmf::none       >,
+        msmf::Row < other1, evt3, other2, msmf::none, guard_false      >,
+        msmf::Row < other2, evt3, other1, msmf::none, msmf::none       >   // <- this transition is not executed with back11
     >;
 };
 
@@ -146,6 +144,9 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(transition_skipping_test, top, tops)
     BOOST_CHECK_MESSAGE(msm.template get_state<top_::other3&>().entry_counter == 0, "other3 entry not called correctly");
     BOOST_CHECK_MESSAGE(msm.template get_state<top_::other4&>().exit_counter == 0, "other4 exit not called correctly");
     BOOST_CHECK_MESSAGE(msm.template get_state<top_::other4&>().entry_counter == 0, "other4 entry not called correctly");
-    BOOST_CHECK_MESSAGE(msm.current_state()[0] == 2, "other2 should be active"); //Open
+    BOOST_CHECK_MESSAGE(msm.current_state()[0] == 2, "other2 should be active");
 
+    msm.process_event(evt3{});
+    BOOST_CHECK_MESSAGE(msm.template get_state<top_::other1&>().entry_counter == 1, "other1 entry not called correctly");
+    BOOST_CHECK_MESSAGE(msm.current_state()[0] == 1, "other1 should be active");
 }

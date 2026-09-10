@@ -25,6 +25,7 @@
 #include <boost/fusion/container/vector.hpp>
 #include <boost/fusion/container/map.hpp>
 #include <boost/fusion/include/push_back.hpp>
+#include <boost/fusion/include/erase_key.hpp>
 #include <boost/fusion/include/make_vector.hpp>
 
 #include <boost/type_traits/is_base_of.hpp>
@@ -200,15 +201,17 @@ struct dispatch_table
     template <class T, class Map>
     struct push_to_map_of_vec
     {
+        typedef typename transition_source_type<T>::type source_state;
         typedef typename
         boost::fusion::result_of::as_map<
-            typename boost::fusion::result_of::make_vector<
+            typename boost::fusion::result_of::push_back<
+                typename boost::fusion::result_of::erase_key<Map, source_state>::type,
                 typename ::boost::fusion::result_of::make_pair<
-                    typename transition_source_type<T>::type,
+                    source_state,
                     typename ::boost::mpl::push_back<
                         typename ::boost::fusion::result_of::value_at_key<
                             Map,
-                            typename transition_source_type<T>::type
+                            source_state
                         >::type,
                         typename change_frow_event<T>::type
                     >::type
