@@ -6,6 +6,7 @@
     "@cppalliance/antora-playbook-macros-extension": "^0.0.2",
     "@cppalliance/asciidoctor-boost-links": "^0.0.2",
     "@antora/lunr-extension": "^1.0.0-alpha.13",
-    "@asciidoctor/tabs": "^1.0.0-beta.6"
+    "@asciidoctor/tabs": "^1.0.0-beta.6",
+    "antora": "3.1.15"
   }
 }
