@@ -1,7 +1,6 @@
-= Backmp11 back-end (C{plus}{plus}17, experimental)
+= Backmp11 back-end (C{plus}{plus}17)
 
 The `backmp11` back-end requires C{plus}{plus}17 and is mostly backwards-compatible with `back`.
-It is currently in an **experimental** stage - it is functionally mature, though some details about its API and compatibility to less used functionality might change (feedback welcome!).
 It is named after the metaprogramming library https://www.boost.org/library/latest/mp11/[Boost.Mp11], the main contributor to the optimizations.
 Use of MPL is replaced with Mp11 to eliminate the costly C{plus}{plus}03 emulation of variadic templates.
 
@@ -644,7 +643,7 @@ Calls to the old APIs can be replaced as follows:
 | 1.91 / 1.92
 a| The API `process_event` automatically enqueues events when the state machine is already processing. This requires instantiating `enqueue_event` for every event type, even though most instantiations are never invoked. They are only needed when `process_event` is called in actions.
 
-*Change:* The API `process_event` will reject an event and return `HANDLED_FALSE` when called during event processing instead of automatically enqueueing it.
+*Change:* The API `process_event` will reject an event and return `discarded` when called during event processing instead of automatically enqueueing it.
 
 Calls to `process_event` in actions must be replaced with `enqueue_event`.
 

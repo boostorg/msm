@@ -4,10 +4,11 @@
 
 == Boost 1.93
 
-* fix(back11): Dropped transition depending on transition table row order (https://github.com/boostorg/msm/issues/252[#252])
+* The `backmp11` back-end is no longer experimental. Its API is considered stable from this release on, after the cleanup listed below
 * **Breaking changes (`backmp11`)**:
 ** The active state switch policy can no longer be configured; the active state is now always set after source exit, in compliance with the UML specification (https://github.com/boostorg/msm/issues/222[#222])
 ** The deprecated `HANDLED_`-prefixed values are removed from the `process_result` enum, use `discarded`, `consumed`, `rejected` and `deferred` instead (https://github.com/boostorg/msm/issues/242[#242])
+* fix(back11): Dropped transition depending on transition table row order (https://github.com/boostorg/msm/issues/252[#252])
 
 == Boost 1.92
 
