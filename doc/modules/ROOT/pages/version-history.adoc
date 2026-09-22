@@ -5,6 +5,8 @@
 == Boost 1.93
 
 * fix(back11): Dropped transition depending on transition table row order (https://github.com/boostorg/msm/issues/252[#252])
+* **Breaking changes (`backmp11`)**:
+** The active state switch policy can no longer be configured; the active state is now always set after source exit, in compliance with the UML specification (https://github.com/boostorg/msm/issues/222[#222])
 
 == Boost 1.92
 
