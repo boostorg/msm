@@ -45,12 +45,6 @@ enum class process_result : uint8_t
     rejected = 2,
     /// The event will be re-evaluated after the next transition.
     deferred = 4,
-
-    /// Deprecated enum values.
-    HANDLED_FALSE [[deprecated("Use discarded")]] = 0,
-    HANDLED_TRUE [[deprecated("Use accepted")]] = 1,
-    HANDLED_GUARD_REJECT [[deprecated("Use rejected")]] = 2,
-    HANDLED_DEFERRED [[deprecated("Use deferred")]] = 4
 };
 
 constexpr process_result operator|(process_result lhs, process_result rhs)

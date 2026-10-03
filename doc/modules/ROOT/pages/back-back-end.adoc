@@ -4,9 +4,9 @@
 
 The back-end contains the library engine and defines the performance and functionality trade-offs. There are, at the moment, three back-ends:
 
-- `msm::back` is using {cpp}03
-- `msm::back11` is using {cpp}11 and should be used by default if possible as it removes some pre-{cpp}11 limitations (mpl::vector of limited size)
-- `msm::backmp11` is using {cpp}17 (it is still experimental at the moment and further described in a xref:./backmp11-back-end.adoc[separate page])
+- `msm::back` is using {cpp}03 and is kept for backwards compatibility
+- `msm::back11` is using {cpp}11 and should be preferred over `msm::back` where possible, as it removes some pre-{cpp}11 limitations (mpl::vector of limited size)
+- `msm::backmp11` is using {cpp}17 and should be used by default if possible. It provides additional features and significantly better compile times and runtime performance. It is further described in a xref:./backmp11-back-end.adoc[separate page]
 
 The currently available back-ends implement most of the functionality
 defined by the UML 2.0 standard at very high runtime speed, in exchange

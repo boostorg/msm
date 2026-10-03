@@ -14,7 +14,6 @@
 
 #include <boost/assert.hpp>
 
-#include <boost/msm/active_state_switching_policies.hpp>
 #include <boost/msm/back/common_types.hpp>
 #include <boost/msm/row_tags.hpp>
 
@@ -160,12 +159,6 @@ struct transition_table_impl
     using derived_t = typename StateMachine::derived_t;
     using state_set = typename StateMachine::state_set;
 
-    template<typename T>
-    using get_active_state_switch_policy = typename T::active_state_switch_policy;
-    using active_state_switching =
-        boost::mp11::mp_eval_or<active_state_switch_after_exit,
-                                get_active_state_switch_policy, front_end_t>;
-
     template <typename Row, bool HasGuard, typename Event, typename Source,
               typename Target>
     static bool call_guard_or_true(StateMachine& sm, const Event& event,
@@ -305,36 +298,20 @@ struct transition_table_impl
                 // guard rejected the event, we stay in the current one
                 return process_result::rejected;
             }
-            if constexpr (std::is_same_v<active_state_switching,
-                                         active_state_switch_before_transition>)
-            {
-                state_id = next_state_id;
-            }
 
             // first call the exit method of the current state
             source.on_exit(event, sm.get_fsm_argument());
-            if constexpr (std::is_same_v<active_state_switching,
-                                         active_state_switch_after_exit>)
-            {
-                state_id = next_state_id;
-            }
+
+            // set the new active state id after source exit and
+            // before target entry (UML 14.2.3.4.5 & 14.2.3.4.6)
+            state_id = next_state_id;
 
             // then call the action method
             process_result res =
                 call_action_or_true<Row, HasAction>(sm, event, source, target);
-            if constexpr (std::is_same_v<active_state_switching,
-                                         active_state_switch_after_transition_action>)
-            {
-                state_id = next_state_id;
-            }
 
             // and finally the entry method of the new state
             call_entry<Row>(sm, event, target);
-            if constexpr (std::is_same_v<active_state_switching,
-                                         active_state_switch_after_entry>)
-            {
-                state_id = next_state_id;
-            }
 
             // Give a chance to handle completion transitions.
             sm.on_state_entry_completed(target, region_id);
